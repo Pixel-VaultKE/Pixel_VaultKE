@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Elite Customs — Batch 2 Pricing</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600;700;800&display=swap');
+:root{--ink:#111114;--surface:#1C1C21;--surface2:#232329;--hot:#FF2E63;--volt:#C6FF3D;--sky:#29D3F5;--gold:#D4AF37;--line:rgba(255,255,255,0.08);--text:#EDEDEF;--muted:#8A8A93;}
+*{box-sizing:border-box}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--ink);color:var(--text);padding:16px;max-width:640px;margin:0 auto}
+h1{font-family:'Bebas Neue',sans-serif;font-size:2rem;margin:0 0 4px;background:linear-gradient(100deg,var(--hot),var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{color:var(--muted);font-size:0.85rem;margin-bottom:16px}
+.cat{background:var(--surface);border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid var(--line)}
+.cat-name{font-weight:800;font-size:0.95rem;margin-bottom:2px}
+.cat-count{color:var(--muted);font-size:0.75rem;margin-bottom:10px}
+.price-row{display:flex;gap:8px}
+.price-field{flex:1}
+.price-field label{display:block;font-size:0.7rem;color:var(--muted);margin-bottom:3px;text-transform:uppercase;letter-spacing:0.3px}
+input{width:100%;padding:9px 10px;border-radius:8px;border:1px solid var(--line);background:var(--surface2);color:var(--text);font-size:0.95rem}
+input:focus{outline:none;border-color:var(--gold)}
+.summary{position:sticky;bottom:0;background:rgba(28,28,33,0.95);backdrop-filter:blur(10px);border-top:1px solid var(--line);padding:14px 16px;margin:16px -16px -16px;text-align:center}
+.summary .count{color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:1.3rem}
+button{width:100%;padding:14px;border-radius:10px;border:none;background:var(--hot);color:#fff;font-weight:800;font-size:1rem;cursor:pointer;margin-top:10px}
+button:active{transform:scale(0.98)}
+</style>
+</head>
+<body>
+<h1>👑 BATCH 2 PRICING</h1>
+<p class="sub">Set a retail & wholesale price per category, then download the CSV — ready to drop straight into Admin → Bulk Import.</p>
+<div id="categories"></div>
+<div class="summary">
+  <div class="count" id="totalCount">100 designs</div>
+  <button onclick="downloadCSV()">⬇️ Download Import CSV</button>
+</div>
+
+<script>
+var data = {
+  "Anime & Manga": [
+    ["Anime Character Blonde Hair Red Jacket",1],["Anime Character White Hair Colorful Outfit",1],
+    ["Anime White Hair Red Moon",1],["Anime Character White/Blue Outfit",1],["Demon Slayer Character",1],
+    ["Anime Character Large Sword",1],["Anime Pink Hair Dark Outfit",1],["Monkey D. Luffy One Piece",1],
+    ["Anime Blonde Hair Red Outfit",1],["Anime Purple Hair Portrait",1],["Anime Dark Hair Serious Expression",1],
+    ["Money Dark Anime Scene",1],["Anime Black and White",1],["Anime Blue Hair Wolf",1],
+    ["White Hair Purple Eyes Anime",1],["Anime Pink Hair Cat",1],["Anime Orange Hair",1]
+  ],
+  "Cartoons & Comics": [
+    ["Cartoon Gangster Blue Background",1],["Hulk Green Fist",1],["SpongeBob Red Cap Fire",1],
+    ["Stitch Pink Background",1],["Daffy Duck Astros Cap",1],["SpongeBob Grillz Dark",1],
+    ["Mashujaa Heroes Collage",1],["Bart Simpson Adidas",1],["Spider-Man Red Background",1],
+    ["Cartoon Characters Mashup",1],["Cartoon Strip Vertical",1]
+  ],
+  "Gaming": [
+    ["Sony PlayStation Lightning",1],["Sub-Zero Mortal Kombat",1]
+  ],
+  "Celebrities, Music & Portraits": [
+    ["The Voice Rapper Blue Cap",1],["Woman Red Dress",1],["Woman Beige Outfit Selfie",1],
+    ["Woman Black Top Tattoo",1],["Woman Red Hair Portrait",1],["Woman White Hair Abstract",1],
+    ["Woman Blue Hair Colorful",1],["Rap Group Red Outfits",1],["Woman Colorful Hair Peace Sign",1],
+    ["Kill Bill Yellow",1],["Man Green Jacket Red Glove",1],["Woman Pink Hair Galaxy",1],
+    ["Woman Glasses Peace Sign",1],["Man Covering Face",1],["Woman Flower Sweater Sunset",1],
+    ["Purple Hair Butterflies",1],["Black White Woman Portrait",1],["African Woman Headdress",2],
+    ["Kehlani Album Cover",1],["Woman Curly Hair Laughing",1],["Woman Long Black Hair",1],
+    ["Woman Hoop Earrings Portrait",1]
+  ],
+  "Horror & Skulls": [
+    ["Red Skull Fire Eyes",1],["Skeleton Sombrero Beach",1],["Red Demon Face",1],
+    ["White Skull Sunglasses",1],["Colorful Skull Headphones",1],["Skeleton Peace Sign Purple",1],
+    ["Colorful Skull Choose Me",1]
+  ],
+  "Luxury, Brands & Streetwear": [
+    ["Supreme Cat Face",1],["Anti Social Social Club Pink",1],["Louis Vuitton Cartoon Collage",1],
+    ["Gucci Cartoon Collage",1],["Nike Purple Smoke",1]
+  ],
+  "Motivational Quotes & Text": [
+    ["Motivational Icons Black",1],["Jesus Christ Saved Me Lion",1],["Emoji Collage Black",1],
+    ["Be That Girl Quote",1],["Pink Neon S Money",1],["The Hustle Cartoon",1]
+  ],
+  "Sports & City": [
+    ["LA Logo Blue",1],["Chelsea FC Players",1],["Manchester City Players",1],["Arsenal Player",1],
+    ["Manchester United Red Background",1],["Barcelona Player",1],["Player White Jersey #21",1],
+    ["Shabana FC Logo",2],["AFC Leopards Logo",1],["FC Barcelona Crest",1],["Liverpool FC Crest",1],
+    ["Manchester City Logo Blue",1],["Manchester United Crest",1],["Lamine Yamal Barcelona",1],
+    ["Gor Mahia FC Logo",1],["Portugal National Crest",1],["FC Barcelona Team Group",1],
+    ["Manchester United Team Group",1]
+  ],
+  "Animals & Nature": [
+    ["Purple Sunset Birds",1],["Wolf Howling Galaxy",1],["Yellow Blue Roses",1]
+  ],
+  "Abstract, Space & Art": [
+    ["Cityscape Japanese Text",1],["Tarot Card Mystical Symbols",1],["Gold Mask Abstract",1],
+    ["Rainbow Lips Galaxy",1],["Red Black Abstract",1],["Sunset Silhouettes",1],["Paris Collage",1]
+  ],
+  "Patterns & Textures": [
+    ["Blue Smiley Faces Pattern",1]
+  ],
+  "Religious / Spiritual": [
+    ["Angel Baby Black White",1]
+  ]
+};
+
+var container = document.getElementById('categories');
+var totalItems = 0;
+Object.keys(data).forEach(function (cat, idx) {
+  totalItems += data[cat].length;
+  var div = document.createElement('div');
+  div.className = 'cat';
+  div.innerHTML = '<div class="cat-name">' + cat + '</div>' +
+    '<div class="cat-count">' + data[cat].length + ' design(s)</div>' +
+    '<div class="price-row">' +
+    '<div class="price-field"><label>Retail (KSH)</label><input type="number" id="retail-' + idx + '" value="100" min="0"></div>' +
+    '<div class="price-field"><label>Wholesale (KSH)</label><input type="number" id="wholesale-' + idx + '" value="50" min="0"></div>' +
+    '</div>';
+  container.appendChild(div);
+});
+document.getElementById('totalCount').textContent = totalItems + ' designs';
+
+function csvEscape(v) {
+  v = String(v);
+  if (v.indexOf(',') > -1 || v.indexOf('"') > -1) { v = '"' + v.replace(/"/g, '""') + '"'; }
+  return v;
+}
+
+function downloadCSV() {
+  var rows = ['Name,Category,Retail Price,Wholesale Price,Cost Price,Wholesale Min Qty,Stock Qty,Low Stock At'];
+  Object.keys(data).forEach(function (cat, idx) {
+    var retail = document.getElementById('retail-' + idx).value || 0;
+    var wholesale = document.getElementById('wholesale-' + idx).value || 0;
+    data[cat].forEach(function (item) {
+      var name = item[0], qty = item[1];
+      rows.push([csvEscape(name), csvEscape(cat), retail, wholesale, '', '', qty, ''].join(','));
+    });
+  });
+  var blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'elite-customs-batch2-import.csv';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+</script>
+</body>
+</html>

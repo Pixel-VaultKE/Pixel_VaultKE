@@ -7,53 +7,73 @@
 <style>
 *{box-sizing:border-box}
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600;700;800&display=swap');
-body{font-family:'Inter',system-ui,sans-serif;background:radial-gradient(circle at 3px 3px, rgba(255,255,255,0.03) 1px, transparent 0) 0 0/22px 22px,#111114;color:#e0e0e0;padding:15px;max-width:900px;margin:0 auto}
-.card{background:#1C1C21;border-radius:10px;padding:18px;margin-bottom:12px;border:1px solid rgba(255,255,255,0.08)}
+:root{
+  --ink:#111114;
+  --surface:#1C1C21;
+  --surface2:#232329;
+  --hot:#FF2E63;
+  --volt:#C6FF3D;
+  --sky:#29D3F5;
+  --gold:#D4AF37;
+  --line:rgba(255,255,255,0.08);
+  --text:#EDEDEF;
+  --muted:#8A8A93;
+  --radius:14px;
+  --radius-sm:9px;
+}
+body{font-family:'Inter',system-ui,sans-serif;background:radial-gradient(circle at 3px 3px, rgba(255,255,255,0.035) 1px, transparent 0) 0 0/22px 22px,var(--ink);color:var(--text);padding:16px;max-width:900px;margin:0 auto}
+.card{background:var(--surface);border-radius:var(--radius);padding:20px;margin-bottom:14px;border:1px solid var(--line);box-shadow:0 1px 0 rgba(255,255,255,0.03) inset, 0 8px 20px -12px rgba(0,0,0,0.6)}
 .card.collapsed > *:not(.eyebrow):not(h2){display:none}
 .card.collapsible h2{cursor:pointer;user-select:none}
 .card.collapsible h2::after{content:' ▾';color:#666;font-size:0.8rem}
 .card.collapsible.collapsed h2::after{content:' ▸'}
 .card.collapsible.collapsed{padding-bottom:12px}
-h1{font-family:'Bebas Neue',sans-serif;letter-spacing:1px;color:#D4AF37;font-size:1.8rem;margin:0 0 4px}
-h2{font-family:'Bebas Neue',sans-serif;letter-spacing:0.5px;color:#D4AF37;font-size:1.15rem;margin:0 0 12px}
-.sub{color:#888;font-size:0.85rem;margin-bottom:16px}
-input,select,textarea{padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:#232329;color:#e0e0e0;width:100%;margin-bottom:10px;font-size:0.95rem;font-family:'Inter',sans-serif}
-button{padding:10px 14px;border-radius:8px;border:none;background:#d4af37;color:#000;font-weight:bold;cursor:pointer;font-size:0.9rem}
+h1{font-family:'Bebas Neue',sans-serif;letter-spacing:1px;font-size:2.2rem;line-height:0.95;margin:0 0 6px;background:linear-gradient(100deg,var(--hot),var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent}
+h2{font-family:'Bebas Neue',sans-serif;letter-spacing:0.5px;color:var(--text);font-size:1.25rem;margin:0 0 14px;display:inline-block;position:relative;padding-bottom:5px}
+h2::after{content:'';position:absolute;left:0;bottom:0;width:32px;height:3px;background:var(--gold);border-radius:2px}
+.card.collapsible h2::after{content:' ▾';position:static;background:none;width:auto;height:auto;color:#666;font-size:0.8rem;display:inline}
+.card.collapsible.collapsed h2::after{content:' ▸'}
+.sub{color:var(--muted);font-size:0.85rem;margin-bottom:16px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
+input,select,textarea{padding:12px 13px;border-radius:var(--radius-sm);border:1px solid var(--line);background:var(--surface2);color:var(--text);width:100%;margin-bottom:10px;font-size:0.95rem;font-family:'Inter',sans-serif;transition:border-color .15s}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--gold)}
+button{padding:11px 16px;border-radius:var(--radius-sm);border:none;background:var(--gold);color:#1a1305;font-weight:800;cursor:pointer;font-size:0.9rem;letter-spacing:0.2px;transition:transform .1s,background .15s}
+button:active:not(:disabled){transform:scale(0.98)}
 button:disabled{opacity:0.5;cursor:not-allowed}
-button.full{width:100%;padding:12px;font-size:1rem}
-button:hover:not(:disabled){background:#c9a227}
-button.secondary{background:transparent;color:#29D3F5;border:1.5px solid #29D3F5}
+button.full{width:100%;padding:13px;font-size:1rem}
+button:hover:not(:disabled){background:#e0c14f}
+.spinner{display:inline-block;width:13px;height:13px;border:2px solid var(--gold);border-top-color:transparent;border-radius:50%;animation:spin .6s linear infinite;margin-right:6px;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+button.secondary{background:transparent;color:var(--sky);border:1.5px solid var(--sky)}
 button.danger{background:#7f1d1d;color:#fff}
-button.small{padding:5px 10px;font-size:0.75rem}
+button.small{padding:7px 12px;font-size:0.78rem}
 .error{color:#ff4444;font-size:0.85rem;margin-top:4px}
-.ok{color:#22c55e;font-size:0.85rem;margin-top:4px}
+.ok{color:var(--volt);font-size:0.85rem;margin-top:4px}
 .hidden{display:none !important}
-#log{background:#0f0f0f;border:1px solid #d4af37;border-radius:8px;padding:10px;font-family:monospace;font-size:0.75rem;color:#0f0;max-height:140px;overflow-y:auto;white-space:pre-wrap}
+#log{background:var(--surface2);border:1px solid var(--line);border-radius:8px;padding:10px;font-family:monospace;font-size:0.75rem;color:var(--volt);max-height:140px;overflow-y:auto;white-space:pre-wrap}
 .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:12px}
-.stat-box{background:#0f0f0f;border-radius:8px;padding:14px;text-align:center;border:1px solid #333}
-.stat-box .num{color:#d4af37;font-size:1.4rem;font-weight:bold}
-.stat-box .lbl{color:#888;font-size:0.75rem;text-transform:uppercase;margin-top:4px}
+.stat-box{background:var(--surface2);border-radius:var(--radius-sm);padding:14px;text-align:center;border:1px solid var(--line);transition:transform .12s}
+.stat-box .num{color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:1.6rem;letter-spacing:0.3px}
+.stat-box .lbl{color:var(--muted);font-size:0.72rem;text-transform:uppercase;margin-top:4px;font-weight:700;letter-spacing:0.4px}
 table{width:100%;border-collapse:collapse;font-size:0.85rem}
-th,td{padding:8px;text-align:left;border-bottom:1px solid #333}
-th{color:#d4af37;font-weight:600}
+th,td{padding:9px 8px;text-align:left;border-bottom:1px solid var(--line)}
+th{color:var(--gold);font-weight:700;font-size:0.78rem;text-transform:uppercase;letter-spacing:0.3px}
 td{color:#ccc}
-tr:hover td{background:#111}
-.badge{font-size:0.7rem;padding:3px 8px;border-radius:4px;background:#222;color:#aaa}
-.badge.paid{background:#1a331a;color:#4ade80}
-.badge.pending{background:#331a1a;color:#f87171}
-.badge.progress{background:#332a1a;color:#facc15}
-.badge.ready{background:#1a2a33;color:#38bdf8}
-.badge.dupe{background:#3f1a33;color:#e879f9;margin-left:6px}
+tr:hover td{background:rgba(255,255,255,0.02)}
+.badge{font-size:0.68rem;padding:4px 9px;border-radius:20px;background:#222;color:#aaa;font-weight:700;letter-spacing:0.2px}
+.badge.paid{background:rgba(198,255,61,0.14);color:var(--volt)}
+.badge.pending{background:rgba(255,68,68,0.14);color:#ff6b6b}
+.badge.progress{background:rgba(212,175,55,0.14);color:var(--gold)}
+.badge.ready{background:rgba(41,211,245,0.14);color:var(--sky)}
+.badge.dupe{background:rgba(232,121,249,0.14);color:#e879f9;margin-left:6px}
 .row-actions{display:flex;gap:6px;flex-wrap:wrap}
 .toolbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
 .toolbar input, .toolbar select{margin-bottom:0;flex:1;min-width:120px}
-.status-select{width:auto;padding:4px 8px;font-size:0.75rem;margin:0}
-.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#22c55e;color:#000;padding:12px 20px;border-radius:8px;font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,.4);z-index:100;max-width:90%;text-align:center}
+.status-select{width:auto;padding:5px 9px;font-size:0.75rem;margin:0}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--volt);color:#0D0D10;padding:12px 22px;border-radius:10px;font-weight:800;box-shadow:0 8px 24px rgba(0,0,0,.5);z-index:100;max-width:90%;text-align:center}
 .toast.error{background:#ef4444;color:#fff}
-.sub{color:#8A8A93;font-size:0.85rem;margin-bottom:16px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
 .eyebrow{display:block;width:max-content;color:#fff;font-size:0.65rem;font-weight:800;letter-spacing:1px;text-transform:uppercase;padding:3px 9px;border-radius:20px;transform:rotate(-2deg);margin-bottom:8px}
-.peel{position:relative;overflow:hidden}
-.peel::after{content:'';position:absolute;top:0;right:0;width:0;height:0;border-style:solid;border-width:0 14px 14px 0;border-color:transparent #111114 transparent transparent;filter:drop-shadow(-1px 1px 2px rgba(0,0,0,0.4))}
+.peel{position:relative;overflow:hidden;transition:transform .12s}
+.peel::after{content:'';position:absolute;top:0;right:0;width:0;height:0;border-style:solid;border-width:0 14px 14px 0;border-color:transparent var(--ink) transparent transparent;filter:drop-shadow(-1px 1px 2px rgba(0,0,0,0.4))}
 </style>
 </head>
 <body>
@@ -127,6 +147,18 @@ tr:hover td{background:#111}
     <button onclick="assignTask()">Assign</button>
     <div id="tasksList" style="margin-top:12px"><p style="color:#888">Loading...</p></div>
   </div>
+
+  <div class="card">
+    <span class="eyebrow" style="background:#D4AF37;color:#0D0D10">Reward</span><h2>🎉 Send a Tip</h2>
+    <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">A bonus straight to a worker's dashboard for good work — separate from the profit split, doesn't affect anyone else's cut.</p>
+    <select id="tipSendTo"><option value="">Send to...</option></select>
+    <input type="number" id="tipAmount" placeholder="Amount (KSH)" min="1">
+    <input type="text" id="tipNote" placeholder="Note (optional — e.g. 'great job today!')">
+    <button onclick="sendBonusTip()">Send Tip</button>
+    <div id="unassignedTipsList" style="margin-top:12px"></div>
+    <div id="recentTipsList" style="margin-top:8px"><p style="color:#888">Loading...</p></div>
+  </div>
+
 
   <div class="card collapsible collapsed" id="goalCard">
     <span class="eyebrow" style="background:#C6FF3D;color:#0D0D10">Target</span><h2 onclick="toggleCard('goalCard')">Today's Goal</h2>
@@ -226,6 +258,14 @@ tr:hover td{background:#111}
   <div class="card" id="restockCard">
     <span class="eyebrow" style="background:#FF2E63;color:#fff">Low Stock</span><h2>⚠️ Restock Alerts</h2>
     <div id="restockList"><p style="color:#888">Checking stock levels...</p></div>
+  </div>
+
+  <div class="card">
+    <span class="eyebrow" style="background:#FF2E63;color:#fff">Fast Restock</span><h2>📤 Bulk Import</h2>
+    <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Upload a spreadsheet and fill the shelves in one go — creates the product and its stock together. Manual add still works below if you just need one item.</p>
+    <button type="button" class="secondary" onclick="downloadImportTemplate()">⬇️ Download CSV Template</button>
+    <input type="file" id="bulkImportFile" accept=".csv" onchange="handleImportFile(this)" style="margin-top:10px">
+    <div id="bulkImportPreview" style="margin-top:10px"></div>
   </div>
 
   <div class="card">
@@ -502,7 +542,7 @@ async function loadMarketingSources() {
     html += '<tr style="color:#888;text-align:left;border-bottom:1px solid #333"><th style="padding:6px 4px">Source</th><th style="padding:6px 4px;text-align:right">Orders</th><th style="padding:6px 4px;text-align:right">Revenue</th></tr>';
     sources.forEach(function (src) {
       var s = bySource[src];
-      html += '<tr style="border-bottom:1px solid #262626"><td style="padding:6px 4px">' + text(src) + '</td><td style="padding:6px 4px;text-align:right">' + s.count + '</td><td style="padding:6px 4px;text-align:right;color:#D4AF37">KSH ' + s.revenue.toLocaleString() + '</td></tr>';
+      html += '<tr style="border-bottom:1px solid #262626"><td style="padding:6px 4px">' + src + '</td><td style="padding:6px 4px;text-align:right">' + s.count + '</td><td style="padding:6px 4px;text-align:right;color:#D4AF37">KSH ' + s.revenue.toLocaleString() + '</td></tr>';
     });
     html += '</table>';
     box.innerHTML = html;
@@ -638,6 +678,124 @@ async function deleteTask(id) {
   } catch (e) {
     log('Delete task error: ' + e.code + ' — ' + e.message);
     toast('Could not remove task', true);
+  }
+}
+
+// ---------- TIPS (customer tips assigned by owner, or direct boss bonuses) ----------
+function populateTipSendDropdown() {
+  var sel = document.getElementById('tipSendTo');
+  if (!sel) return;
+  var opts = '<option value="">Send to...</option>';
+  rawActiveWorkers.forEach(function (w) {
+    opts += '<option value="' + w.id + '">' + text(w.data.name) + ' (' + text(w.data.role) + ')</option>';
+  });
+  sel.innerHTML = opts;
+}
+
+async function sendBonusTip() {
+  var sel = document.getElementById('tipSendTo');
+  var workerId = sel.value;
+  var workerName = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '';
+  var amount = parseFloat(document.getElementById('tipAmount').value);
+  var note = document.getElementById('tipNote').value.trim();
+  if (!workerId || !amount || amount <= 0) { toast('Pick a worker and a valid amount', true); return; }
+  try {
+    await db.collection('tips').add({
+      recipientWorkerId: workerId,
+      recipientName: workerName,
+      amount: amount,
+      note: note,
+      source: 'boss',
+      sentBy: currentUserName || currentUserRole,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    logEvent('TipSent', { recipientWorkerId: workerId, amount: amount, source: 'boss' });
+    document.getElementById('tipAmount').value = '';
+    document.getElementById('tipNote').value = '';
+    log('Tip of KSH ' + amount + ' sent to ' + workerName);
+    toast('Tip sent 🎉');
+    loadRecentTips();
+  } catch (e) {
+    log('Send tip error: ' + e.code + ' — ' + e.message);
+    toast('Could not send tip', true);
+  }
+}
+
+async function loadUnassignedTips() {
+  var box = document.getElementById('unassignedTipsList');
+  if (!box) return;
+  try {
+    var snap = await db.collection('orders').where('tipAssigned', '==', false).limit(30).get();
+    var tipped = [];
+    snap.forEach(function (doc) { if ((doc.data().tipAmount || 0) > 0) tipped.push(doc); });
+    if (tipped.length === 0) { box.innerHTML = ''; return; }
+    var html = '<div style="color:#D4AF37;font-weight:700;font-size:0.85rem;margin-bottom:6px">💳 Unassigned customer tips</div>';
+    tipped.forEach(function (doc) {
+      var o = doc.data();
+      html += '<div style="background:#232329;border-radius:8px;padding:10px;margin-bottom:8px">';
+      html += '<div style="display:flex;justify-content:space-between"><span>' + text(o.customerName || 'Customer') + ' — order ' + text(o.receiptNumber || doc.id) + '</span><strong style="color:#D4AF37">KSH ' + o.tipAmount + '</strong></div>';
+      html += '<select id="tipAssign-' + doc.id + '" style="margin-top:6px"><option value="">Give this tip to...</option></select>';
+      html += '<button class="small" onclick="assignCustomerTip(\'' + doc.id + '\', ' + o.tipAmount + ')">Assign</button>';
+      html += '</div>';
+    });
+    box.innerHTML = html;
+    rawActiveWorkers.forEach(function (w) {
+      document.querySelectorAll('[id^="tipAssign-"]').forEach(function (sel) {
+        var opt = document.createElement('option');
+        opt.value = w.id; opt.textContent = text(w.data.name) + ' (' + text(w.data.role) + ')';
+        sel.appendChild(opt);
+      });
+    });
+  } catch (e) {
+    log('Load unassigned tips error: ' + e.code + ' — ' + e.message);
+  }
+}
+
+async function assignCustomerTip(orderId, amount) {
+  var sel = document.getElementById('tipAssign-' + orderId);
+  var workerId = sel.value;
+  var workerName = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '';
+  if (!workerId) { toast('Pick who gets this tip', true); return; }
+  try {
+    await db.collection('tips').add({
+      recipientWorkerId: workerId,
+      recipientName: workerName,
+      amount: amount,
+      note: '',
+      source: 'customer',
+      orderId: orderId,
+      sentBy: currentUserName || currentUserRole,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    await db.collection('orders').doc(orderId).update({ tipAssigned: true });
+    logEvent('TipSent', { recipientWorkerId: workerId, amount: amount, source: 'customer', orderId: orderId });
+    toast('Tip assigned to ' + workerName);
+    loadUnassignedTips();
+    loadRecentTips();
+  } catch (e) {
+    log('Assign customer tip error: ' + e.code + ' — ' + e.message);
+    toast('Could not assign tip', true);
+  }
+}
+
+async function loadRecentTips() {
+  var box = document.getElementById('recentTipsList');
+  if (!box) return;
+  try {
+    var snap = await db.collection('tips').orderBy('createdAt', 'desc').limit(15).get();
+    if (snap.empty) { box.innerHTML = '<p style="color:#888">No tips sent yet.</p>'; return; }
+    var html = '';
+    snap.forEach(function (doc) {
+      var t = doc.data();
+      var badge = t.source === 'customer' ? '💳 customer' : '🎉 boss';
+      html += '<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:0.82rem;border-bottom:1px solid #2a2a30">';
+      html += '<span>' + text(t.recipientName) + ' <span style="color:#666">(' + badge + (t.note ? ' — "' + text(t.note) + '"' : '') + ')</span></span>';
+      html += '<strong style="color:#D4AF37">KSH ' + t.amount + '</strong></div>';
+    });
+    box.innerHTML = html;
+  } catch (e) {
+    log('Load recent tips error: ' + e.code + ' — ' + e.message);
+    box.innerHTML = '<p style="color:#ff4444">Could not load tips</p>';
   }
 }
 
@@ -798,8 +956,7 @@ function toast(msg, isError) {
   setTimeout(function () { t.remove(); }, 3500);
 }
 
-function escapeHtml(s) { return String(s).replace(/[&<>"']/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[c]; }); }
-function text(v, fallback) { var out = (v === undefined || v === null || v === '') ? (fallback || '—') : v; return escapeHtml(out); }
+function text(v, fallback) { return (v === undefined || v === null || v === '') ? (fallback || '—') : v; }
 
 log('Admin page loaded — build v6 (Link Stock feature)');
 
@@ -876,7 +1033,7 @@ function populateQuoteProductSelect() {
   var current = select.value;
   select.innerHTML = '<option value="">Select product...</option>';
   rawProducts.forEach(function (p) {
-    select.innerHTML += '<option value="' + p.id + '" data-price="' + (p.data.retailPrice || 0) + '">' + text(p.data.name) + '</option>';
+    select.innerHTML += '<option value="' + p.id + '" data-price="' + (p.data.retailPrice || 0) + '">' + p.data.name + '</option>';
   });
   select.value = current;
 }
@@ -914,7 +1071,7 @@ function renderQuoteDraft() {
   quoteLines.forEach(function (line, idx) {
     total += line.lineTotal;
     html += '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #222;font-size:0.85rem">';
-    html += '<span>' + text(line.productName) + ' x' + line.qty + ' @ KSH ' + line.unitPrice.toLocaleString() + '</span>';
+    html += '<span>' + line.productName + ' x' + line.qty + ' @ KSH ' + line.unitPrice.toLocaleString() + '</span>';
     html += '<span>KSH ' + line.lineTotal.toLocaleString() + ' <button class="small danger" onclick="removeQuoteLine(' + idx + ')" style="margin-left:6px">✕</button></span>';
     html += '</div>';
   });
@@ -1015,7 +1172,7 @@ function renderQuotes() {
     html += '<div style="display:flex;justify-content:space-between"><strong style="color:#d4af37">' + q.quoteNumber + '</strong>';
     html += converted ? '<span class="badge paid">converted</span>' : '<span class="badge pending">sent</span>';
     html += '</div>';
-    html += '<div style="font-size:0.85rem;margin-top:4px">' + text(q.customerName) + ' — KSH ' + (q.total || 0).toLocaleString() + '</div>';
+    html += '<div style="font-size:0.85rem;margin-top:4px">' + q.customerName + ' — KSH ' + (q.total || 0).toLocaleString() + '</div>';
     if (!converted) {
       html += '<button class="small" style="margin-top:6px" onclick="convertQuoteToOrder(\'' + r.id + '\')">Convert to Order</button>';
     }
@@ -1086,39 +1243,17 @@ async function convertQuoteToOrder(quoteId) {
   }
 }
 
-// Estimates cost-of-goods-sold for a set of sale records by looking up each
-// line item's linked product cost price. Items with no linked product
-// (custom/one-off line items rung up without a catalog product) can't be
-// costed this way and are skipped, so this is a floor on true COGS — but
-// it's far more accurate than ignoring materials cost entirely, which is
-// what the profit figure did before.
-function estimateCOGS(salesForDay) {
-  var cogs = 0;
-  salesForDay.forEach(function (r) {
-    var s = r.data;
-    if (s.archived) return;
-    (s.items || []).forEach(function (item) {
-      if (!item.productId) return;
-      var product = rawProducts.find(function (p) { return p.id === item.productId; });
-      if (!product || typeof product.data.costPrice !== 'number') return;
-      cogs += (item.qty || 0) * product.data.costPrice * (product.data.unitsPerSale || 1);
-    });
-  });
-  return cogs;
-}
-
 async function closeBusinessDay() {
   var msg = document.getElementById('closingMsg');
   var today = new Date(); today.setHours(0, 0, 0, 0);
   var dateKey = localDateKey(today);
 
-  var cashToday = 0, mpesaToday = 0, jobsDone = 0, salesToday = [];
+  var cashToday = 0, mpesaToday = 0, jobsDone = 0;
   rawSales.forEach(function (r) {
     var s = r.data;
     if (s.archived) return;
     var d = s.createdAt ? s.createdAt.toDate() : null;
     if (!d || d < today) return;
-    salesToday.push(r);
     if (s.paymentMethod === 'mpesa') mpesaToday += (typeof s.amountPaid === 'number' ? s.amountPaid : (s.amount || 0));
     else cashToday += (typeof s.amountPaid === 'number' ? s.amountPaid : (s.amount || 0));
   });
@@ -1135,10 +1270,9 @@ async function closeBusinessDay() {
     if (d && d >= today) expensesToday += (r.data.amount || 0);
   });
   var revenue = cashToday + mpesaToday;
-  var cogsToday = estimateCOGS(salesToday);
-  var profit = revenue - cogsToday - expensesToday;
+  var profit = revenue - expensesToday;
 
-  if (!confirm('Close today\'s business day?\n\nRevenue: KSH ' + revenue.toLocaleString() + '\nMaterials/COGS: KSH ' + cogsToday.toLocaleString() + '\nExpenses: KSH ' + expensesToday.toLocaleString() + '\nProfit: KSH ' + profit.toLocaleString() + '\n\nThis saves a permanent snapshot.')) return;
+  if (!confirm('Close today\'s business day?\n\nRevenue: KSH ' + revenue.toLocaleString() + '\nExpenses: KSH ' + expensesToday.toLocaleString() + '\nProfit: KSH ' + profit.toLocaleString() + '\n\nThis saves a permanent snapshot.')) return;
 
   try {
     await db.collection('dailyReports').doc(dateKey).set({
@@ -1146,7 +1280,6 @@ async function closeBusinessDay() {
       revenue: revenue,
       cash: cashToday,
       mpesa: mpesaToday,
-      cogs: cogsToday,
       expenses: expensesToday,
       profit: profit,
       jobsCompleted: jobsDone,
@@ -1179,13 +1312,12 @@ async function closePastDay() {
   var existing = await db.collection('dailyReports').doc(dateKey).get();
   if (existing.exists && !confirm(dateKey + ' was already closed. Overwrite its saved snapshot with freshly recalculated numbers?')) return;
 
-  var cashD = 0, mpesaD = 0, jobsD = 0, expensesD = 0, salesD = [];
+  var cashD = 0, mpesaD = 0, jobsD = 0, expensesD = 0;
   rawSales.forEach(function (r) {
     var s = r.data;
     if (s.archived) return;
     var d = s.createdAt ? s.createdAt.toDate() : null;
     if (!d || d < dayStart || d >= dayEnd) return;
-    salesD.push(r);
     var received = typeof s.amountPaid === 'number' ? s.amountPaid : (s.amount || 0);
     if (s.paymentMethod === 'mpesa') mpesaD += received; else cashD += received;
   });
@@ -1201,10 +1333,9 @@ async function closePastDay() {
     if (d && d >= dayStart && d < dayEnd) expensesD += (r.data.amount || 0);
   });
   var revenue = cashD + mpesaD;
-  var cogsD = estimateCOGS(salesD);
-  var profit = revenue - cogsD - expensesD;
+  var profit = revenue - expensesD;
 
-  if (!confirm('Close ' + dateKey + '?\n\nRevenue: KSH ' + revenue.toLocaleString() + '\nMaterials/COGS: KSH ' + cogsD.toLocaleString() + '\nExpenses: KSH ' + expensesD.toLocaleString() + '\nProfit: KSH ' + profit.toLocaleString() + '\n\nNote: this is calculated from currently loaded data (most recent sales/expenses) — if that day had heavy volume beyond what\'s cached, double-check against "Show All Days" in Sales first.')) return;
+  if (!confirm('Close ' + dateKey + '?\n\nRevenue: KSH ' + revenue.toLocaleString() + '\nExpenses: KSH ' + expensesD.toLocaleString() + '\nProfit: KSH ' + profit.toLocaleString() + '\n\nNote: this is calculated from currently loaded data (most recent sales/expenses) — if that day had heavy volume beyond what\'s cached, double-check against "Show All Days" in Sales first.')) return;
 
   try {
     await db.collection('dailyReports').doc(dateKey).set({
@@ -1212,7 +1343,6 @@ async function closePastDay() {
       revenue: revenue,
       cash: cashD,
       mpesa: mpesaD,
-      cogs: cogsD,
       expenses: expensesD,
       profit: profit,
       jobsCompleted: jobsD,
@@ -1328,14 +1458,14 @@ async function toggleSplitPanel(dateStr, profit) {
   if (result.workers.length === 0) { html += '<div style="color:#666">No active workers</div>'; }
   else if (result.workers.every(function (w) { return w.revenue === 0; })) { html += '<div style="color:#666">No worker sales today — this pool reverted to owner</div>'; }
   result.workers.forEach(function (w) {
-    html += '<div style="display:flex;justify-content:space-between;padding:2px 0"><span>' + text(w.name) + ' <span style="color:#666">(sold: KSH ' + Math.round(w.revenue).toLocaleString() + ')</span></span><strong style="color:#C6FF3D">KSH ' + Math.round(w.cut).toLocaleString() + '</strong></div>';
+    html += '<div style="display:flex;justify-content:space-between;padding:2px 0"><span>' + w.name + ' <span style="color:#666">(sold: KSH ' + Math.round(w.revenue).toLocaleString() + ')</span></span><strong style="color:#C6FF3D">KSH ' + Math.round(w.cut).toLocaleString() + '</strong></div>';
   });
 
   html += '<div style="color:#29D3F5;font-weight:700;margin-top:8px">Admin — 25% pool (KSH ' + Math.round(result.adminPoolTotal).toLocaleString() + ')</div>';
   if (result.admins.length === 0) { html += '<div style="color:#666">No active admins</div>'; }
   else if (result.admins.every(function (a) { return a.revenue === 0; })) { html += '<div style="color:#666">No admin sales today — this pool reverted to owner</div>'; }
   result.admins.forEach(function (a) {
-    html += '<div style="display:flex;justify-content:space-between;padding:2px 0"><span>' + text(a.name) + ' <span style="color:#666">(sold: KSH ' + Math.round(a.revenue).toLocaleString() + ')</span></span><strong style="color:#29D3F5">KSH ' + Math.round(a.cut).toLocaleString() + '</strong></div>';
+    html += '<div style="display:flex;justify-content:space-between;padding:2px 0"><span>' + a.name + ' <span style="color:#666">(sold: KSH ' + Math.round(a.revenue).toLocaleString() + ')</span></span><strong style="color:#29D3F5">KSH ' + Math.round(a.cut).toLocaleString() + '</strong></div>';
   });
 
   html += '<div style="display:flex;justify-content:space-between;margin-top:8px;padding-top:6px;border-top:1px solid #333"><span style="color:#D4AF37;font-weight:700">Owner remainder</span><strong style="color:#D4AF37">KSH ' + Math.round(result.ownerShare).toLocaleString() + '</strong></div>';
@@ -1533,8 +1663,10 @@ async function downloadBackup() {
 }
 
 async function loadDashboard() {
-  await Promise.all([loadWorkers(), loadInventory(), loadSales(), loadOrders(), loadProducts(), loadExpenses(), loadGoal(), loadRecentClosings(), loadQuotes(), loadGallery(), loadMarketingSources(), loadPendingNotes(), loadTasks()]);
+  await Promise.all([loadWorkers(), loadInventory(), loadSales(), loadOrders(), loadProducts(), loadExpenses(), loadGoal(), loadRecentClosings(), loadQuotes(), loadGallery(), loadMarketingSources(), loadPendingNotes(), loadTasks(), loadRecentTips()]);
   populateTaskAssignDropdown();
+  populateTipSendDropdown();
+  loadUnassignedTips();
   populateQuoteProductSelect();
   computeExtraStats();
   renderNotifications();
@@ -2036,7 +2168,7 @@ function renderLeaderboard() {
     var medal = medals[idx] || '　';
     html += '<div style="padding:10px 0;border-bottom:1px solid #222">';
     html += '<div style="display:flex;justify-content:space-between;align-items:center">';
-    html += '<strong>' + medal + ' ' + text(w.name) + '</strong>';
+    html += '<strong>' + medal + ' ' + w.name + '</strong>';
     html += '<span style="color:#d4af37;font-weight:700">KSH ' + w.revenue.toLocaleString() + '</span>';
     html += '</div>';
     html += '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:4px;font-size:0.72rem;color:#888">';
@@ -2084,7 +2216,7 @@ function renderProductRevenue() {
 
   var html = '<table><tr><th>Product</th><th>Units</th><th>Sales</th><th>Revenue</th></tr>';
   list.forEach(function (p) {
-    html += '<tr><td>' + text(p.name) + '</td><td>' + p.unitsSold + '</td><td>' + p.count + '</td><td style="color:#d4af37;font-weight:700">KSH ' + p.revenue.toLocaleString() + '</td></tr>';
+    html += '<tr><td>' + p.name + '</td><td>' + p.unitsSold + '</td><td>' + p.count + '</td><td style="color:#d4af37;font-weight:700">KSH ' + p.revenue.toLocaleString() + '</td></tr>';
   });
   html += '</table>';
   box.innerHTML = html;
@@ -2143,10 +2275,10 @@ function renderCustomerHistory() {
 
     html2 += '<div style="padding:10px;background:#0f0f0f;border-radius:8px;margin-bottom:8px">';
     html2 += '<div style="display:flex;justify-content:space-between;align-items:center">';
-    html2 += '<strong>' + text(c.name) + '</strong>' + (isRepeat ? ' <span class="badge paid">⭐ repeat</span>' : '');
+    html2 += '<strong>' + c.name + '</strong>' + (isRepeat ? ' <span class="badge paid">⭐ repeat</span>' : '');
     html2 += '<span style="color:#888;font-size:0.8rem">' + c.orders.length + ' order' + (c.orders.length === 1 ? '' : 's') + '</span>';
     html2 += '</div>';
-    html2 += '<div style="color:#666;font-size:0.75rem;margin-top:2px">' + text(c.phone) + '</div>';
+    html2 += '<div style="color:#666;font-size:0.75rem;margin-top:2px">' + c.phone + '</div>';
     if (c.totalSpent > 0) {
       html2 += '<div style="margin-top:6px;color:#d4af37;font-weight:700">Total Spent: KSH ' + c.totalSpent.toLocaleString() + '</div>';
     }
@@ -2332,6 +2464,150 @@ async function addInventoryItem() {
     log('Add inventory error: ' + e.code + ' — ' + e.message);
     msg.className = 'error'; msg.textContent = 'Could not add item';
   }
+}
+
+// ---------- BULK IMPORT (CSV) ----------
+var pendingImportRows = [];
+
+function downloadImportTemplate() {
+  var csv = 'Name,Category,Retail Price,Wholesale Price,Cost Price,Wholesale Min Qty,Stock Qty,Low Stock At\n'
+    + 'Naruto Sticker,Anime,100,50,20,15,50,10\n'
+    + 'Canvas Print,Canvas,2000,1700,800,2,5,2\n';
+  var blob = new Blob([csv], { type: 'text/csv' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'elite-customs-import-template.csv';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+// Minimal CSV parser — handles quoted fields and commas inside quotes.
+function parseCSV(text) {
+  var rows = [];
+  var row = [];
+  var field = '';
+  var inQuotes = false;
+  for (var i = 0; i < text.length; i++) {
+    var c = text[i];
+    if (inQuotes) {
+      if (c === '"' && text[i + 1] === '"') { field += '"'; i++; }
+      else if (c === '"') { inQuotes = false; }
+      else { field += c; }
+    } else {
+      if (c === '"') { inQuotes = true; }
+      else if (c === ',') { row.push(field); field = ''; }
+      else if (c === '\n' || c === '\r') {
+        if (c === '\r' && text[i + 1] === '\n') i++;
+        row.push(field); field = '';
+        if (row.some(function (v) { return v.trim() !== ''; })) rows.push(row);
+        row = [];
+      } else { field += c; }
+    }
+  }
+  if (field.length || row.length) { row.push(field); if (row.some(function (v) { return v.trim() !== ''; })) rows.push(row); }
+  return rows;
+}
+
+function handleImportFile(input) {
+  var file = input.files[0];
+  var box = document.getElementById('bulkImportPreview');
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function (e) {
+    var rows = parseCSV(e.target.result);
+    if (rows.length < 2) { box.innerHTML = '<p class="error">File looks empty — needs a header row plus at least one item.</p>'; return; }
+    var header = rows[0].map(function (h) { return h.trim().toLowerCase(); });
+    var col = function (name) { return header.indexOf(name); };
+    var idx = {
+      name: col('name'), category: col('category'), retail: col('retail price'),
+      wholesale: col('wholesale price'), cost: col('cost price'), wholesaleMin: col('wholesale min qty'),
+      qty: col('stock qty'), lowAt: col('low stock at')
+    };
+    if (idx.name === -1 || idx.retail === -1 || idx.qty === -1) {
+      box.innerHTML = '<p class="error">Missing required columns — needs at least Name, Retail Price, and Stock Qty. Download the template to check the exact headers.</p>';
+      return;
+    }
+    pendingImportRows = [];
+    var errors = [];
+    for (var r = 1; r < rows.length; r++) {
+      var cells = rows[r];
+      var name = (cells[idx.name] || '').trim();
+      var retail = parseFloat(cells[idx.retail]);
+      var qty = parseInt(cells[idx.qty], 10);
+      if (!name) { continue; }
+      if (isNaN(retail) || retail <= 0) { errors.push('Row ' + (r + 1) + ' (' + name + '): invalid retail price'); continue; }
+      if (isNaN(qty) || qty < 0) { errors.push('Row ' + (r + 1) + ' (' + name + '): invalid stock qty'); continue; }
+      pendingImportRows.push({
+        name: name,
+        category: idx.category > -1 ? (cells[idx.category] || '').trim() : '',
+        retailPrice: retail,
+        wholesalePrice: idx.wholesale > -1 ? (parseFloat(cells[idx.wholesale]) || 0) : 0,
+        costPrice: idx.cost > -1 ? (parseFloat(cells[idx.cost]) || 0) : 0,
+        wholesaleMinQty: idx.wholesaleMin > -1 ? (parseInt(cells[idx.wholesaleMin], 10) || 0) : 0,
+        qty: qty,
+        minQty: idx.lowAt > -1 ? (parseInt(cells[idx.lowAt], 10) || 0) : 0
+      });
+    }
+    var html = '<div style="color:#C6FF3D;font-weight:700;font-size:0.85rem;margin-bottom:6px">' + pendingImportRows.length + ' item(s) ready to import</div>';
+    if (errors.length) {
+      html += '<div style="color:#ff6b6b;font-size:0.78rem;margin-bottom:8px">' + errors.length + ' row(s) skipped:<br>' + errors.map(text).join('<br>') + '</div>';
+    }
+    if (pendingImportRows.length) {
+      html += '<div style="max-height:180px;overflow-y:auto;background:#232329;border-radius:8px;padding:8px;margin-bottom:8px;font-size:0.78rem">';
+      pendingImportRows.forEach(function (row) {
+        html += '<div style="display:flex;justify-content:space-between;padding:3px 0"><span>' + text(row.name) + ' <span style="color:#666">(' + text(row.category || 'no category') + ')</span></span><span>KSH ' + row.retailPrice + ' · qty ' + row.qty + '</span></div>';
+      });
+      html += '</div>';
+      html += '<button onclick="runBulkImport()">Import ' + pendingImportRows.length + ' Item(s)</button>';
+    }
+    box.innerHTML = html;
+  };
+  reader.readAsText(file);
+}
+
+async function runBulkImport() {
+  var box = document.getElementById('bulkImportPreview');
+  var results = { restocked: 0, created: 0, skipped: 0 };
+  box.innerHTML = '<p style="color:#888"><span class="spinner"></span>Importing...</p>';
+  for (var i = 0; i < pendingImportRows.length; i++) {
+    var row = pendingImportRows[i];
+    try {
+      // Inventory: restock if an item with this name already exists, otherwise create it.
+      var existingInv = rawInventory.find(function (inv) { return (inv.data.name || '').trim().toLowerCase() === row.name.toLowerCase(); });
+      var invId;
+      if (existingInv) {
+        await db.collection('inventory').doc(existingInv.id).update({ qty: firebase.firestore.FieldValue.increment(row.qty) });
+        invId = existingInv.id;
+        results.restocked++;
+      } else {
+        var invDoc = await db.collection('inventory').add({ name: row.name, qty: row.qty, minQty: row.minQty, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+        invId = invDoc.id;
+        results.created++;
+      }
+      // Product: only create if one with this name doesn't already exist — bulk import
+      // never overwrites prices you've already set manually.
+      var existingProd = rawProducts.find(function (p) { return (p.data.name || '').trim().toLowerCase() === row.name.toLowerCase(); });
+      if (!existingProd) {
+        await db.collection('products').add({
+          name: row.name, category: row.category, retailPrice: row.retailPrice, wholesalePrice: row.wholesalePrice,
+          costPrice: row.costPrice, wholesaleMinQty: row.wholesaleMinQty, linkedInventoryItemId: invId, unitsPerSale: 1,
+          imageUrl: null, videoUrl: null, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      } else {
+        results.skipped++;
+      }
+    } catch (e) {
+      log('Bulk import error on ' + row.name + ': ' + e.code + ' — ' + e.message);
+    }
+  }
+  logEvent('BulkImport', { itemCount: pendingImportRows.length, created: results.created, restocked: results.restocked });
+  pendingImportRows = [];
+  document.getElementById('bulkImportFile').value = '';
+  box.innerHTML = '<p class="ok">Done — ' + results.created + ' new item(s) added, ' + results.restocked + ' restocked' + (results.skipped ? ', ' + results.skipped + ' product(s) already existed so only their stock was topped up' : '') + '.</p>';
+  toast('Import complete 📦');
+  await Promise.all([loadInventory(), loadProducts()]);
+  computeExtraStats();
 }
 
 async function adjustInventory(id, delta) {
