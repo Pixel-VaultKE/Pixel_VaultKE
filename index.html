@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Elite Customs</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600;700;800&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:'Inter',system-ui,sans-serif;
+  background:
+    radial-gradient(circle at 3px 3px, rgba(255,255,255,0.04) 1px, transparent 0) 0 0/22px 22px,
+    #111114;
+  color:#EDEDEF;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-height:100vh;padding:20px;text-align:center;
+}
+.container{
+  max-width:400px;width:100%;
+  background:#1C1C21;
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:12px;
+  padding:40px 28px;
+  position:relative;
+  overflow:hidden;
+}
+.container::after{content:'';position:absolute;top:0;right:0;width:0;height:0;border-style:solid;border-width:0 22px 22px 0;border-color:transparent #111114 transparent transparent;filter:drop-shadow(-1px 1px 2px rgba(0,0,0,0.4))}
+.eyebrow{display:inline-block;background:#FF2E63;color:#fff;font-size:0.65rem;font-weight:800;letter-spacing:1px;text-transform:uppercase;padding:3px 10px;border-radius:20px;transform:rotate(-2deg);margin-bottom:14px}
+.logo{
+  font-family:'Bebas Neue',sans-serif;letter-spacing:1px;
+  font-size:2.6rem;line-height:0.95;
+  background:linear-gradient(100deg,#FF2E63,#C6FF3D);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  margin-bottom:6px;
+}
+.tagline{color:#8A8A93;font-size:0.85rem;margin-bottom:32px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
+.btn{display:block;width:100%;padding:14px;border-radius:8px;border:none;font-weight:800;font-size:0.95rem;letter-spacing:0.3px;cursor:pointer;margin-bottom:12px;text-decoration:none;transition:transform .1s}
+.btn:active{transform:scale(0.98)}
+.btn-primary{background:#FF2E63;color:#fff}
+.btn-secondary{background:transparent;color:#29D3F5;border:1.5px solid #29D3F5}
+.btn-admin{background:linear-gradient(100deg,#FF2E63,#29D3F5);color:#fff}
+.footer{color:#555;font-size:0.75rem;margin-top:24px;letter-spacing:0.5px}
+</style>
+</head>
+<body>
+<div class="container">
+  <span class="eyebrow">RNG Plaza, Nairobi</span>
+  <div class="logo">👑 ELITE CUSTOMS</div>
+  <p class="tagline">Customize. Brand. Transform.</p>
+  <a href="customer.html?v=2" class="btn btn-primary">Place an Order</a>
+  <a href="worker.html?v=2" class="btn btn-secondary">Worker Portal</a>
+  <a href="admin.html?v=2" class="btn btn-admin">Admin Dashboard</a>
+  <p class="footer">elitecustoms.ke</p>
+</div>
+</body>
+</html>

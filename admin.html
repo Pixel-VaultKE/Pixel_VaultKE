@@ -1,0 +1,3334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Elite Customs - Admin</title>
+<style>
+*{box-sizing:border-box}
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600;700;800&display=swap');
+body{font-family:'Inter',system-ui,sans-serif;background:radial-gradient(circle at 3px 3px, rgba(255,255,255,0.03) 1px, transparent 0) 0 0/22px 22px,#111114;color:#e0e0e0;padding:15px;max-width:900px;margin:0 auto}
+.card{background:#1C1C21;border-radius:10px;padding:18px;margin-bottom:12px;border:1px solid rgba(255,255,255,0.08)}
+.card.collapsed > *:not(.eyebrow):not(h2){display:none}
+.card.collapsible h2{cursor:pointer;user-select:none}
+.card.collapsible h2::after{content:' ▾';color:#666;font-size:0.8rem}
+.card.collapsible.collapsed h2::after{content:' ▸'}
+.card.collapsible.collapsed{padding-bottom:12px}
+h1{font-family:'Bebas Neue',sans-serif;letter-spacing:1px;color:#D4AF37;font-size:1.8rem;margin:0 0 4px}
+h2{font-family:'Bebas Neue',sans-serif;letter-spacing:0.5px;color:#D4AF37;font-size:1.15rem;margin:0 0 12px}
+.sub{color:#888;font-size:0.85rem;margin-bottom:16px}
+input,select,textarea{padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:#232329;color:#e0e0e0;width:100%;margin-bottom:10px;font-size:0.95rem;font-family:'Inter',sans-serif}
+button{padding:10px 14px;border-radius:8px;border:none;background:#d4af37;color:#000;font-weight:bold;cursor:pointer;font-size:0.9rem}
+button:disabled{opacity:0.5;cursor:not-allowed}
+button.full{width:100%;padding:12px;font-size:1rem}
+button:hover:not(:disabled){background:#c9a227}
+button.secondary{background:transparent;color:#29D3F5;border:1.5px solid #29D3F5}
+button.danger{background:#7f1d1d;color:#fff}
+button.small{padding:5px 10px;font-size:0.75rem}
+.error{color:#ff4444;font-size:0.85rem;margin-top:4px}
+.ok{color:#22c55e;font-size:0.85rem;margin-top:4px}
+.hidden{display:none !important}
+#log{background:#0f0f0f;border:1px solid #d4af37;border-radius:8px;padding:10px;font-family:monospace;font-size:0.75rem;color:#0f0;max-height:140px;overflow-y:auto;white-space:pre-wrap}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:12px}
+.stat-box{background:#0f0f0f;border-radius:8px;padding:14px;text-align:center;border:1px solid #333}
+.stat-box .num{color:#d4af37;font-size:1.4rem;font-weight:bold}
+.stat-box .lbl{color:#888;font-size:0.75rem;text-transform:uppercase;margin-top:4px}
+table{width:100%;border-collapse:collapse;font-size:0.85rem}
+th,td{padding:8px;text-align:left;border-bottom:1px solid #333}
+th{color:#d4af37;font-weight:600}
+td{color:#ccc}
+tr:hover td{background:#111}
+.badge{font-size:0.7rem;padding:3px 8px;border-radius:4px;background:#222;color:#aaa}
+.badge.paid{background:#1a331a;color:#4ade80}
+.badge.pending{background:#331a1a;color:#f87171}
+.badge.progress{background:#332a1a;color:#facc15}
+.badge.ready{background:#1a2a33;color:#38bdf8}
+.badge.dupe{background:#3f1a33;color:#e879f9;margin-left:6px}
+.row-actions{display:flex;gap:6px;flex-wrap:wrap}
+.toolbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.toolbar input, .toolbar select{margin-bottom:0;flex:1;min-width:120px}
+.status-select{width:auto;padding:4px 8px;font-size:0.75rem;margin:0}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#22c55e;color:#000;padding:12px 20px;border-radius:8px;font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,.4);z-index:100;max-width:90%;text-align:center}
+.toast.error{background:#ef4444;color:#fff}
+.sub{color:#8A8A93;font-size:0.85rem;margin-bottom:16px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
+.eyebrow{display:block;width:max-content;color:#fff;font-size:0.65rem;font-weight:800;letter-spacing:1px;text-transform:uppercase;padding:3px 9px;border-radius:20px;transform:rotate(-2deg);margin-bottom:8px}
+.peel{position:relative;overflow:hidden}
+.peel::after{content:'';position:absolute;top:0;right:0;width:0;height:0;border-style:solid;border-width:0 14px 14px 0;border-color:transparent #111114 transparent transparent;filter:drop-shadow(-1px 1px 2px rgba(0,0,0,0.4))}
+</style>
+</head>
+<body>
+
+<div class="peel" style="margin-bottom:16px">
+  <span class="eyebrow" style="background:#FF2E63">RNG Plaza HQ</span>
+  <h1 style="font-family:'Bebas Neue',sans-serif;letter-spacing:1px;font-size:2rem;margin:0 0 2px;background:linear-gradient(100deg,#D4AF37,#FF2E63);-webkit-background-clip:text;background-clip:text;color:transparent">ELITE CUSTOMS — ADMIN</h1>
+  <p class="sub" style="margin-bottom:0">Owner Dashboard</p>
+</div>
+
+<div id="loginSection" class="card">
+  <h2>Owner Login</h2>
+  <input type="email" id="aEmail" placeholder="Email address">
+  <input type="password" id="aPass" placeholder="Password">
+  <button class="full" id="loginBtn" onclick="doLogin()">Sign In</button>
+  <div id="loginMsg"></div>
+</div>
+
+<div id="adminSection" class="hidden">
+
+  <div class="card peel" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-left:3px solid #29D3F5">
+    <div>
+      <span class="eyebrow" style="background:#29D3F5;color:#0D0D10">Welcome back</span>
+      <h2 id="ownerName" style="margin-bottom:0">Admin</h2>
+    </div>
+    <button onclick="doLogout()" class="secondary" style="width:auto">Logout</button>
+  </div>
+
+  <div class="card" style="text-align:center">
+    <button id="privacyToggleBtn" onclick="togglePrivacyMode()" style="width:auto;background:#151515;color:#d4af37;border:1px solid #d4af37">🔒 Privacy Mode: ON — figures &amp; lists hidden until tapped</button>
+  </div>
+
+  <div class="card">
+    <span class="eyebrow" style="background:#FF2E63;color:#fff">Priority</span><h2>🚨 Top Actions</h2>
+    <div id="priorityActionsBox"><p style="color:#888">Loading...</p></div>
+  </div>
+
+  <div class="card">
+    <span class="eyebrow" style="background:#29D3F5;color:#0D0D10">Overview</span><h2>🎛 Command Center</h2>
+    <div id="commandCenterBox"><p style="color:#888">Loading...</p></div>
+  </div>
+
+  <div class="card">
+    <span class="eyebrow" style="background:#FF2E63;color:#fff">Alerts</span><h2>🔔 Notifications</h2>
+    <div id="notificationsBox"><p style="color:#888">Checking...</p></div>
+  </div>
+
+  <div class="card">
+    <span class="eyebrow" style="background:#D4AF37;color:#0D0D10">Money Owed</span><h2>💳 Receivables</h2>
+    <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Set a price on any order (Payment column) to start tracking what's owed.</p>
+    <div id="receivablesBox"><p style="color:#888">Loading...</p></div>
+  </div>
+
+  <div class="card">
+    <span class="eyebrow" style="background:#FF2E63">Quick Note</span><h2>📝 Pending / Owed</h2>
+    <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Not a full order yet — just "so-and-so wants X" or "so-and-so owes me Y." Log it, remind them on WhatsApp when needed.</p>
+    <input type="text" id="pnName" placeholder="Customer name">
+    <input type="text" id="pnPhone" placeholder="Phone (e.g. 0712345678)">
+    <input type="text" id="pnNote" placeholder="What they want / owe (e.g. 'Canvas print, KSH 2,000')">
+    <input type="number" id="pnAmount" placeholder="Amount (KSH) — optional" min="0">
+    <button onclick="addPendingNote()">Log It</button>
+    <div id="pendingNotesList" style="margin-top:12px"><p style="color:#888">Loading...</p></div>
+  </div>
+
+  <div class="card">
+    <span class="eyebrow" style="background:#29D3F5;color:#0D0D10">Delegate</span><h2>📋 Assign Task</h2>
+    <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">"Print new stickers," "fetch delivery," "call Kamau" — type it, pick who, it shows up on their dashboard.</p>
+    <select id="taskAssignTo"><option value="">Assign to...</option></select>
+    <input type="text" id="taskDescription" placeholder="What needs doing">
+    <input type="text" id="taskDueWhen" placeholder="When (optional — e.g. 'today', '3pm', 'before closing')">
+    <button onclick="assignTask()">Assign</button>
+    <div id="tasksList" style="margin-top:12px"><p style="color:#888">Loading...</p></div>
+  </div>
+
+  <div class="card collapsible collapsed" id="goalCard">
+    <span class="eyebrow" style="background:#C6FF3D;color:#0D0D10">Target</span><h2 onclick="toggleCard('goalCard')">Today's Goal</h2>
+    <div id="goalProgress" style="margin-bottom:10px"></div>
+    <div style="display:flex;gap:8px">
+      <input type="number" id="goalInput" placeholder="Daily target (KSH)" min="0" style="margin-bottom:0">
+      <button onclick="saveGoal()" style="width:auto">Set</button>
+    </div>
+    <div id="goalMsg"></div>
+  </div>
+
+  <div class="stat-grid" id="statsBox">
+    <div class="stat-box"><div class="num" id="stSales">0</div><div class="lbl">Sales Today</div></div>
+    <div class="stat-box"><div class="num" id="stOrders">0</div><div class="lbl">Pending Orders</div></div>
+    <div class="stat-box"><div class="num" id="stWorkers">0</div><div class="lbl">Workers</div></div>
+    <div class="stat-box"><div class="num" id="stRevenue">0</div><div class="lbl">Revenue (KSH)</div></div>
+    <div class="stat-box"><div class="num" id="stLowStock">0</div><div class="lbl">Low Stock</div></div>
+    <div class="stat-box"><div class="num" id="stCash">0</div><div class="lbl">Cash Today</div></div>
+    <div class="stat-box"><div class="num" id="stMpesa">0</div><div class="lbl">M-PESA Today</div></div>
+    <div class="stat-box"><div class="num" id="stJobs">0</div><div class="lbl">Jobs Done Today</div></div>
+    <div class="stat-box"><div class="num" id="stProfit">0</div><div class="lbl">Profit Today</div></div>
+  </div>
+
+  <div class="card collapsible collapsed" id="closingCard">
+    <span class="eyebrow" style="background:#29D3F5;color:#0D0D10">End of Day</span><h2 onclick="toggleCard('closingCard')">📋 Daily Closing</h2>
+    <button class="full" onclick="closeBusinessDay()">Close Business Day</button>
+    <div id="closingMsg"></div>
+    <hr style="border:none;border-top:1px solid #333;margin:14px 0">
+    <p style="color:#888;font-size:0.8rem;margin-bottom:8px">Forgot to close a previous day? Nothing is lost — your sales and expenses are still there. Pick the date to generate its snapshot now.</p>
+    <input type="date" id="pastCloseDate">
+    <button class="full secondary" onclick="closePastDay()">Close Selected Day</button>
+    <div id="pastCloseMsg"></div>
+    <div id="recentClosings" style="margin-top:12px"></div>
+  </div>
+
+  <div class="card collapsible collapsed" id="backupCard">
+    <span class="eyebrow" style="background:#8A8A93;color:#0D0D10">Safety</span><h2 onclick="toggleCard('backupCard')">💾 Backup</h2>
+    <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Download everything as a JSON file you can save to your phone or Google Drive.</p>
+    <button class="full" onclick="downloadBackup()">Download Full Backup</button>
+    <div id="backupMsg"></div>
+    <hr style="border:none;border-top:1px solid #333;margin:14px 0">
+    <p style="color:#888;font-size:0.8rem;margin-bottom:8px">⚠️ Restore overwrites current data with the backup file's contents. Only use this to recover from data loss.</p>
+    <input type="file" id="restoreFile" accept="application/json">
+    <button class="full secondary" onclick="previewRestore()">Choose Backup & Preview</button>
+    <div id="restoreMsg"></div>
+    <div id="restorePreview"></div>
+  </div>
+
+  <div class="card collapsible collapsed" id="quotesCard">
+    <span class="eyebrow" style="background:#C6FF3D;color:#0D0D10">Quotes</span><h2 onclick="toggleCard('quotesCard')">📄 Quotations</h2>
+    <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Build a quote, send it on WhatsApp, convert to a real order once accepted.</p>
+    <input type="text" id="qCustomer" placeholder="Customer name">
+    <input type="tel" id="qPhone" placeholder="Customer phone">
+    <select id="qProduct">
+      <option value="">Select product...</option>
+    </select>
+    <div style="display:flex;gap:8px">
+      <input type="number" id="qQty" placeholder="Qty" min="1" value="1" style="flex:1">
+      <input type="number" id="qPrice" placeholder="Price per unit KSH" min="0" style="flex:1">
+    </div>
+    <button class="secondary full" onclick="addQuoteLine()">+ Add Line</button>
+    <div id="quoteDraftLines" style="margin:10px 0"></div>
+    <input type="date" id="qValidUntil">
+    <textarea id="qNotes" placeholder="Notes (optional)"></textarea>
+    <button class="full" onclick="sendQuote()">Send Quote via WhatsApp</button>
+    <div id="quoteMsg"></div>
+    <hr style="border:none;border-top:1px solid #333;margin:14px 0">
+    <div id="quotesList"><p style="color:#888">Loading past quotes...</p></div>
+  </div>
+
+  <div class="card collapsible collapsed" id="workersCard">
+    <span class="eyebrow" style="background:#29D3F5;color:#0D0D10">Team</span><h2 onclick="toggleCard('workersCard')">Workers</h2>
+    <div id="workersList"><p style="color:#888">Loading...</p></div>
+    <button class="small secondary" style="margin-top:8px" onclick="toggleArchivedWorkers()">Show Archived</button>
+    <div id="archivedWorkersList"></div>
+  </div>
+
+  <div class="card collapsible collapsed" id="leaderboardCard">
+    <span class="eyebrow" style="background:#D4AF37;color:#0D0D10">Top Performers</span><h2 onclick="toggleCard('leaderboardCard')">🏆 Worker Leaderboard</h2>
+    <div id="leaderboardBox"><p style="color:#888">Loading...</p></div>
+  </div>
+
+  <div class="card collapsible collapsed" id="revenueByProductCard">
+    <span class="eyebrow" style="background:#D4AF37;color:#0D0D10">What Sells</span><h2 onclick="toggleCard('revenueByProductCard')">📦 Revenue by Product</h2>
+    <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Based on what customers actually paid, not catalog price. Custom/one-off sales without a linked product aren't included here.</p>
+    <div id="productRevenueBox"><p style="color:#888">Loading...</p></div>
+  </div>
+
+  <div class="card collapsible collapsed" id="customerHistoryCard">
+    <span class="eyebrow" style="background:#FF2E63;color:#fff">Relationships</span><h2 onclick="toggleCard('customerHistoryCard')">👥 Customer History</h2>
+    <div class="toolbar">
+      <input type="text" id="customerSearch" placeholder="Search customer..." oninput="renderCustomerHistory()">
+    </div>
+    <div id="customerHistoryBox"><p style="color:#888">Loading...</p></div>
+  </div>
+
+  <div class="card" id="restockCard">
+    <span class="eyebrow" style="background:#FF2E63;color:#fff">Low Stock</span><h2>⚠️ Restock Alerts</h2>
+    <div id="restockList"><p style="color:#888">Checking stock levels...</p></div>
+  </div>
+
+  <div class="card">
+    <span class="eyebrow" style="background:#C6FF3D;color:#0D0D10">Stock</span><h2>Inventory</h2>
+    <div id="inventoryList"><p style="color:#888">Loading...</p></div>
+    <div class="inv-row">
+      <input type="text" id="invName" placeholder="Item name">
+      <input type="number" id="invQty" placeholder="Qty" min="0">
+      <input type="number" id="invMin" placeholder="Low at" min="0">
+      <button onclick="addInventoryItem()">Add</button>
+    </div>
+    <div id="invMsg"></div>
+  </div>
+
+  <div class="card collapsible collapsed" id="productsCard">
+    <span class="eyebrow" style="background:#D4AF37;color:#0D0D10">Catalog</span><h2 onclick="toggleCard('productsCard')">Products & Pricing</h2>
+    <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Each product links to an inventory item. Selling it auto-deducts stock.</p>
+    <div id="productsList"><p style="color:#888">Loading...</p></div>
+    <input type="text" id="prodName" placeholder="Product name (e.g. Stickers - 3D)">
+    <input type="text" id="prodCategory" placeholder="Category (e.g. Stickers)">
+    <input type="number" id="prodRetail" placeholder="Retail price (KSH)" min="0">
+    <input type="number" id="prodWholesale" placeholder="Wholesale price (KSH)" min="0">
+    <input type="number" id="prodCost" placeholder="Cost price - what it costs you (KSH)" min="0">
+    <input type="number" id="prodWholesaleMin" placeholder="Wholesale minimum qty (e.g. 15)" min="1">
+    <label style="color:#888;font-size:0.8rem;display:block;margin-bottom:4px">Product photo (optional)</label>
+    <input type="file" id="prodImageFile" accept="image/*" onchange="uploadProductPhoto(this, 'prodImageUrl')" style="margin-bottom:2px">
+    <p id="prodImageUrlStatus" style="font-size:0.75rem;color:#888;margin:0 0 8px"></p>
+    <input type="text" id="prodImageUrl" placeholder="Photo URL (auto-fills after upload, or paste one)">
+    <input type="text" id="prodVideoUrl" placeholder="Video URL (optional — shown to customers)">
+    <select id="prodInventoryLink"><option value="">Link to inventory item...</option></select>
+    <input type="number" id="prodUnitsPerSale" placeholder="Units consumed per sale" min="1" value="1">
+    <button onclick="addProduct()">Add Product</button>
+    <div id="prodMsg"></div>
+  </div>
+
+  <div class="card collapsible collapsed" id="marketingSourcesCard">
+    <span class="eyebrow" style="background:#29D3F5;color:#0D0D10">Where Orders Come From</span><h2 onclick="toggleCard('marketingSourcesCard')">📍 Marketing Sources</h2>
+    <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Which QR code, flyer, or location is actually driving orders. Tag each printed QR with a different link (see below), then check back here.</p>
+    <div id="sourcesList"><p style="color:#888">Loading...</p></div>
+    <p style="color:#666;font-size:0.72rem;margin-top:10px">To tag a QR code: point it at <code style="color:#29D3F5">elite-customs-web.vercel.app/customer.html?source=NAME</code> — replace NAME with something like <code style="color:#29D3F5">matatu1</code>, <code style="color:#29D3F5">friendshop</code>, or <code style="color:#29D3F5">rngplaza</code>. Untagged scans show as "direct".</p>
+  </div>
+
+  <div class="card collapsible collapsed" id="galleryCard2">
+    <span class="eyebrow" style="background:#FF2E63;color:#fff">Real Work</span><h2 onclick="toggleCard('galleryCard2')">📸 Gallery</h2>
+    <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Photos shown to customers in "Our Work". Group by category — reuse an existing name to add more photos to it.</p>
+    <input type="text" id="galCategory" list="galCategoryList" placeholder="Category (e.g. 4D Stickers, Portraits, Anime)">
+    <datalist id="galCategoryList"></datalist>
+    <input type="file" id="galImageFile" accept="image/*" onchange="uploadGalleryPhoto(this)">
+    <div id="galUploadStatus" style="font-size:0.8rem;color:#888;margin:6px 0 12px"></div>
+    <div id="galleryList"><p style="color:#888">Loading...</p></div>
+  </div>
+
+  <div class="card">
+    <span class="eyebrow" style="background:#D4AF37;color:#0D0D10">Money Out</span><h2>Expenses</h2>
+    <div id="expensesSummary" style="margin-bottom:12px"></div>
+    <div id="expensesList"><p style="color:#888">Loading...</p></div>
+    <select id="expCategory">
+      <option value="Restock">Restock</option>
+      <option value="Rent">Rent</option>
+      <option value="Transport">Transport</option>
+      <option value="Utilities">Utilities</option>
+      <option value="Wages">Wages</option>
+      <option value="Other">Other</option>
+    </select>
+    <input type="number" id="expAmount" placeholder="Amount (KSH)" min="0">
+    <input type="text" id="expNote" placeholder="Note (optional)">
+    <button onclick="addExpense()">Log Expense</button>
+    <div id="expMsg"></div>
+  </div>
+
+  <div class="card">
+    <span class="eyebrow" style="background:#29D3F5;color:#0D0D10">Incoming</span><h2>Orders</h2>
+    <div class="toolbar">
+      <input type="text" id="orderSearch" placeholder="Search customer or item..." oninput="renderOrders()">
+      <select id="orderStatusFilter" onchange="renderOrders()">
+        <option value="">All statuses</option>
+        <option value="new">New</option>
+        <option value="designing">Designing</option>
+        <option value="printing">Printing</option>
+        <option value="finishing">Finishing</option>
+        <option value="ready">Ready for Pickup</option>
+        <option value="delivered">Delivered</option>
+      </select>
+      <select id="orderTestFilter" onchange="renderOrders()">
+        <option value="hide">Hide test orders</option>
+        <option value="">All orders</option>
+        <option value="only">Test orders only</option>
+      </select>
+      <button class="small secondary" id="ordersScopeBtn" onclick="toggleOrdersScope()" style="width:auto">Show All Days</button>
+      <button class="small secondary owner-only" onclick="toggleBulkTestActions()" style="width:auto">Manage Test Data</button>
+      <div id="bulkTestActions" class="hidden" style="margin-top:8px;padding:8px;background:#151515;border-radius:8px">
+        <p style="color:#888;font-size:0.75rem;margin:0 0 6px">Bulk-delete every order currently marked as test data. This cannot be undone.</p>
+        <button class="small danger" onclick="bulkDeleteTestOrders()" style="width:auto">Permanently Delete All Test Orders</button>
+      </div>
+    </div>
+    <div id="allOrders"><p style="color:#888">Loading...</p></div>
+  </div>
+
+  <div class="card">
+    <span class="eyebrow" style="background:#C6FF3D;color:#0D0D10">Today</span><h2>Recent Sales</h2>
+    <div id="paymentBreakdown" style="margin-bottom:12px"></div>
+    <div class="toolbar">
+      <input type="text" id="saleSearch" placeholder="Search customer or worker..." oninput="renderSales()">
+      <button class="small secondary" id="salesScopeBtn" onclick="toggleSalesScope()" style="width:auto">Show All Days</button>
+    </div>
+    <div id="allSales"><p style="color:#888">Loading...</p></div>
+    <button class="small secondary" style="margin-top:8px" onclick="toggleArchivedSales()">Show Archived</button>
+    <div id="archivedSalesList"></div>
+  </div>
+
+</div>
+
+<div class="card">
+  <h2 id="logToggle" onclick="toggleLog()" style="cursor:pointer;user-select:none">Debug Log <span id="logArrow">▾</span></h2>
+  <div id="log">Ready...\n</div>
+</div>
+
+<div id="toastBox"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+<script>
+window.onerror = function (msg, url, line) { log('[ERROR] ' + msg + ' (line ' + line + ')'); };
+
+function toggleCard(id) {
+  document.getElementById(id).classList.toggle('collapsed');
+}
+
+var firebaseConfig = {
+  apiKey: "AIzaSyDTsJvTWgYdHb9wLF-MSXGbxvZf5LPA_jA",
+  authDomain: "elite-customs-os.firebaseapp.com",
+  projectId: "elite-customs-os",
+  storageBucket: "elite-customs-os.firebasestorage.app",
+  messagingSenderId: "628800846035",
+  appId: "1:628800846035:web:8d3f8f3f1935909876bc26",
+  measurementId: "G-H082LD7630"
+};
+var CLOUDINARY_CLOUD_NAME = 'ffksanlm';
+var CLOUDINARY_UPLOAD_PRESET = 'ml_default';
+
+async function uploadProductPhoto(fileInput, targetInputId) {
+  var file = fileInput.files[0];
+  if (!file) return;
+  var statusId = targetInputId + 'Status';
+  var statusEl = document.getElementById(statusId);
+  if (statusEl) { statusEl.textContent = 'Uploading...'; statusEl.style.color = '#888'; }
+  var formData = new FormData();
+  formData.append('file', file);
+  formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+  try {
+    var res = await fetch('https://api.cloudinary.com/v1_1/' + CLOUDINARY_CLOUD_NAME + '/image/upload', {
+      method: 'POST',
+      body: formData
+    });
+    var data = await res.json();
+    if (data.secure_url) {
+      document.getElementById(targetInputId).value = data.secure_url;
+      if (statusEl) { statusEl.textContent = '✓ Uploaded'; statusEl.style.color = '#22c55e'; }
+    } else {
+      throw new Error((data.error && data.error.message) || 'Upload failed');
+    }
+  } catch (e) {
+    if (statusEl) { statusEl.textContent = 'Upload failed: ' + e.message; statusEl.style.color = '#ff4444'; }
+  } finally {
+    fileInput.value = '';
+  }
+}
+
+var galleryCategories = []; // cached distinct category names for the datalist
+
+async function uploadGalleryPhoto(fileInput) {
+  var file = fileInput.files[0];
+  if (!file) return;
+  var category = document.getElementById('galCategory').value.trim();
+  var statusEl = document.getElementById('galUploadStatus');
+  if (!category) {
+    statusEl.textContent = 'Enter a category first';
+    statusEl.style.color = '#ff4444';
+    fileInput.value = '';
+    return;
+  }
+  statusEl.textContent = 'Uploading...';
+  statusEl.style.color = '#888';
+  var formData = new FormData();
+  formData.append('file', file);
+  formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+  try {
+    var res = await fetch('https://api.cloudinary.com/v1_1/' + CLOUDINARY_CLOUD_NAME + '/image/upload', {
+      method: 'POST',
+      body: formData
+    });
+    var data = await res.json();
+    if (!data.secure_url) throw new Error((data.error && data.error.message) || 'Upload failed');
+    await db.collection('gallery').add({
+      category: category,
+      imageUrl: data.secure_url,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    statusEl.textContent = '✓ Added to ' + category;
+    statusEl.style.color = '#22c55e';
+    log('Gallery photo uploaded to category: ' + category);
+    loadGallery();
+  } catch (e) {
+    statusEl.textContent = 'Upload failed: ' + e.message;
+    statusEl.style.color = '#ff4444';
+    log('Gallery upload error: ' + e.message);
+  } finally {
+    fileInput.value = '';
+  }
+}
+
+async function loadGallery() {
+  var box = document.getElementById('galleryList');
+  try {
+    var snap = await db.collection('gallery').get();
+    var byCategory = {};
+    snap.forEach(function (doc) {
+      var g = doc.data();
+      var cat = g.category || 'Uncategorized';
+      if (!byCategory[cat]) byCategory[cat] = [];
+      byCategory[cat].push({ id: doc.id, imageUrl: g.imageUrl, createdAt: g.createdAt ? g.createdAt.toMillis() : 0 });
+    });
+    galleryCategories = Object.keys(byCategory).sort();
+    galleryCategories.forEach(function (cat) {
+      byCategory[cat].sort(function (a, b) { return b.createdAt - a.createdAt; });
+    });
+    document.getElementById('galCategoryList').innerHTML = galleryCategories.map(function (c) {
+      return '<option value="' + c + '">';
+    }).join('');
+
+    if (galleryCategories.length === 0) {
+      box.innerHTML = '<p style="color:#888">No photos yet — upload your first one above.</p>';
+      return;
+    }
+    var html = '';
+    galleryCategories.forEach(function (cat) {
+      html += '<div style="margin-bottom:12px"><strong style="color:#d4af37;font-size:0.85rem">' + cat + '</strong> <span style="color:#666;font-size:0.75rem">(' + byCategory[cat].length + ')</span>';
+      html += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">';
+      byCategory[cat].forEach(function (item) {
+        html += '<div style="position:relative">';
+        html += '<img src="' + item.imageUrl + '" style="width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid #333">';
+        html += '<button onclick="deleteGalleryPhoto(\'' + item.id + '\')" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:#ff4444;color:#fff;border:none;font-size:0.7rem;line-height:1;padding:0;cursor:pointer">✕</button>';
+        html += '</div>';
+      });
+      html += '</div></div>';
+    });
+    box.innerHTML = html;
+  } catch (e) {
+    log('Gallery load error: ' + e.code + ' — ' + e.message);
+    box.innerHTML = '<p style="color:#ff4444">Could not load gallery</p>';
+  }
+}
+
+async function loadMarketingSources() {
+  var box = document.getElementById('sourcesList');
+  try {
+    var snap = await db.collection('orders').get();
+    var bySource = {};
+    snap.forEach(function (doc) {
+      var o = doc.data();
+      var src = o.source || 'direct';
+      if (!bySource[src]) bySource[src] = { count: 0, revenue: 0 };
+      bySource[src].count += 1;
+      bySource[src].revenue += (o.total || 0);
+    });
+    var sources = Object.keys(bySource).sort(function (a, b) { return bySource[b].revenue - bySource[a].revenue; });
+    if (sources.length === 0) {
+      box.innerHTML = '<p style="color:#888">No orders yet — sources will appear here once orders come in.</p>';
+      return;
+    }
+    var html = '<table style="width:100%;border-collapse:collapse;font-size:0.85rem">';
+    html += '<tr style="color:#888;text-align:left;border-bottom:1px solid #333"><th style="padding:6px 4px">Source</th><th style="padding:6px 4px;text-align:right">Orders</th><th style="padding:6px 4px;text-align:right">Revenue</th></tr>';
+    sources.forEach(function (src) {
+      var s = bySource[src];
+      html += '<tr style="border-bottom:1px solid #262626"><td style="padding:6px 4px">' + src + '</td><td style="padding:6px 4px;text-align:right">' + s.count + '</td><td style="padding:6px 4px;text-align:right;color:#D4AF37">KSH ' + s.revenue.toLocaleString() + '</td></tr>';
+    });
+    html += '</table>';
+    box.innerHTML = html;
+  } catch (e) {
+    log('Marketing sources load error: ' + e.code + ' — ' + e.message);
+    box.innerHTML = '<p style="color:#ff4444">Could not load sources</p>';
+  }
+}
+
+async function addPendingNote() {
+  var name = document.getElementById('pnName').value.trim();
+  var phone = document.getElementById('pnPhone').value.trim();
+  var note = document.getElementById('pnNote').value.trim();
+  var amount = parseFloat(document.getElementById('pnAmount').value) || 0;
+  if (!name || !note) { toast('Enter at least a name and a note', true); return; }
+  try {
+    await db.collection('pendingNotes').add({
+      customerName: name, phone: phone, note: note, amount: amount,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(), loggedBy: currentUserName || currentUserRole
+    });
+    document.getElementById('pnName').value = '';
+    document.getElementById('pnPhone').value = '';
+    document.getElementById('pnNote').value = '';
+    document.getElementById('pnAmount').value = '';
+    log('Pending note logged for ' + name);
+    loadPendingNotes();
+  } catch (e) {
+    log('Add pending note error: ' + e.code + ' — ' + e.message);
+    toast('Could not log it', true);
+  }
+}
+
+async function loadPendingNotes() {
+  var box = document.getElementById('pendingNotesList');
+  try {
+    var snap = await db.collection('pendingNotes').orderBy('createdAt', 'desc').get();
+    if (snap.empty) { box.innerHTML = '<p style="color:#888">Nothing pending logged.</p>'; return; }
+    var html = '';
+    snap.forEach(function (doc) {
+      var n = doc.data();
+      html += '<div style="background:#232329;border-radius:8px;padding:10px;margin-bottom:8px">';
+      html += '<div style="display:flex;justify-content:space-between"><strong>' + text(n.customerName) + '</strong>' + (n.amount ? '<span style="color:#D4AF37">KSH ' + n.amount.toLocaleString() + '</span>' : '') + '</div>';
+      html += '<div style="color:#ccc;font-size:0.85rem;margin:4px 0">' + text(n.note) + '</div>';
+      if (n.phone) {
+        var msg = encodeURIComponent('Hi ' + n.customerName + ', following up on: ' + n.note + (n.amount ? ' (KSH ' + n.amount.toLocaleString() + ')' : '') + '. Let us know if you\'d like to go ahead! — Elite Customs');
+        html += '<a href="https://wa.me/' + n.phone.replace(/\D/g, '') + '?text=' + msg + '" target="_blank"><button class="small" style="background:#25D366;color:#000">💬 Remind on WhatsApp</button></a> ';
+      }
+      html += '<button class="small danger" onclick="deletePendingNote(\'' + doc.id + '\')">Done / Delete</button>';
+      html += '</div>';
+    });
+    box.innerHTML = html;
+  } catch (e) {
+    log('Load pending notes error: ' + e.code + ' — ' + e.message);
+    box.innerHTML = '<p style="color:#ff4444">Could not load</p>';
+  }
+}
+
+async function deletePendingNote(id) {
+  try {
+    await db.collection('pendingNotes').doc(id).delete();
+    loadPendingNotes();
+  } catch (e) {
+    log('Delete pending note error: ' + e.code + ' — ' + e.message);
+    toast('Could not remove', true);
+  }
+}
+
+// ---------- TASK ASSIGNMENT ----------
+function populateTaskAssignDropdown() {
+  var sel = document.getElementById('taskAssignTo');
+  if (!sel) return;
+  var opts = '<option value="">Assign to...</option>';
+  rawActiveWorkers.forEach(function (w) {
+    opts += '<option value="' + w.id + '">' + text(w.data.name) + ' (' + text(w.data.role) + ')</option>';
+  });
+  sel.innerHTML = opts;
+}
+
+async function assignTask() {
+  var sel = document.getElementById('taskAssignTo');
+  var workerId = sel.value;
+  var workerName = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '';
+  var description = document.getElementById('taskDescription').value.trim();
+  var when = document.getElementById('taskDueWhen').value.trim();
+  if (!workerId || !description) { toast('Pick a worker and describe the task', true); return; }
+  try {
+    await db.collection('tasks').add({
+      assignedToId: workerId,
+      assignedToName: workerName,
+      description: description,
+      when: when,
+      status: 'pending',
+      assignedBy: currentUserName || currentUserRole,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    document.getElementById('taskDescription').value = '';
+    document.getElementById('taskDueWhen').value = '';
+    log('Task assigned to ' + workerName + ': ' + description);
+    loadTasks();
+  } catch (e) {
+    log('Assign task error: ' + e.code + ' — ' + e.message);
+    toast('Could not assign task', true);
+  }
+}
+
+async function loadTasks() {
+  var box = document.getElementById('tasksList');
+  try {
+    var snap = await db.collection('tasks').orderBy('createdAt', 'desc').limit(50).get();
+    if (snap.empty) { box.innerHTML = '<p style="color:#888">No tasks assigned yet.</p>'; return; }
+    var html = '';
+    snap.forEach(function (doc) {
+      var t = doc.data();
+      var isDone = t.status === 'done';
+      html += '<div style="background:#232329;border-radius:8px;padding:10px;margin-bottom:8px;opacity:' + (isDone ? '0.55' : '1') + '">';
+      html += '<div style="display:flex;justify-content:space-between"><strong>' + text(t.assignedToName) + '</strong><span style="color:' + (isDone ? '#4ade80' : '#facc15') + ';font-size:0.75rem;font-weight:700">' + (isDone ? '✓ DONE' : 'PENDING') + '</span></div>';
+      html += '<div style="color:#ccc;font-size:0.85rem;margin:4px 0">' + text(t.description) + (t.when ? ' <span style="color:#666">(' + text(t.when) + ')</span>' : '') + '</div>';
+      if (t.workerNote) html += '<div style="color:#29D3F5;font-size:0.8rem;margin-top:4px">💬 "' + text(t.workerNote) + '"</div>';
+      if (!isDone) html += '<button class="small danger" onclick="deleteTask(\'' + doc.id + '\')">Cancel Task</button>';
+      html += '</div>';
+    });
+    box.innerHTML = html;
+  } catch (e) {
+    log('Load tasks error: ' + e.code + ' — ' + e.message);
+    box.innerHTML = '<p style="color:#ff4444">Could not load tasks</p>';
+  }
+}
+
+async function deleteTask(id) {
+  try {
+    await db.collection('tasks').doc(id).delete();
+    loadTasks();
+  } catch (e) {
+    log('Delete task error: ' + e.code + ' — ' + e.message);
+    toast('Could not remove task', true);
+  }
+}
+
+async function deleteGalleryPhoto(id) {
+  if (!confirm('Delete this photo? This cannot be undone.')) return;
+  try {
+    await db.collection('gallery').doc(id).delete();
+    log('Gallery photo deleted: ' + id);
+    loadGallery();
+  } catch (e) {
+    log('Gallery delete error: ' + e.code + ' — ' + e.message);
+    toast('Could not delete photo', true);
+  }
+}
+
+firebase.initializeApp(firebaseConfig);
+var auth = firebase.auth();
+var db = firebase.firestore();
+
+auth.setPersistence(firebase.auth.Auth.Persistence.SESSION).catch(function (e) {
+  log('Persistence setup failed: ' + e.code + ' — ' + e.message);
+});
+
+var rawOrders = [];
+var rawSales = [];
+var ordersShowAll = false;
+var salesShowAll = false;
+var currentUserRole = null;
+var currentUserName = null;
+
+// Every summary/aggregate function (Receivables, Command Center, Priority Actions,
+// Notifications, Customer History, daily totals) reads through this — never rawOrders
+// directly — so a test-marked order can never silently count toward a real number,
+// even though the Orders LIST view is allowed to show test orders when asked to.
+function realOrders() {
+  return rawOrders.filter(function (r) { return !r.data.isTestData; });
+}
+
+// Hides destructive, owner-only controls from an admin-role login so they never
+// hit a confusing permission-denied — the Firestore rules are the real enforcement,
+// this just keeps the UI honest about what this account can actually do.
+function applyRoleGating() {
+  var isOwner = currentUserRole === 'owner';
+  document.querySelectorAll('.owner-only').forEach(function (el) {
+    el.style.display = isOwner ? '' : 'none';
+  });
+}
+var privacyMode = true;
+var revealedSections = {}; // resets on page load/logout — nothing stays revealed across sessions
+
+function togglePrivacyMode() {
+  privacyMode = !privacyMode;
+  if (!privacyMode) revealedSections = {}; // turning privacy back on should re-hide everything
+  var btn = document.getElementById('privacyToggleBtn');
+  btn.textContent = privacyMode ? '🔒 Privacy Mode: ON — figures & lists hidden until tapped' : '🔓 Privacy Mode: OFF — everything visible';
+  updateStatVisibility();
+  renderOrders();
+  renderSales();
+  renderReceivables();
+  renderCustomerHistory();
+  renderProductRevenue();
+  renderNotifications();
+  renderPriorityActions();
+  renderCommandCenter();
+}
+
+function revealSection(key, renderFn) {
+  revealedSections[key] = true;
+  renderFn();
+}
+
+function hideSection(key, renderFn) {
+  revealedSections[key] = false;
+  renderFn();
+}
+
+// Returns a collapsed "tap to view" placeholder, or null if the section should render normally
+function privacyGate(key, box, label, renderFnName) {
+  if (privacyMode && !revealedSections[key]) {
+    box.innerHTML = '<button class="small secondary" style="width:100%" onclick="revealSection(\'' + key + '\', ' + renderFnName + ')">👁 Tap to view ' + label + '</button>';
+    return true;
+  }
+  if (!privacyMode) return false;
+  box.insertAdjacentHTML('beforeend', '<button class="small secondary" style="width:100%;margin-top:8px" onclick="hideSection(\'' + key + '\', ' + renderFnName + ')">🙈 Hide ' + label + '</button>');
+  return false;
+}
+
+// Masks the money figures in the top stat grid when privacy mode is on
+function updateStatVisibility() {
+  var moneyStats = ['stRevenue', 'stCash', 'stMpesa', 'stProfit'];
+  moneyStats.forEach(function (id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.style.filter = privacyMode ? 'blur(6px)' : 'none';
+  });
+}
+
+function isToday(dateVal) {
+  if (!dateVal) return false;
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  return dateVal >= today;
+}
+
+function toggleOrdersScope() {
+  ordersShowAll = !ordersShowAll;
+  document.getElementById('ordersScopeBtn').textContent = ordersShowAll ? 'Today Only' : 'Show All Days';
+  renderOrders();
+}
+
+function toggleSalesScope() {
+  salesShowAll = !salesShowAll;
+  document.getElementById('salesScopeBtn').textContent = salesShowAll ? 'Today Only' : 'Show All Days';
+  renderSales();
+}
+var rawInventory = [];
+var rawArchivedWorkers = [];
+var rawActiveWorkers = [];
+var rawProducts = [];
+var rawExpenses = [];
+var quoteLines = [];
+var rawQuotes = [];
+var dailyGoal = 1500;
+
+function toggleLog() {
+  var log = document.getElementById('log');
+  var arrow = document.getElementById('logArrow');
+  var collapsed = log.classList.toggle('hidden');
+  arrow.textContent = collapsed ? '▸' : '▾';
+}
+
+function log(msg) {
+  var el = document.getElementById('log');
+  var line = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+  console.log(line);
+  if (el) el.textContent += line + '\n';
+}
+
+// ---------- EVENT LOG (ledger core) ----------
+// Same helper as worker.html — fire-and-forget write to the append-only
+// `events` collection, additive only, never blocks the action it's attached to.
+function logEvent(type, payload) {
+  var data = Object.assign({
+    type: type,
+    workerId: (firebase.auth().currentUser && firebase.auth().currentUser.uid) || null,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  }, payload || {});
+  return db.collection('events').add(data).catch(function (e) {
+    log('Event log failed (' + type + '): ' + e.code + ' — ' + e.message);
+  });
+}
+
+function toast(msg, isError) {
+  var box = document.getElementById('toastBox');
+  var t = document.createElement('div');
+  t.className = 'toast' + (isError ? ' error' : '');
+  t.textContent = msg;
+  box.appendChild(t);
+  setTimeout(function () { t.remove(); }, 3500);
+}
+
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[c]; }); }
+function text(v, fallback) { var out = (v === undefined || v === null || v === '') ? (fallback || '—') : v; return escapeHtml(out); }
+
+log('Admin page loaded — build v6 (Link Stock feature)');
+
+auth.onAuthStateChanged(async function (user) {
+  if (!user) {
+    log('Auth state: logged out');
+    document.getElementById('loginSection').classList.remove('hidden');
+    document.getElementById('adminSection').classList.add('hidden');
+    return;
+  }
+  log('Auth state: logged in as ' + user.email);
+  try {
+    var snap = await db.collection('workers').doc(user.uid).get();
+    if (!snap.exists) { log('ERROR: No profile for this account'); toast('No profile found for this account', true); await auth.signOut(); return; }
+    var data = snap.data();
+    if (data.role !== 'owner' && data.role !== 'admin') { log('ERROR: Not an owner/admin role'); toast('This account is not an owner or admin account', true); await auth.signOut(); return; }
+    if (data.active === false) { log('ERROR: Account marked inactive'); toast('This account has been deactivated. Contact the owner.', true); await auth.signOut(); return; }
+    currentUserRole = data.role;
+    currentUserName = data.name || (data.role === 'owner' ? 'Owner' : 'Admin');
+    document.getElementById('ownerName').textContent = (data.name || 'Owner') + ' — ' + (data.role === 'owner' ? 'Owner' : 'Admin');
+    applyRoleGating();
+    document.getElementById('loginSection').classList.add('hidden');
+    document.getElementById('adminSection').classList.remove('hidden');
+    loadDashboard();
+  } catch (e) {
+    log('Profile error: ' + e.code + ' — ' + e.message);
+    toast('Could not verify admin account', true);
+    await auth.signOut();
+  }
+});
+
+async function doLogin() {
+  var email = document.getElementById('aEmail').value.trim();
+  var pass = document.getElementById('aPass').value;
+  var msg = document.getElementById('loginMsg');
+  var btn = document.getElementById('loginBtn');
+  if (!email || !pass) { msg.className = 'error'; msg.textContent = 'Enter email and password'; return; }
+  btn.disabled = true; btn.textContent = 'Signing in...';
+  log('Logging in...');
+  try {
+    await auth.signInWithEmailAndPassword(email, pass);
+    log('Login success');
+  } catch (e) {
+    log('Login error: ' + e.code + ' — ' + e.message);
+    msg.className = 'error'; msg.textContent = e.message;
+  } finally {
+    btn.disabled = false; btn.textContent = 'Sign In';
+  }
+}
+
+async function doLogout() {
+  await auth.signOut();
+  log('Logged out');
+  location.reload();
+}
+
+function normalizePhone(raw) {
+  var digits = (raw || '').replace(/\D/g, '');
+  return digits.slice(-9);
+}
+
+function localDateKey(d) {
+  d = d || new Date();
+  var y = d.getFullYear();
+  var m = String(d.getMonth() + 1).padStart(2, '0');
+  var day = String(d.getDate()).padStart(2, '0');
+  return y + '-' + m + '-' + day;
+}
+
+// ---------- QUOTATIONS ----------
+function populateQuoteProductSelect() {
+  var select = document.getElementById('qProduct');
+  if (!select) return;
+  var current = select.value;
+  select.innerHTML = '<option value="">Select product...</option>';
+  rawProducts.forEach(function (p) {
+    select.innerHTML += '<option value="' + p.id + '" data-price="' + (p.data.retailPrice || 0) + '">' + p.data.name + '</option>';
+  });
+  select.value = current;
+}
+
+function addQuoteLine() {
+  var select = document.getElementById('qProduct');
+  var productId = select.value;
+  var qty = parseInt(document.getElementById('qQty').value) || 0;
+  var priceInput = document.getElementById('qPrice').value;
+  var msg = document.getElementById('quoteMsg');
+
+  if (!productId) { msg.className = 'error'; msg.textContent = 'Select a product'; return; }
+  if (qty <= 0) { msg.className = 'error'; msg.textContent = 'Enter a valid quantity'; return; }
+
+  var product = rawProducts.find(function (p) { return p.id === productId; });
+  var unitPrice = priceInput ? parseFloat(priceInput) : (product.data.retailPrice || 0);
+
+  quoteLines.push({ productId: productId, productName: product.data.name, qty: qty, unitPrice: unitPrice, lineTotal: qty * unitPrice });
+  document.getElementById('qQty').value = '1';
+  document.getElementById('qPrice').value = '';
+  msg.textContent = '';
+  renderQuoteDraft();
+}
+
+function removeQuoteLine(idx) {
+  quoteLines.splice(idx, 1);
+  renderQuoteDraft();
+}
+
+function renderQuoteDraft() {
+  var box = document.getElementById('quoteDraftLines');
+  if (quoteLines.length === 0) { box.innerHTML = '<p style="color:#888;font-size:0.8rem">No lines added yet</p>'; return; }
+  var total = 0;
+  var html = '';
+  quoteLines.forEach(function (line, idx) {
+    total += line.lineTotal;
+    html += '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #222;font-size:0.85rem">';
+    html += '<span>' + line.productName + ' x' + line.qty + ' @ KSH ' + line.unitPrice.toLocaleString() + '</span>';
+    html += '<span>KSH ' + line.lineTotal.toLocaleString() + ' <button class="small danger" onclick="removeQuoteLine(' + idx + ')" style="margin-left:6px">✕</button></span>';
+    html += '</div>';
+  });
+  html += '<div style="text-align:right;font-weight:700;color:#d4af37;margin-top:6px">Total: KSH ' + total.toLocaleString() + '</div>';
+  box.innerHTML = html;
+}
+
+async function getNextQuoteNumber() {
+  var counterRef = db.collection('counters').doc('quoteCounter');
+  var year = new Date().getFullYear();
+  return db.runTransaction(async function (transaction) {
+    var doc = await transaction.get(counterRef);
+    var next = (doc.exists ? (doc.data().count || 0) : 0) + 1;
+    transaction.set(counterRef, { count: next }, { merge: true });
+    return 'Q-' + year + '-' + String(next).padStart(4, '0');
+  });
+}
+
+async function sendQuote() {
+  var msg = document.getElementById('quoteMsg');
+  var customer = document.getElementById('qCustomer').value.trim();
+  var phone = document.getElementById('qPhone').value.trim();
+  var validUntil = document.getElementById('qValidUntil').value;
+  var notes = document.getElementById('qNotes').value.trim();
+
+  if (!customer) { msg.className = 'error'; msg.textContent = 'Enter a customer name'; return; }
+  if (!phone) { msg.className = 'error'; msg.textContent = 'Enter a customer phone number'; return; }
+  if (quoteLines.length === 0) { msg.className = 'error'; msg.textContent = 'Add at least one line'; return; }
+
+  var total = quoteLines.reduce(function (sum, l) { return sum + l.lineTotal; }, 0);
+
+  try {
+    var quoteNumber = await getNextQuoteNumber();
+    await db.collection('quotes').add({
+      quoteNumber: quoteNumber,
+      customerName: customer,
+      phone: phone,
+      phoneKey: normalizePhone(phone),
+      lines: quoteLines,
+      total: total,
+      validUntil: validUntil || null,
+      notes: notes,
+      status: 'sent',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    var messageLines = quoteLines.map(function (l) {
+      return '- ' + l.productName + ' x' + l.qty + ' @ KSH ' + l.unitPrice.toLocaleString() + ' = KSH ' + l.lineTotal.toLocaleString();
+    }).join('\n');
+    var messageText = 'Elite Customs Quotation ' + quoteNumber + '\n\n' + messageLines +
+      '\n\nTotal: KSH ' + total.toLocaleString() +
+      (validUntil ? '\nValid until: ' + validUntil : '') +
+      (notes ? '\n\nNotes: ' + notes : '') +
+      '\n\nReply to confirm and we\'ll get started!';
+
+    var waUrl = 'https://wa.me/254' + normalizePhone(phone) + '?text=' + encodeURIComponent(messageText);
+    window.open(waUrl, '_blank');
+
+    log('Quote sent: ' + quoteNumber + ' — KSH ' + total.toLocaleString());
+    msg.className = 'ok'; msg.textContent = quoteNumber + ' sent';
+    toast('Quote ' + quoteNumber + ' created');
+
+    quoteLines = [];
+    renderQuoteDraft();
+    document.getElementById('qCustomer').value = '';
+    document.getElementById('qPhone').value = '';
+    document.getElementById('qValidUntil').value = '';
+    document.getElementById('qNotes').value = '';
+    loadQuotes();
+  } catch (e) {
+    log('Send quote error: ' + e.code + ' — ' + e.message);
+    msg.className = 'error'; msg.textContent = 'Could not create quote';
+  }
+}
+
+async function loadQuotes() {
+  var box = document.getElementById('quotesList');
+  try {
+    var snap = await db.collection('quotes').orderBy('createdAt', 'desc').limit(200).get();
+    rawQuotes = [];
+    snap.forEach(function (doc) { rawQuotes.push({ id: doc.id, data: doc.data() }); });
+    renderQuotes();
+  } catch (e) {
+    log('Load quotes error: ' + e.code + ' — ' + e.message);
+    if (box) box.innerHTML = '<p style="color:#ff4444">Could not load quotes</p>';
+  }
+}
+
+function renderQuotes() {
+  var box = document.getElementById('quotesList');
+  if (!box) return;
+  if (rawQuotes.length === 0) { box.innerHTML = '<p style="color:#888">No quotes sent yet</p>'; return; }
+  var html = '';
+  rawQuotes.forEach(function (r) {
+    var q = r.data;
+    var converted = q.status === 'converted';
+    html += '<div style="padding:10px;background:#0f0f0f;border-radius:8px;margin-bottom:8px">';
+    html += '<div style="display:flex;justify-content:space-between"><strong style="color:#d4af37">' + q.quoteNumber + '</strong>';
+    html += converted ? '<span class="badge paid">converted</span>' : '<span class="badge pending">sent</span>';
+    html += '</div>';
+    html += '<div style="font-size:0.85rem;margin-top:4px">' + q.customerName + ' — KSH ' + (q.total || 0).toLocaleString() + '</div>';
+    if (!converted) {
+      html += '<button class="small" style="margin-top:6px" onclick="convertQuoteToOrder(\'' + r.id + '\')">Convert to Order</button>';
+    }
+    html += ' <button class="small danger" style="margin-top:6px" onclick="deleteQuote(\'' + r.id + '\')">Delete</button>';
+    html += '</div>';
+  });
+  box.innerHTML = html;
+}
+
+async function deleteQuote(quoteId) {
+  if (!confirm('Permanently delete this quote? This cannot be undone.')) return;
+  try {
+    await db.collection('quotes').doc(quoteId).delete();
+    rawQuotes = rawQuotes.filter(function (r) { return r.id !== quoteId; });
+    log('Deleted quote ' + quoteId);
+    toast('Quote deleted');
+    renderQuotes();
+  } catch (e) {
+    log('Delete quote error: ' + e.code + ' — ' + e.message);
+    toast('Could not delete quote', true);
+  }
+}
+
+async function convertQuoteToOrder(quoteId) {
+  var quote = rawQuotes.find(function (r) { return r.id === quoteId; });
+  if (!quote) return;
+  var q = quote.data;
+  if (!confirm('Convert ' + q.quoteNumber + ' into a real order? Line items will be summarized into one order description.')) return;
+
+  try {
+    var items = q.lines.map(function (l) {
+      return {
+        productId: l.productId || null,
+        name: l.productName,
+        qty: l.qty,
+        unitPrice: l.unitPrice || 0,
+        lineTotal: l.lineTotal || (l.unitPrice || 0) * l.qty,
+        custom: !l.productId
+      };
+    });
+    var total = items.reduce(function (sum, it) { return sum + it.lineTotal; }, 0);
+    var receiptNumber = 'EC-' + new Date().getFullYear() + '-Q' + q.quoteNumber.split('-').pop();
+
+    await db.collection('orders').add({
+      customerName: q.customerName,
+      phone: q.phone,
+      phoneKey: q.phoneKey,
+      items: items,
+      total: total,
+      amountPaid: 0,
+      balance: total,
+      paymentStatus: 'unpaid',
+      productionStatus: 'new',
+      overallStatus: 'open',
+      description: 'Converted from quote ' + q.quoteNumber + (q.notes ? '. ' + q.notes : ''),
+      receiptNumber: receiptNumber,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    await db.collection('quotes').doc(quoteId).update({ status: 'converted' });
+
+    log('Converted quote ' + q.quoteNumber + ' to order ' + receiptNumber);
+    toast('Quote converted to order ' + receiptNumber);
+    loadQuotes();
+    loadOrders();
+  } catch (e) {
+    log('Convert quote error: ' + e.code + ' — ' + e.message);
+    toast('Could not convert quote', true);
+  }
+}
+
+async function closeBusinessDay() {
+  var msg = document.getElementById('closingMsg');
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  var dateKey = localDateKey(today);
+
+  var cashToday = 0, mpesaToday = 0, jobsDone = 0;
+  rawSales.forEach(function (r) {
+    var s = r.data;
+    if (s.archived) return;
+    var d = s.createdAt ? s.createdAt.toDate() : null;
+    if (!d || d < today) return;
+    if (s.paymentMethod === 'mpesa') mpesaToday += (typeof s.amountPaid === 'number' ? s.amountPaid : (s.amount || 0));
+    else cashToday += (typeof s.amountPaid === 'number' ? s.amountPaid : (s.amount || 0));
+  });
+  realOrders().forEach(function (r) {
+    var o = r.data;
+    if (o.productionStatus !== 'delivered') return;
+    var d = (o.updatedAt || o.createdAt) ? (o.updatedAt || o.createdAt).toDate() : null;
+    if (d && d >= today) jobsDone++;
+  });
+  var expensesToday = 0;
+  rawExpenses.forEach(function (r) {
+    if ((r.data.status || 'approved') !== 'approved') return;
+    var d = r.data.createdAt ? r.data.createdAt.toDate() : null;
+    if (d && d >= today) expensesToday += (r.data.amount || 0);
+  });
+  var revenue = cashToday + mpesaToday;
+  var profit = revenue - expensesToday;
+
+  if (!confirm('Close today\'s business day?\n\nRevenue: KSH ' + revenue.toLocaleString() + '\nExpenses: KSH ' + expensesToday.toLocaleString() + '\nProfit: KSH ' + profit.toLocaleString() + '\n\nThis saves a permanent snapshot.')) return;
+
+  try {
+    await db.collection('dailyReports').doc(dateKey).set({
+      date: dateKey,
+      revenue: revenue,
+      cash: cashToday,
+      mpesa: mpesaToday,
+      expenses: expensesToday,
+      profit: profit,
+      jobsCompleted: jobsDone,
+      closedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    log('Business day closed: ' + dateKey);
+    msg.className = 'ok'; msg.textContent = 'Day closed and saved';
+    toast('Business day closed');
+    loadRecentClosings();
+  } catch (e) {
+    log('Close day error: ' + e.code + ' — ' + e.message);
+    msg.className = 'error'; msg.textContent = 'Could not close day';
+  }
+}
+
+async function closePastDay() {
+  var msg = document.getElementById('pastCloseMsg');
+  var dateVal = document.getElementById('pastCloseDate').value;
+  if (!dateVal) { msg.className = 'error'; msg.textContent = 'Pick a date first'; return; }
+
+  var dayStart = new Date(dateVal + 'T00:00:00');
+  var dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+  var dateKey = localDateKey(dayStart);
+
+  if (dayStart >= new Date(new Date().setHours(0, 0, 0, 0))) {
+    msg.className = 'error'; msg.textContent = 'Use "Close Business Day" above for today — this is only for past days.';
+    return;
+  }
+
+  var existing = await db.collection('dailyReports').doc(dateKey).get();
+  if (existing.exists && !confirm(dateKey + ' was already closed. Overwrite its saved snapshot with freshly recalculated numbers?')) return;
+
+  var cashD = 0, mpesaD = 0, jobsD = 0, expensesD = 0;
+  rawSales.forEach(function (r) {
+    var s = r.data;
+    if (s.archived) return;
+    var d = s.createdAt ? s.createdAt.toDate() : null;
+    if (!d || d < dayStart || d >= dayEnd) return;
+    var received = typeof s.amountPaid === 'number' ? s.amountPaid : (s.amount || 0);
+    if (s.paymentMethod === 'mpesa') mpesaD += received; else cashD += received;
+  });
+  realOrders().forEach(function (r) {
+    var o = r.data;
+    if (o.productionStatus !== 'delivered') return;
+    var d = (o.updatedAt || o.createdAt) ? (o.updatedAt || o.createdAt).toDate() : null;
+    if (d && d >= dayStart && d < dayEnd) jobsD++;
+  });
+  rawExpenses.forEach(function (r) {
+    if ((r.data.status || 'approved') !== 'approved') return;
+    var d = r.data.createdAt ? r.data.createdAt.toDate() : null;
+    if (d && d >= dayStart && d < dayEnd) expensesD += (r.data.amount || 0);
+  });
+  var revenue = cashD + mpesaD;
+  var profit = revenue - expensesD;
+
+  if (!confirm('Close ' + dateKey + '?\n\nRevenue: KSH ' + revenue.toLocaleString() + '\nExpenses: KSH ' + expensesD.toLocaleString() + '\nProfit: KSH ' + profit.toLocaleString() + '\n\nNote: this is calculated from currently loaded data (most recent sales/expenses) — if that day had heavy volume beyond what\'s cached, double-check against "Show All Days" in Sales first.')) return;
+
+  try {
+    await db.collection('dailyReports').doc(dateKey).set({
+      date: dateKey,
+      revenue: revenue,
+      cash: cashD,
+      mpesa: mpesaD,
+      expenses: expensesD,
+      profit: profit,
+      jobsCompleted: jobsD,
+      closedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      closedRetroactively: true
+    });
+    log('Retroactively closed day: ' + dateKey);
+    msg.className = 'ok'; msg.textContent = dateKey + ' closed and saved';
+    toast('Closed ' + dateKey);
+    loadRecentClosings();
+  } catch (e) {
+    log('Close past day error: ' + e.code + ' — ' + e.message);
+    msg.className = 'error'; msg.textContent = 'Could not close ' + dateKey;
+  }
+}
+
+// ---------- COMMISSION SPLIT ----------
+// 30% of the day's profit is pooled among workers, split by each worker's
+// share of sales revenue generated that day. 25% goes to admin(s), same
+// weighting. Whatever's left is the owner's share.
+//
+// Expenses are NOT subtracted again per-worker here — they're already netted
+// out once at the company level to arrive at the day's profit figure being
+// split. Deducting a worker's own logged expenses a second time would punish
+// whoever happens to type in a transport receipt, even though that expense
+// is a shared business cost, not something personal to them.
+//
+// IMPORTANT: this queries Firestore directly for the specific day, rather
+// than filtering the in-memory `rawSales` cache. `rawSales` only ever holds
+// the most recent 50 sales — once a shop passes 50 sales since a given day
+// (about a week at normal volume), that day silently falls out of the cache
+// and every worker would show "sold: KSH 0" even with real revenue that day.
+// Querying Firestore fresh, scoped to the exact date, is correct regardless
+// of how much has happened since.
+async function computeCommissionSplit(dateStr, companyProfit) {
+  var dayStart = new Date(dateStr + 'T00:00:00');
+  var dayEnd = new Date(dateStr + 'T23:59:59');
+
+  var revenueByName = {};
+  var snap = await db.collection('sales')
+    .where('createdAt', '>=', dayStart)
+    .where('createdAt', '<=', dayEnd)
+    .get();
+  snap.forEach(function (doc) {
+    var s = doc.data();
+    if (s.archived) return;
+    var name = s.workerName || 'Unknown';
+    revenueByName[name] = (revenueByName[name] || 0) + (s.amount || 0);
+  });
+
+  function splitPool(names, poolAmount) {
+    var contributions = names.map(function (name) {
+      var revenue = revenueByName[name] || 0;
+      return { name: name, revenue: revenue, weight: revenue };
+    });
+    var totalWeight = contributions.reduce(function (sum, c) { return sum + c.weight; }, 0);
+    // Strictly proportional to what each person actually sold that day.
+    // If nobody in this pool sold anything, everyone's cut is 0 — no
+    // equal-split fallback. Being on the roster isn't what gets paid;
+    // recorded sales are.
+    return contributions.map(function (c) {
+      var share = totalWeight > 0 ? (c.weight / totalWeight) * poolAmount : 0;
+      return { name: c.name, revenue: c.revenue, cut: share };
+    });
+  }
+
+  var workerNames = rawActiveWorkers.filter(function (w) { return w.data.role === 'worker'; }).map(function (w) { return w.data.name; });
+  var adminNames = rawActiveWorkers.filter(function (w) { return w.data.role === 'admin'; }).map(function (w) { return w.data.name; });
+
+  var workerPool = companyProfit * 0.30;
+  var adminPool = companyProfit * 0.25;
+
+  var workers = splitPool(workerNames, workerPool);
+  var admins = splitPool(adminNames, adminPool);
+
+  // If a pool has zero contributors, nobody earns a cut of it — that money
+  // reverts to the owner rather than going unpaid to no one.
+  var workerPoolPaidOut = workers.reduce(function (sum, w) { return sum + w.cut; }, 0);
+  var adminPoolPaidOut = admins.reduce(function (sum, a) { return sum + a.cut; }, 0);
+  var ownerShare = companyProfit - workerPoolPaidOut - adminPoolPaidOut;
+
+  return {
+    workers: workers,
+    admins: admins,
+    workerPoolTotal: workerPool,
+    adminPoolTotal: adminPool,
+    ownerShare: ownerShare
+  };
+}
+
+async function toggleSplitPanel(dateStr, profit) {
+  var row = document.getElementById('splitRow-' + dateStr);
+  var panel = document.getElementById('splitPanel-' + dateStr);
+  var isHidden = row.classList.contains('hidden');
+  if (!isHidden) { row.classList.add('hidden'); return; }
+
+  panel.innerHTML = '<p style="color:#888;font-size:0.8rem">Loading real numbers for this day...</p>';
+  row.classList.remove('hidden');
+
+  var result;
+  try {
+    result = await computeCommissionSplit(dateStr, profit);
+  } catch (e) {
+    log('Commission split error: ' + e.code + ' — ' + e.message);
+    panel.innerHTML = '<p style="color:#ff4444;font-size:0.8rem">Could not load — ' + e.message + '</p>';
+    return;
+  }
+
+  var html = '<div style="font-size:0.8rem">';
+  html += '<div style="color:#888;margin-bottom:6px">Split of KSH ' + profit.toLocaleString() + ' profit for ' + dateStr + '</div>';
+
+  html += '<div style="color:#C6FF3D;font-weight:700;margin-top:6px">Workers — 30% pool (KSH ' + Math.round(result.workerPoolTotal).toLocaleString() + ')</div>';
+  if (result.workers.length === 0) { html += '<div style="color:#666">No active workers</div>'; }
+  else if (result.workers.every(function (w) { return w.revenue === 0; })) { html += '<div style="color:#666">No worker sales today — this pool reverted to owner</div>'; }
+  result.workers.forEach(function (w) {
+    html += '<div style="display:flex;justify-content:space-between;padding:2px 0"><span>' + w.name + ' <span style="color:#666">(sold: KSH ' + Math.round(w.revenue).toLocaleString() + ')</span></span><strong style="color:#C6FF3D">KSH ' + Math.round(w.cut).toLocaleString() + '</strong></div>';
+  });
+
+  html += '<div style="color:#29D3F5;font-weight:700;margin-top:8px">Admin — 25% pool (KSH ' + Math.round(result.adminPoolTotal).toLocaleString() + ')</div>';
+  if (result.admins.length === 0) { html += '<div style="color:#666">No active admins</div>'; }
+  else if (result.admins.every(function (a) { return a.revenue === 0; })) { html += '<div style="color:#666">No admin sales today — this pool reverted to owner</div>'; }
+  result.admins.forEach(function (a) {
+    html += '<div style="display:flex;justify-content:space-between;padding:2px 0"><span>' + a.name + ' <span style="color:#666">(sold: KSH ' + Math.round(a.revenue).toLocaleString() + ')</span></span><strong style="color:#29D3F5">KSH ' + Math.round(a.cut).toLocaleString() + '</strong></div>';
+  });
+
+  html += '<div style="display:flex;justify-content:space-between;margin-top:8px;padding-top:6px;border-top:1px solid #333"><span style="color:#D4AF37;font-weight:700">Owner remainder</span><strong style="color:#D4AF37">KSH ' + Math.round(result.ownerShare).toLocaleString() + '</strong></div>';
+  html += '</div>';
+
+  panel.innerHTML = html;
+}
+
+async function loadRecentClosings() {
+  var box = document.getElementById('recentClosings');
+  try {
+    var snap = await db.collection('dailyReports').orderBy('date', 'desc').limit(7).get();
+    window._dailyClosedDates = [];
+    snap.forEach(function (doc) { window._dailyClosedDates.push(doc.data().date); });
+    if (snap.empty) { box.innerHTML = '<p style="color:#888;font-size:0.8rem">No closed days yet</p>'; return; }
+
+    var reports = [];
+    snap.forEach(function (doc) { reports.push(doc.data()); });
+    reports.reverse(); // oldest to newest, left to right
+
+    var maxRevenue = Math.max.apply(null, reports.map(function (r) { return r.revenue || 0; }).concat([1]));
+
+    var barsHtml = '<div style="display:flex;align-items:flex-end;gap:8px;height:120px;margin-bottom:12px;padding:0 4px">';
+    reports.forEach(function (r) {
+      var pct = Math.max(4, Math.round(((r.revenue || 0) / maxRevenue) * 100));
+      var barColor = (r.profit || 0) < 0 ? '#f87171' : '#d4af37';
+      var shortDate = r.date ? r.date.slice(5) : '?'; // MM-DD
+      barsHtml += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%">';
+      barsHtml += '<div style="font-size:0.65rem;color:#888;margin-bottom:2px">' + (r.revenue || 0).toLocaleString() + '</div>';
+      barsHtml += '<div style="width:100%;background:' + barColor + ';border-radius:4px 4px 0 0;height:' + pct + '%"></div>';
+      barsHtml += '<div style="font-size:0.65rem;color:#666;margin-top:4px">' + shortDate + '</div>';
+      barsHtml += '</div>';
+    });
+    barsHtml += '</div>';
+
+    var html = '<table><tr><th>Date</th><th>Revenue</th><th>Expenses</th><th>Profit</th><th></th></tr>';
+    reports.slice().reverse().forEach(function (r) {
+      var safeDate = r.date;
+      html += '<tr><td>' + r.date + '</td><td>KSH ' + (r.revenue || 0).toLocaleString() + '</td><td>KSH ' + (r.expenses || 0).toLocaleString() + '</td>';
+      html += '<td style="color:' + ((r.profit || 0) < 0 ? '#f87171' : '#4ade80') + '">KSH ' + (r.profit || 0).toLocaleString() + '</td>';
+      html += '<td><button class="small secondary" onclick="toggleSplitPanel(\'' + safeDate + '\', ' + (r.profit || 0) + ')">💰 Split</button></td></tr>';
+      html += '<tr id="splitRow-' + safeDate + '" class="hidden"><td colspan="5"><div id="splitPanel-' + safeDate + '" style="padding:8px 0"></div></td></tr>';
+    });
+    html += '</table>';
+
+    box.innerHTML = barsHtml + html;
+  } catch (e) {
+    log('Load closings error: ' + e.code + ' — ' + e.message);
+  }
+}
+
+var pendingRestoreBackup = null;
+
+async function previewRestore() {
+  var fileInput = document.getElementById('restoreFile');
+  var msg = document.getElementById('restoreMsg');
+  var previewBox = document.getElementById('restorePreview');
+  var file = fileInput.files[0];
+
+  if (!file) { msg.className = 'error'; msg.textContent = 'Choose a backup file first'; return; }
+  msg.textContent = '';
+
+  try {
+    var text = await file.text();
+    var backup = JSON.parse(text);
+    if (!backup.data) throw new Error('This file does not look like a valid Elite Customs backup');
+
+    pendingRestoreBackup = backup;
+    var collections = Object.keys(backup.data);
+    var backupDate = backup.exportedAt ? new Date(backup.exportedAt).toLocaleString() : 'Unknown';
+
+    var html = '<div style="border:1px solid #d4af37;border-radius:8px;padding:12px;margin-top:10px">';
+    html += '<p style="color:#d4af37;font-weight:700;margin-bottom:8px">Backup from: ' + backupDate + '</p>';
+    collections.forEach(function (name) {
+      html += '<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #222">';
+      html += '<span style="color:#ccc">' + name + '</span><span style="color:#d4af37">' + backup.data[name].length + ' record(s)</span>';
+      html += '</div>';
+    });
+    html += '<p style="color:#f87171;font-size:0.8rem;margin-top:10px">⚠️ Confirming will overwrite any existing records with matching IDs.</p>';
+    html += '<button class="full danger" style="margin-top:8px" onclick="commitRestore()">Confirm Restore</button>';
+    html += '<button class="full secondary" style="margin-top:6px" onclick="cancelRestore()">Cancel</button>';
+    html += '</div>';
+    previewBox.innerHTML = html;
+  } catch (e) {
+    msg.className = 'error'; msg.textContent = 'Could not read file: ' + e.message;
+  }
+}
+
+function cancelRestore() {
+  pendingRestoreBackup = null;
+  document.getElementById('restorePreview').innerHTML = '';
+  document.getElementById('restoreFile').value = '';
+}
+
+async function commitRestore() {
+  var msg = document.getElementById('restoreMsg');
+  var previewBox = document.getElementById('restorePreview');
+  if (!pendingRestoreBackup) { msg.className = 'error'; msg.textContent = 'Preview expired — choose the file again'; return; }
+
+  var backup = pendingRestoreBackup;
+  var timestampFields = ['createdAt', 'updatedAt', 'closedAt'];
+  var collections = Object.keys(backup.data);
+  var restoredCounts = {};
+  var errors = [];
+  var totalDocs = collections.reduce(function (sum, name) { return sum + backup.data[name].length; }, 0);
+  var done = 0;
+
+  msg.className = 'ok'; msg.textContent = 'Restoring 0 / ' + totalDocs + '...';
+
+  for (var i = 0; i < collections.length; i++) {
+    var name = collections[i];
+    var docs = backup.data[name];
+    restoredCounts[name] = 0;
+    for (var j = 0; j < docs.length; j++) {
+      try {
+        var docCopy = Object.assign({}, docs[j]);
+        var id = docCopy.id;
+        delete docCopy.id;
+        timestampFields.forEach(function (field) {
+          if (docCopy[field] && typeof docCopy[field] === 'string') {
+            docCopy[field] = firebase.firestore.Timestamp.fromDate(new Date(docCopy[field]));
+          }
+        });
+        await db.collection(name).doc(id).set(docCopy);
+        restoredCounts[name]++;
+      } catch (e) {
+        errors.push(name + '/' + (docs[j].id || '?') + ': ' + e.message);
+      }
+      done++;
+      msg.textContent = 'Restoring ' + done + ' / ' + totalDocs + '...';
+    }
+  }
+
+  var summary = '<div style="border:1px solid #4ade80;border-radius:8px;padding:12px;margin-top:10px">';
+  summary += '<p style="color:#4ade80;font-weight:700;margin-bottom:8px">✅ Restore Complete</p>';
+  collections.forEach(function (name) {
+    summary += '<div>' + name + ' restored: ' + restoredCounts[name] + ' / ' + backup.data[name].length + '</div>';
+  });
+  if (errors.length > 0) {
+    summary += '<p style="color:#f87171;margin-top:8px">' + errors.length + ' error(s):</p>';
+    summary += '<div style="font-size:0.75rem;color:#f87171;max-height:100px;overflow-y:auto">' + errors.join('<br>') + '</div>';
+  }
+  summary += '</div>';
+  previewBox.innerHTML = summary;
+  msg.className = 'ok'; msg.textContent = 'Done — reload the page to see restored data';
+  toast('Restore complete');
+  log('Restore complete: ' + done + ' documents processed, ' + errors.length + ' error(s)');
+  pendingRestoreBackup = null;
+}
+
+async function downloadBackup() {
+  var msg = document.getElementById('backupMsg');
+  msg.className = 'ok'; msg.textContent = 'Preparing backup...';
+  try {
+    var collections = ['workers', 'sales', 'orders', 'inventory', 'products', 'expenses'];
+    var backup = { exportedAt: new Date().toISOString(), data: {} };
+
+    for (var i = 0; i < collections.length; i++) {
+      var name = collections[i];
+      var snap = await db.collection(name).get();
+      var docs = [];
+      snap.forEach(function (doc) {
+        var d = doc.data();
+        // Convert Firestore Timestamps to readable strings so the JSON is plain and portable
+        Object.keys(d).forEach(function (key) {
+          if (d[key] && typeof d[key].toDate === 'function') {
+            d[key] = d[key].toDate().toISOString();
+          }
+        });
+        docs.push({ id: doc.id, ...d });
+      });
+      backup.data[name] = docs;
+    }
+
+    var json = JSON.stringify(backup, null, 2);
+    var blob = new Blob([json], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    var dateStr = localDateKey();
+    a.href = url;
+    a.download = 'elite-customs-backup-' + dateStr + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    log('Backup downloaded: ' + collections.map(function (c) { return c + '(' + backup.data[c].length + ')'; }).join(', '));
+    msg.className = 'ok'; msg.textContent = 'Backup downloaded — save it somewhere safe (Google Drive, email to yourself)';
+    toast('Backup downloaded');
+  } catch (e) {
+    log('Backup error: ' + e.code + ' — ' + e.message);
+    msg.className = 'error'; msg.textContent = 'Backup failed: ' + e.message;
+    toast('Backup failed', true);
+  }
+}
+
+async function loadDashboard() {
+  await Promise.all([loadWorkers(), loadInventory(), loadSales(), loadOrders(), loadProducts(), loadExpenses(), loadGoal(), loadRecentClosings(), loadQuotes(), loadGallery(), loadMarketingSources(), loadPendingNotes(), loadTasks()]);
+  populateTaskAssignDropdown();
+  populateQuoteProductSelect();
+  computeExtraStats();
+  renderNotifications();
+  renderPriorityActions();
+  renderCommandCenter();
+  var lowCount = rawInventory.filter(function (inv) {
+    var i = inv.data;
+    return typeof i.qty === 'number' && typeof i.minQty === 'number' && i.qty <= i.minQty;
+  }).length;
+  if (lowCount > 0) toast('⚠️ ' + lowCount + ' item(s) low on stock — check Inventory', true);
+}
+
+function computeAlerts() {
+  var alerts = [];
+  var now = new Date();
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+
+  var lowStockCount = rawInventory.filter(function (inv) {
+    var i = inv.data;
+    return typeof i.qty === 'number' && typeof i.minQty === 'number' && i.qty <= i.minQty;
+  }).length;
+  if (lowStockCount > 0) alerts.push('📦 ' + lowStockCount + ' item(s) low on stock');
+
+  var pendingExpenses = rawExpenses.filter(function (r) { return r.data.status === 'pending'; }).length;
+  if (pendingExpenses > 0) alerts.push('💸 ' + pendingExpenses + ' expense(s) awaiting your approval');
+
+  var overdueOrders = realOrders().filter(function (r) {
+    var o = r.data;
+    if (o.overallStatus === 'completed_settled') return false;
+    var d = o.createdAt ? o.createdAt.toDate() : null;
+    if (!d) return false;
+    var hoursSince = (now - d) / (1000 * 60 * 60);
+    return hoursSince > 48;
+  }).length;
+  if (overdueOrders > 0) alerts.push('⏰ ' + overdueOrders + ' order(s) untouched for 2+ days');
+
+  if (window._dailyClosedDates && window._dailyClosedDates.indexOf(localDateKey(today)) === -1 && now.getHours() >= 20) {
+    alerts.push('📋 Daily closing not done yet — consider closing today\'s business day');
+  }
+  return alerts;
+}
+
+function computeTodaysCustomers() {
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  var seenBeforeToday = {};
+  realOrders().forEach(function (r) {
+    var o = r.data;
+    var d = o.createdAt ? o.createdAt.toDate() : null;
+    var key = o.phone ? normalizePhone(o.phone) : null;
+    if (key && d && d < today) seenBeforeToday[key] = true;
+  });
+  rawSales.forEach(function (r) {
+    var s = r.data;
+    var d = s.createdAt ? s.createdAt.toDate() : null;
+    var key = s.phone ? normalizePhone(s.phone) : null;
+    if (key && d && d < today) seenBeforeToday[key] = true;
+  });
+  var todaysCustomers = {}; // key -> { status: 'new'|'returning', name }
+  function markToday(phone, name, createdAt) {
+    var d = createdAt ? createdAt.toDate() : null;
+    if (!phone || !d || d < today) return;
+    var key = normalizePhone(phone);
+    if (key.length < 3) return;
+    todaysCustomers[key] = { status: seenBeforeToday[key] ? 'returning' : 'new', name: name || 'Walk-in' };
+  }
+  realOrders().forEach(function (r) { markToday(r.data.phone, r.data.customerName, r.data.createdAt); });
+  rawSales.forEach(function (r) { markToday(r.data.phone, r.data.customerName, r.data.createdAt); });
+  var list = Object.values(todaysCustomers);
+  return {
+    newCustomers: list.filter(function (c) { return c.status === 'new'; }),
+    returningCustomers: list.filter(function (c) { return c.status === 'returning'; })
+  };
+}
+
+// Rule-based priority actions — no scoring, no weighting, just the explicit rules below,
+// evaluated red first, then yellow, then green, capped to the top 5 overall.
+function computePriorityActions() {
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  var now = new Date();
+  var red = [], yellow = [], green = [];
+
+  // RED: any customer owing money
+  var recv = computeReceivablesData();
+  recv.owing.forEach(function (a) {
+    red.push({ text: '🔴 Collect KSH ' + a.balance.toLocaleString() + ' from ' + text(a.name), phone: a.phone, name: a.name });
+  });
+
+  // RED: any order untouched for 2+ days
+  var untouched = realOrders().filter(function (r) {
+    var o = normalizeOrder(r.data);
+    if (o.overallStatus === 'completed_settled') return false;
+    var d = o.createdAt ? o.createdAt.toDate() : null;
+    return d && (now - d) / (1000 * 60 * 60) > 48;
+  }).length;
+  if (untouched > 0) red.push({ text: '🔴 Follow up ' + untouched + ' untouched order(s)', orderIdForSearch: null });
+
+  // RED: any stock below minimum
+  rawInventory.forEach(function (inv) {
+    var i = inv.data;
+    if (typeof i.qty === 'number' && typeof i.minQty === 'number' && i.qty <= i.minQty) {
+      red.push({ text: '🔴 Restock ' + text(i.name) + ' (' + i.qty + ' left, min ' + i.minQty + ')' });
+    }
+  });
+
+  // RED: any order with deposit = 0 and value above KSH 1,000
+  realOrders().forEach(function (r) {
+    var o = normalizeOrder(r.data);
+    if (o.overallStatus === 'completed_settled') return;
+    if ((o.amountPaid || 0) === 0 && o.total > 1000) {
+      red.push({
+        text: '🔴 No deposit yet on ' + (o.receiptNumber || 'order') + ' — ' + text(o.customerName) + ' (KSH ' + o.total.toLocaleString() + ')',
+        phone: o.phone, name: o.customerName, orderIdForSearch: o.receiptNumber || r.id
+      });
+    }
+  });
+
+  // YELLOW: orders still in "New"
+  realOrders().forEach(function (r) {
+    var o = normalizeOrder(r.data);
+    if (o.productionStatus === 'new') {
+      yellow.push({ text: '🟡 Move ' + (o.receiptNumber || 'order') + ' out of New', orderIdForSearch: o.receiptNumber || r.id });
+    }
+  });
+
+  // YELLOW: goal not yet reached today
+  var cashD = 0, mpesaD = 0;
+  rawSales.forEach(function (r) {
+    var s = r.data;
+    if (s.archived) return;
+    var d = s.createdAt ? s.createdAt.toDate() : null;
+    if (!d || d < today) return;
+    var received = typeof s.amountPaid === 'number' ? s.amountPaid : (s.amount || 0);
+    if (s.paymentMethod === 'mpesa') mpesaD += received; else cashD += received;
+  });
+  var revenueD = cashD + mpesaD;
+  if (revenueD < dailyGoal) {
+    yellow.push({ text: '🟡 Today\'s goal not yet reached (KSH ' + revenueD.toLocaleString() + ' / ' + dailyGoal.toLocaleString() + ')' });
+  }
+
+  // YELLOW: customers not contacted after quote (quote sent but not yet converted)
+  rawQuotes.forEach(function (r) {
+    var q = r.data;
+    if (q.status === 'sent') {
+      yellow.push({ text: '🟡 Follow up on quote for ' + text(q.customerName), phone: q.phone, name: q.customerName });
+    }
+  });
+
+  // GREEN: goal achieved
+  if (revenueD >= dailyGoal) green.push({ text: '🟢 Today\'s goal achieved (KSH ' + revenueD.toLocaleString() + ')' });
+
+  // GREEN: new / repeat customer today
+  var custData = computeTodaysCustomers();
+  if (custData.newCustomers.length > 0) {
+    green.push({ text: '🟢 ' + custData.newCustomers.length + ' new customer(s) today' });
+  }
+  if (custData.returningCustomers.length > 0) {
+    green.push({ text: '🟢 ' + custData.returningCustomers.length + ' repeat customer(s) today' });
+  }
+
+  // GREEN: high-profit day (profit positive so far today)
+  var expensesD = 0;
+  rawExpenses.forEach(function (r) {
+    if ((r.data.status || 'approved') !== 'approved') return;
+    var d = r.data.createdAt ? r.data.createdAt.toDate() : null;
+    if (d && d >= today) expensesD += (r.data.amount || 0);
+  });
+  var profitD = revenueD - expensesD;
+  if (profitD > 0) green.push({ text: '🟢 Profitable day so far (KSH ' + profitD.toLocaleString() + ' profit)' });
+
+  // GREEN: orders delivered today
+  var deliveredToday = realOrders().filter(function (r) {
+    var o = normalizeOrder(r.data);
+    if (o.productionStatus !== 'delivered') return false;
+    var d = (r.data.updatedAt || r.data.createdAt) ? (r.data.updatedAt || r.data.createdAt).toDate() : null;
+    return d && d >= today;
+  }).length;
+  if (deliveredToday > 0) green.push({ text: '🟢 ' + deliveredToday + ' order(s) delivered today' });
+
+  return red.concat(yellow).concat(green).slice(0, 5);
+}
+
+function jumpToOrder(searchTerm) {
+  if (privacyMode && !revealedSections['orders']) revealedSections['orders'] = true;
+  document.getElementById('orderTestFilter').value = '';
+  document.getElementById('orderStatusFilter').value = '';
+  ordersShowAll = true;
+  document.getElementById('orderSearch').value = searchTerm;
+  renderOrders();
+  var ordersCard = document.getElementById('allOrders');
+  if (ordersCard) ordersCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function renderPriorityActions() {
+  var box = document.getElementById('priorityActionsBox');
+  if (!box) return;
+  if (privacyGate('priorityActions', box, 'Top Actions', 'renderPriorityActions')) return;
+
+  var actions = computePriorityActions();
+  if (actions.length === 0) {
+    box.innerHTML = '<p style="color:#4ade80;font-size:0.9rem">✓ Nothing urgent — all clear</p>';
+    return;
+  }
+  box.innerHTML = actions.map(function (a) {
+    var html = '<div style="padding:8px 10px;background:#151515;border-radius:6px;margin-bottom:6px;font-size:0.9rem">' + a.text;
+    var buttons = '';
+    var digits = a.phone ? normalizePhone(a.phone) : '';
+    if (digits.length >= 9) {
+      var waText = 'Hello ' + (a.name || '') + ', this is Elite Customs following up.';
+      buttons += '<a href="https://wa.me/254' + digits + '?text=' + encodeURIComponent(waText) + '" target="_blank" style="display:inline-block;margin-top:6px;margin-right:6px;padding:4px 10px;border-radius:6px;background:#25D366;color:#000;text-decoration:none;font-size:0.72rem;font-weight:600">💬 WhatsApp</a>';
+      buttons += '<a href="tel:+254' + digits + '" style="display:inline-block;margin-top:6px;margin-right:6px;padding:4px 10px;border-radius:6px;background:#333;color:#fff;text-decoration:none;font-size:0.72rem;font-weight:600">📞 Call</a>';
+    }
+    if (a.orderIdForSearch) {
+      buttons += '<button class="small secondary" style="margin-top:6px;width:auto" onclick="jumpToOrder(\'' + a.orderIdForSearch.replace(/'/g, "\\'") + '\')">📍 Open Order</button>';
+    }
+    if (buttons) html += '<div>' + buttons + '</div>';
+    html += '</div>';
+    return html;
+  }).join('');
+}
+
+function renderCommandCenter() {
+  var box = document.getElementById('commandCenterBox');
+  if (!box) return;
+  if (privacyGate('commandCenter', box, 'Command Center', 'renderCommandCenter')) return;
+
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  var section = function (title, rows) {
+    return '<div style="margin-bottom:14px"><div style="color:#d4af37;font-size:0.8rem;font-weight:700;margin-bottom:6px">' + title + '</div>' + rows + '</div>';
+  };
+  var row = function (label, value, color) {
+    return '<div style="display:flex;justify-content:space-between;font-size:0.85rem;padding:3px 0"><span style="color:#aaa">' + label + '</span><span style="font-weight:700' + (color ? ';color:' + color : '') + '">' + value + '</span></div>';
+  };
+
+  // --- Today: money ---
+  var cashD = 0, mpesaD = 0, expensesD = 0;
+  rawSales.forEach(function (r) {
+    var s = r.data;
+    if (s.archived) return;
+    var d = s.createdAt ? s.createdAt.toDate() : null;
+    if (!d || d < today) return;
+    var received = typeof s.amountPaid === 'number' ? s.amountPaid : (s.amount || 0);
+    if (s.paymentMethod === 'mpesa') mpesaD += received; else cashD += received;
+  });
+  rawExpenses.forEach(function (r) {
+    if ((r.data.status || 'approved') !== 'approved') return;
+    var d = r.data.createdAt ? r.data.createdAt.toDate() : null;
+    if (d && d >= today) expensesD += (r.data.amount || 0);
+  });
+  var revenueD = cashD + mpesaD;
+  var profitD = revenueD - expensesD;
+  var todayHtml = row('Revenue', 'KSH ' + revenueD.toLocaleString()) +
+    row('Profit', 'KSH ' + profitD.toLocaleString(), profitD < 0 ? '#f87171' : '#4ade80') +
+    row('Cash', 'KSH ' + cashD.toLocaleString()) +
+    row('M-PESA', 'KSH ' + mpesaD.toLocaleString());
+
+  // --- Orders by production stage ---
+  var stageCounts = {};
+  PRODUCTION_STAGES.forEach(function (s) { stageCounts[s] = 0; });
+  realOrders().forEach(function (r) { var o = normalizeOrder(r.data); stageCounts[o.productionStatus] = (stageCounts[o.productionStatus] || 0) + 1; });
+  var ordersHtml = PRODUCTION_STAGES.map(function (s) { return row(PRODUCTION_LABELS[s], stageCounts[s]); }).join('');
+
+  // --- Money: debt ---
+  var recv = computeReceivablesData();
+  var collectedToday = cashD + mpesaD;
+  var largestDebtor = recv.owing.length ? recv.owing[0] : null;
+  var moneyHtml = row('Outstanding Debt', 'KSH ' + recv.totalOutstanding.toLocaleString(), '#f87171') +
+    row('Collected Today', 'KSH ' + collectedToday.toLocaleString(), '#4ade80') +
+    row('Largest Debtor', largestDebtor ? (text(largestDebtor.name) + ' (KSH ' + largestDebtor.balance.toLocaleString() + ')') : 'None');
+
+  // --- Production: jobs ---
+  var jobsWaiting = realOrders().filter(function (r) { return normalizeOrder(r.data).productionStatus !== 'delivered'; }).length;
+  var untouched48h = realOrders().filter(function (r) {
+    var o = normalizeOrder(r.data);
+    if (o.overallStatus === 'completed_settled') return false;
+    var d = o.createdAt ? o.createdAt.toDate() : null;
+    if (!d) return false;
+    return (new Date() - d) / (1000 * 60 * 60) > 48;
+  }).length;
+  var productionHtml = row('Jobs Waiting', jobsWaiting) + row('Untouched 2+ Days', untouched48h, untouched48h > 0 ? '#facc15' : null);
+
+  // --- Inventory ---
+  var lowStockItems = rawInventory.filter(function (inv) {
+    var i = inv.data;
+    return typeof i.qty === 'number' && typeof i.minQty === 'number' && i.qty <= i.minQty;
+  });
+  var inventoryValue = 0;
+  rawProducts.forEach(function (r) {
+    var p = r.data;
+    var inv = rawInventory.find(function (i) { return i.id === p.linkedInventoryItemId; });
+    if (inv && typeof p.costPrice === 'number' && p.costPrice > 0) inventoryValue += (inv.data.qty || 0) * p.costPrice;
+  });
+  var inventoryHtml = row('Items Running Low', lowStockItems.length, lowStockItems.length > 0 ? '#f87171' : '#4ade80') +
+    row('Estimated Inventory Value', 'KSH ' + Math.round(inventoryValue).toLocaleString());
+
+  // --- Customers: new vs returning today ---
+  var custData = computeTodaysCustomers();
+  var newCount = custData.newCustomers.length;
+  var returningCount = custData.returningCustomers.length;
+  var customersHtml = row('New Customers', newCount) + row('Returning Customers', returningCount);
+
+  // --- Alerts ---
+  var alerts = computeAlerts();
+  var alertsHtml = alerts.length
+    ? alerts.map(function (a) { return '<div style="font-size:0.8rem;color:#facc15;padding:3px 0">' + a + '</div>'; }).join('')
+    : '<div style="font-size:0.8rem;color:#4ade80">✓ Nothing needs attention</div>';
+
+  box.innerHTML =
+    section('TODAY', todayHtml) +
+    section('ORDERS', ordersHtml) +
+    section('MONEY', moneyHtml) +
+    section('PRODUCTION', productionHtml) +
+    section('INVENTORY', inventoryHtml) +
+    section('CUSTOMERS', customersHtml) +
+    section('ALERTS', alertsHtml);
+}
+
+function renderNotifications() {
+  var box = document.getElementById('notificationsBox');
+  if (!box) return;
+  if (privacyGate('notifications', box, 'Notifications', 'renderNotifications')) return;
+  var alerts = computeAlerts();
+
+  if (alerts.length === 0) {
+    box.innerHTML = '<p style="color:#4ade80;font-size:0.85rem">✓ No alerts — everything looks fine</p>';
+  } else {
+    box.innerHTML = alerts.map(function (a) {
+      return '<div style="padding:8px 10px;background:#1a1508;border-left:3px solid #facc15;border-radius:4px;margin-bottom:6px;font-size:0.85rem;color:#facc15">' + a + '</div>';
+    }).join('');
+  }
+}
+
+async function loadGoal() {
+  try {
+    var doc = await db.collection('settings').doc('general').get();
+    dailyGoal = (doc.exists && doc.data().dailyGoal) ? doc.data().dailyGoal : 1500;
+    document.getElementById('goalInput').value = dailyGoal;
+  } catch (e) {
+    log('Goal load error: ' + e.code + ' — ' + e.message);
+  }
+}
+
+async function saveGoal() {
+  var val = parseFloat(document.getElementById('goalInput').value) || 0;
+  var msg = document.getElementById('goalMsg');
+  if (val <= 0) { msg.className = 'error'; msg.textContent = 'Enter a valid target'; return; }
+  try {
+    await db.collection('settings').doc('general').set({ dailyGoal: val }, { merge: true });
+    dailyGoal = val;
+    log('Daily goal set to KSH ' + val);
+    msg.className = 'ok'; msg.textContent = 'Saved';
+    computeExtraStats();
+  } catch (e) {
+    log('Save goal error: ' + e.code + ' — ' + e.message);
+    msg.className = 'error'; msg.textContent = 'Could not save target';
+  }
+}
+
+function renderGoalProgress(revenueToday) {
+  var box = document.getElementById('goalProgress');
+  var pct = dailyGoal > 0 ? Math.min(100, Math.round((revenueToday / dailyGoal) * 100)) : 0;
+  var barColor = pct >= 100 ? '#4ade80' : '#d4af37';
+  box.innerHTML = '<div style="background:#0f0f0f;border-radius:8px;height:22px;overflow:hidden;border:1px solid #333">' +
+    '<div style="background:' + barColor + ';height:100%;width:' + pct + '%;transition:width .3s"></div></div>' +
+    '<div style="display:flex;justify-content:space-between;margin-top:6px;font-size:0.8rem;color:#ccc">' +
+    '<span>' + pct + '%</span><span>KSH ' + revenueToday.toLocaleString() + ' / ' + dailyGoal.toLocaleString() + '</span></div>';
+}
+
+function computeExtraStats() {
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+
+  var lowStockItems = rawInventory.filter(function (inv) {
+    var i = inv.data;
+    return typeof i.qty === 'number' && typeof i.minQty === 'number' && i.qty <= i.minQty;
+  });
+  document.getElementById('stLowStock').textContent = lowStockItems.length;
+  renderRestockAlerts(lowStockItems);
+
+  var cashToday = 0, mpesaToday = 0, retailToday = 0, wholesaleToday = 0;
+  rawSales.forEach(function (r) {
+    var s = r.data;
+    if (s.archived) return;
+    var d = s.createdAt ? s.createdAt.toDate() : null;
+    if (!d || d < today) return;
+    var received = typeof s.amountPaid === 'number' ? s.amountPaid : (s.amount || 0);
+    if (s.paymentMethod === 'mpesa') mpesaToday += received;
+    else cashToday += received;
+    if (s.items && s.items.length) {
+      s.items.forEach(function (it) {
+        if (it.priceTier === 'wholesale') wholesaleToday += it.lineTotal || 0;
+        else if (it.priceTier === 'retail') retailToday += it.lineTotal || 0;
+      });
+    } else if (s.priceTier === 'wholesale') wholesaleToday += (s.amount || 0);
+    else if (s.priceTier === 'retail') retailToday += (s.amount || 0);
+  });
+  document.getElementById('stCash').textContent = cashToday.toLocaleString();
+  document.getElementById('stMpesa').textContent = mpesaToday.toLocaleString();
+
+  var breakdown = document.getElementById('paymentBreakdown');
+  if (breakdown) {
+    var breakdownHtml = '<div style="display:flex;gap:16px;flex-wrap:wrap">' +
+      '<div><span style="color:#888;font-size:0.75rem">CASH</span><br><strong style="color:#d4af37">KSH ' + cashToday.toLocaleString() + '</strong></div>' +
+      '<div><span style="color:#888;font-size:0.75rem">M-PESA</span><br><strong style="color:#d4af37">KSH ' + mpesaToday.toLocaleString() + '</strong></div>';
+    if (retailToday > 0 || wholesaleToday > 0) {
+      breakdownHtml += '<div><span style="color:#888;font-size:0.75rem">RETAIL</span><br><strong style="color:#38bdf8">KSH ' + retailToday.toLocaleString() + '</strong></div>' +
+        '<div><span style="color:#888;font-size:0.75rem">WHOLESALE</span><br><strong style="color:#38bdf8">KSH ' + wholesaleToday.toLocaleString() + '</strong></div>';
+    }
+    breakdownHtml += '</div>';
+    breakdown.innerHTML = breakdownHtml;
+  }
+
+  var jobsDone = 0;
+  realOrders().forEach(function (r) {
+    var o = r.data;
+    if (o.productionStatus !== 'delivered') return;
+    var d = (o.updatedAt || o.createdAt) ? (o.updatedAt || o.createdAt).toDate() : null;
+    if (d && d >= today) jobsDone++;
+  });
+  document.getElementById('stJobs').textContent = jobsDone;
+
+  var revenueToday = cashToday + mpesaToday;
+  renderGoalProgress(revenueToday);
+
+  var expensesToday = 0;
+  rawExpenses.forEach(function (r) {
+    if ((r.data.status || 'approved') !== 'approved') return;
+    var d = r.data.createdAt ? r.data.createdAt.toDate() : null;
+    if (d && d >= today) expensesToday += (r.data.amount || 0);
+  });
+  var profitToday = revenueToday - expensesToday;
+  var profitEl = document.getElementById('stProfit');
+  profitEl.textContent = profitToday.toLocaleString();
+  profitEl.style.color = profitToday < 0 ? '#f87171' : '#d4af37';
+
+  renderLeaderboard();
+  updateStatVisibility();
+  renderPriorityActions();
+  renderCommandCenter();
+}
+
+function renderRestockAlerts(lowStockItems) {
+  var box = document.getElementById('restockList');
+  if (!lowStockItems || lowStockItems.length === 0) {
+    box.innerHTML = '<p style="color:#4ade80;font-size:0.85rem">✓ All stock levels healthy</p>';
+    return;
+  }
+  var html = '';
+  lowStockItems.forEach(function (inv) {
+    var i = inv.data;
+    html += '<div style="border:1px solid #7f1d1d;background:#1a0f0f;border-radius:8px;padding:10px;margin-bottom:8px">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center">';
+    html += '<strong style="color:#f87171">🔴 ' + text(i.name) + '</strong>';
+    html += '<span style="color:#f87171;font-size:0.75rem;font-weight:700">⚠ RESTOCK NEEDED</span>';
+    html += '</div>';
+    html += '<div style="display:flex;gap:20px;margin-top:6px;font-size:0.8rem;color:#ccc">';
+    html += '<div>Current: <strong>' + text(i.qty, 0) + '</strong></div>';
+    html += '<div>Minimum: <strong>' + text(i.minQty, 0) + '</strong></div>';
+    html += '</div></div>';
+  });
+  box.innerHTML = html;
+}
+
+function renderLeaderboard() {
+  var box = document.getElementById('leaderboardBox');
+  var totals = {};
+  rawSales.forEach(function (r) {
+    var s = r.data;
+    if (s.archived) return;
+    var name = s.workerName || 'Unknown';
+    if (!totals[name]) totals[name] = { count: 0, revenue: 0, highest: 0, lastDate: null };
+    totals[name].count++;
+    totals[name].revenue += (s.amount || 0);
+    if ((s.amount || 0) > totals[name].highest) totals[name].highest = s.amount || 0;
+    var d = s.createdAt ? s.createdAt.toDate() : null;
+    if (d && (!totals[name].lastDate || d > totals[name].lastDate)) totals[name].lastDate = d;
+  });
+
+  var expensesByWorker = {};
+  rawExpenses.forEach(function (r) {
+    var e = r.data;
+    if (e.status === 'pending' || !e.loggedBy) return;
+    expensesByWorker[e.loggedBy] = (expensesByWorker[e.loggedBy] || 0) + (e.amount || 0);
+  });
+
+  var list = Object.keys(totals).map(function (name) {
+    var t = totals[name];
+    return {
+      name: name, count: t.count, revenue: t.revenue, highest: t.highest,
+      average: t.count > 0 ? Math.round(t.revenue / t.count) : 0,
+      lastActivity: t.lastDate,
+      expensesLogged: expensesByWorker[name] || 0
+    };
+  }).sort(function (a, b) { return b.revenue - a.revenue; });
+
+  if (list.length === 0) { box.innerHTML = '<p style="color:#888">No sales recorded yet</p>'; return; }
+
+  var medals = ['🥇', '🥈', '🥉'];
+  var html = '';
+  list.forEach(function (w, idx) {
+    var medal = medals[idx] || '　';
+    html += '<div style="padding:10px 0;border-bottom:1px solid #222">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center">';
+    html += '<strong>' + medal + ' ' + w.name + '</strong>';
+    html += '<span style="color:#d4af37;font-weight:700">KSH ' + w.revenue.toLocaleString() + '</span>';
+    html += '</div>';
+    html += '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:4px;font-size:0.72rem;color:#888">';
+    html += '<span>' + w.count + ' sale' + (w.count === 1 ? '' : 's') + '</span>';
+    html += '<span>Avg: KSH ' + w.average.toLocaleString() + '</span>';
+    html += '<span>High: KSH ' + w.highest.toLocaleString() + '</span>';
+    if (w.expensesLogged > 0) html += '<span>Expenses: KSH ' + w.expensesLogged.toLocaleString() + '</span>';
+    if (w.lastActivity) html += '<span>Last: ' + w.lastActivity.toLocaleString() + '</span>';
+    html += '</div></div>';
+  });
+  box.innerHTML = html;
+
+  renderProductRevenue();
+  renderCustomerHistory();
+}
+
+function renderProductRevenue() {
+  var box = document.getElementById('productRevenueBox');
+  if (privacyGate('productRevenue', box, 'Product Revenue', 'renderProductRevenue')) return;
+  var totals = {};
+  function addRevenue(name, units, revenue) {
+    if (!name) return;
+    if (!totals[name]) totals[name] = { count: 0, unitsSold: 0, revenue: 0 };
+    totals[name].count++;
+    totals[name].unitsSold += units;
+    totals[name].revenue += revenue;
+  }
+  rawSales.forEach(function (r) {
+    var s = r.data;
+    if (s.archived) return;
+    if (s.items && s.items.length) {
+      s.items.forEach(function (it) {
+        if (it.custom) return; // no linked product to attribute revenue to
+        addRevenue(it.name, it.qty, it.lineTotal);
+      });
+    } else if (s.productName) {
+      addRevenue(s.productName, s.quantitySold || 1, s.amount || 0);
+    }
+  });
+  var list = Object.keys(totals).map(function (name) {
+    return { name: name, count: totals[name].count, unitsSold: totals[name].unitsSold, revenue: totals[name].revenue };
+  }).sort(function (a, b) { return b.revenue - a.revenue; });
+
+  if (list.length === 0) { box.innerHTML = '<p style="color:#888">No catalog sales recorded yet</p>'; return; }
+
+  var html = '<table><tr><th>Product</th><th>Units</th><th>Sales</th><th>Revenue</th></tr>';
+  list.forEach(function (p) {
+    html += '<tr><td>' + p.name + '</td><td>' + p.unitsSold + '</td><td>' + p.count + '</td><td style="color:#d4af37;font-weight:700">KSH ' + p.revenue.toLocaleString() + '</td></tr>';
+  });
+  html += '</table>';
+  box.innerHTML = html;
+}
+
+function renderCustomerHistory() {
+  var box = document.getElementById('customerHistoryBox');
+  if (privacyGate('customerHistory', box, 'Customer History', 'renderCustomerHistory')) return;
+  var q = (document.getElementById('customerSearch').value || '').toLowerCase();
+  var totals = {};
+
+  function getEntry(key, name, phone) {
+    if (!totals[key]) totals[key] = { name: name || 'Unknown', phone: phone || '—', orders: [], sales: [], totalSpent: 0, lastVisit: null, itemCounts: {} };
+    return totals[key];
+  }
+
+  realOrders().forEach(function (r) {
+    var o = r.data;
+    var key = o.phoneKey || normalizePhone(o.phone || '') || o.customerName || 'unknown';
+    var entry = getEntry(key, o.customerName, o.phone);
+    var d = o.createdAt ? o.createdAt.toDate() : null;
+    var itemLabel = (o.items && o.items.length) ? o.items.map(function (it) { return it.name; }).join(', ') : o.itemType;
+    entry.orders.push({ item: itemLabel, date: d, artworkUrl: o.artworkUrl || null, artworkFilename: o.artworkFilename || null });
+    if (o.customerName) entry.name = o.customerName;
+    (o.items || []).forEach(function (it) { entry.itemCounts[it.name] = (entry.itemCounts[it.name] || 0) + 1; });
+    if (!o.items && o.itemType) entry.itemCounts[o.itemType] = (entry.itemCounts[o.itemType] || 0) + 1;
+    if (d && (!entry.lastVisit || d > entry.lastVisit)) entry.lastVisit = d;
+  });
+
+  rawSales.forEach(function (r) {
+    var s = r.data;
+    if (s.archived || !s.phoneKey) return; // only sales with a phone can be matched to a customer
+    var entry = getEntry(s.phoneKey, s.customerName, s.phone);
+    var d = s.createdAt ? s.createdAt.toDate() : null;
+    entry.sales.push({ amount: s.amount, date: d });
+    entry.totalSpent += (s.amount || 0);
+    if (d && (!entry.lastVisit || d > entry.lastVisit)) entry.lastVisit = d;
+  });
+
+  var list = Object.keys(totals).map(function (key) { return totals[key]; })
+    .filter(function (c) {
+      if (!q) return true;
+      var qDigits = normalizePhone(q);
+      var phoneMatches = qDigits.length >= 3 && normalizePhone(c.phone).includes(qDigits);
+      return c.name.toLowerCase().includes(q) || phoneMatches;
+    })
+    .sort(function (a, b) { return (b.orders.length + b.sales.length) - (a.orders.length + a.sales.length); });
+
+  if (list.length === 0) { box.innerHTML = '<p style="color:#888">No customers yet</p>'; return; }
+
+  var html2 = '';
+  list.forEach(function (c) {
+    var visitCount = c.orders.length + c.sales.length;
+    var isRepeat = visitCount > 1;
+    var mostOrdered = Object.keys(c.itemCounts).sort(function (a, b) { return c.itemCounts[b] - c.itemCounts[a]; })[0];
+
+    html2 += '<div style="padding:10px;background:#0f0f0f;border-radius:8px;margin-bottom:8px">';
+    html2 += '<div style="display:flex;justify-content:space-between;align-items:center">';
+    html2 += '<strong>' + c.name + '</strong>' + (isRepeat ? ' <span class="badge paid">⭐ repeat</span>' : '');
+    html2 += '<span style="color:#888;font-size:0.8rem">' + c.orders.length + ' order' + (c.orders.length === 1 ? '' : 's') + '</span>';
+    html2 += '</div>';
+    html2 += '<div style="color:#666;font-size:0.75rem;margin-top:2px">' + c.phone + '</div>';
+    if (c.totalSpent > 0) {
+      html2 += '<div style="margin-top:6px;color:#d4af37;font-weight:700">Total Spent: KSH ' + c.totalSpent.toLocaleString() + '</div>';
+    }
+    if (c.lastVisit) {
+      html2 += '<div style="color:#888;font-size:0.75rem">Last visit: ' + c.lastVisit.toLocaleDateString() + '</div>';
+    }
+    if (mostOrdered) {
+      html2 += '<div style="color:#888;font-size:0.75rem">Most ordered: ' + mostOrdered + '</div>';
+    }
+    var pastArtwork = c.orders.filter(function (o) { return o.artworkUrl; });
+    if (pastArtwork.length > 0) {
+      html2 += '<div style="color:#8A8A93;font-size:0.72rem;margin-top:6px">Past designs:</div>';
+      html2 += '<div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap">';
+      pastArtwork.forEach(function (o) {
+        html2 += '<a href="' + o.artworkUrl + '" target="_blank" title="' + (o.artworkFilename || '') + '">';
+        html2 += '<img src="' + o.artworkUrl + '" style="width:44px;height:44px;object-fit:cover;border-radius:6px;border:1px solid #FF2E63">';
+        html2 += '</a>';
+      });
+      html2 += '</div>';
+    }
+    html2 += '</div>';
+  });
+  box.innerHTML = html2;
+}
+
+// ---------- WORKERS ----------
+async function loadWorkers() {
+  var box = document.getElementById('workersList');
+  try {
+    var snap = await db.collection('workers').get();
+    var active = [];
+    var archived = [];
+    snap.forEach(function (doc) {
+      var w = doc.data();
+      if (w.archived) archived.push({ id: doc.id, data: w });
+      else active.push({ id: doc.id, data: w });
+    });
+    rawArchivedWorkers = archived;
+    rawActiveWorkers = active;
+    document.getElementById('stWorkers').textContent = active.length;
+    if (active.length === 0) { box.innerHTML = '<p style="color:#888">No workers</p>'; return; }
+
+    // detect duplicates by name+role (same person, separate doc IDs)
+    var seen = {};
+    active.forEach(function (r) {
+      var key = (r.data.name || '') + '|' + (r.data.role || '');
+      seen[key] = (seen[key] || 0) + 1;
+      r.key = key;
+    });
+
+    var html = '<table><tr><th>Name</th><th>Role</th><th>Status</th><th></th></tr>';
+    active.forEach(function (r) {
+      var w = r.data;
+      var status = w.active !== false ? '<span class="badge paid">Active</span>' : '<span class="badge">Inactive</span>';
+      var dupeBadge = seen[r.key] > 1 ? '<span class="badge dupe">duplicate</span>' : '';
+      html += '<tr><td>' + text(w.name) + ' ' + dupeBadge + '</td><td>' + text(w.role) + '</td><td>' + status + '</td>';
+      html += '<td>' + (currentUserRole === 'owner' ? '<button class="small danger" onclick="archiveWorker(\'' + r.id + '\',\'' + (w.name || '').replace(/'/g, "\\'") + '\')">Archive</button> <button class="small danger" onclick="deleteWorker(\'' + r.id + '\',\'' + (w.name || '').replace(/'/g, "\\'") + '\')">Delete</button>' : '') + '</td></tr>';
+    });
+    html += '</table>';
+    box.innerHTML = html;
+  } catch (e) {
+    log('Workers error: ' + e.code + ' — ' + e.message);
+    box.innerHTML = '<p style="color:#ff4444">Could not load workers</p>';
+  }
+}
+
+function toggleArchivedWorkers() {
+  var box = document.getElementById('archivedWorkersList');
+  if (!box.innerHTML) {
+    if (rawArchivedWorkers.length === 0) { box.innerHTML = '<p style="color:#888;margin-top:8px">No archived workers</p>'; return; }
+    var html = '<table style="margin-top:8px"><tr><th>Name</th><th>Role</th><th></th></tr>';
+    rawArchivedWorkers.forEach(function (r) {
+      html += '<tr><td>' + text(r.data.name) + '</td><td>' + text(r.data.role) + '</td>';
+      html += '<td>' + (currentUserRole === 'owner' ? '<button class="small" onclick="restoreWorker(\'' + r.id + '\')">Restore</button> <button class="small danger" onclick="deleteWorker(\'' + r.id + '\',\'' + (r.data.name || '').replace(/'/g, "\\'") + '\')">Delete</button>' : '') + '</td></tr>';
+    });
+    html += '</table>';
+    box.innerHTML = html;
+  } else {
+    box.innerHTML = '';
+  }
+}
+
+async function archiveWorker(id, name) {
+  if (!confirm('Archive worker "' + name + '"? This removes their access. Past sales stay intact and this can be undone.')) return;
+  try {
+    await db.collection('workers').doc(id).update({ archived: true });
+    log('Archived worker doc ' + id);
+    toast('Worker archived');
+    loadWorkers();
+  } catch (e) {
+    log('Archive worker error: ' + e.code + ' — ' + e.message);
+    toast('Could not archive worker', true);
+  }
+}
+
+async function restoreWorker(id) {
+  try {
+    await db.collection('workers').doc(id).update({ archived: false });
+    log('Restored worker doc ' + id);
+    toast('Worker restored');
+    document.getElementById('archivedWorkersList').innerHTML = '';
+    loadWorkers();
+  } catch (e) {
+    log('Restore worker error: ' + e.code + ' — ' + e.message);
+    toast('Could not restore worker', true);
+  }
+}
+
+// Permanently removes the worker's profile document (owner-only). Note: this does NOT
+// delete their Firebase Auth login — that requires the Admin SDK — but without a profile
+// doc they can no longer sign into worker.html or admin.html. Past sales/expenses keep
+// their own stored workerName, so historical records are unaffected.
+async function deleteWorker(id, name) {
+  if (!confirm('Permanently delete worker "' + name + '"\'s profile? This cannot be undone. Their past sales and expenses stay on record, but they will no longer be able to sign in.')) return;
+  try {
+    await db.collection('workers').doc(id).delete();
+    log('Deleted worker doc ' + id);
+    toast('Worker profile deleted');
+    document.getElementById('archivedWorkersList').innerHTML = '';
+    loadWorkers();
+  } catch (e) {
+    log('Delete worker error: ' + e.code + ' — ' + e.message);
+    toast(e.code === 'permission-denied' ? 'Only the owner account can delete a worker profile' : 'Could not delete worker', true);
+  }
+}
+
+// ---------- INVENTORY ----------
+async function loadInventory() {
+  var box = document.getElementById('inventoryList');
+  try {
+    var snap = await db.collection('inventory').orderBy('name').get();
+    rawInventory = [];
+    snap.forEach(function (doc) { rawInventory.push({ id: doc.id, data: doc.data() }); });
+    if (snap.empty) { box.innerHTML = '<p style="color:#888">No inventory items yet</p>'; return; }
+    var html = '<table><tr><th>Item</th><th>Qty</th><th></th></tr>';
+    snap.forEach(function (doc) {
+      var i = doc.data();
+      var low = typeof i.qty === 'number' && typeof i.minQty === 'number' && i.qty <= i.minQty;
+      html += '<tr><td>' + text(i.name) + (low ? ' <span class="badge pending">low</span>' : '') + '</td>';
+      html += '<td>' + text(i.qty, 0) + '</td>';
+      html += '<td class="row-actions">';
+      html += '<button class="small" onclick="adjustInventory(\'' + doc.id + '\',1)">+1</button>';
+      html += '<button class="small" onclick="adjustInventory(\'' + doc.id + '\',-1)">-1</button>';
+      html += '<button class="small danger" onclick="deleteInventoryItem(\'' + doc.id + '\')">Del</button>';
+      html += '</td></tr>';
+    });
+    html += '</table>';
+    box.innerHTML = html;
+
+    var linkSelect = document.getElementById('prodInventoryLink');
+    if (linkSelect) {
+      var current = linkSelect.value;
+      linkSelect.innerHTML = '<option value="">Link to inventory item...</option>';
+      rawInventory.forEach(function (inv) {
+        linkSelect.innerHTML += '<option value="' + inv.id + '">' + text(inv.data.name) + '</option>';
+      });
+      linkSelect.value = current;
+    }
+  } catch (e) {
+    log('Inventory error: ' + e.code + ' — ' + e.message);
+    box.innerHTML = '<p style="color:#ff4444">Could not load inventory</p>';
+  }
+}
+
+async function addInventoryItem() {
+  var name = document.getElementById('invName').value.trim();
+  var qty = parseInt(document.getElementById('invQty').value) || 0;
+  var minQty = parseInt(document.getElementById('invMin').value) || 0;
+  var msg = document.getElementById('invMsg');
+  if (!name) { msg.className = 'error'; msg.textContent = 'Enter an item name'; return; }
+  var duplicate = rawInventory.some(function (inv) { return (inv.data.name || '').trim().toLowerCase() === name.toLowerCase(); });
+  if (duplicate) { msg.className = 'error'; msg.textContent = '⚠️ An inventory item with this name already exists'; return; }
+  try {
+    await db.collection('inventory').add({ name: name, qty: qty, minQty: minQty, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+    log('Inventory item added: ' + name);
+    document.getElementById('invName').value = '';
+    document.getElementById('invQty').value = '';
+    document.getElementById('invMin').value = '';
+    msg.className = 'ok'; msg.textContent = 'Added';
+    loadInventory();
+    computeExtraStats();
+  } catch (e) {
+    log('Add inventory error: ' + e.code + ' — ' + e.message);
+    msg.className = 'error'; msg.textContent = 'Could not add item';
+  }
+}
+
+async function adjustInventory(id, delta) {
+  try {
+    await db.collection('inventory').doc(id).update({ qty: firebase.firestore.FieldValue.increment(delta) });
+    loadInventory();
+    computeExtraStats();
+  } catch (e) {
+    log('Adjust inventory error: ' + e.code + ' — ' + e.message);
+    toast('Could not update stock', true);
+  }
+}
+
+async function deleteInventoryItem(id) {
+  if (!confirm('Remove this inventory item?')) return;
+  try {
+    await db.collection('inventory').doc(id).delete();
+    loadInventory();
+    computeExtraStats();
+  } catch (e) {
+    log('Delete inventory error: ' + e.code + ' — ' + e.message);
+    toast('Could not delete item', true);
+  }
+}
+
+// ---------- SALES ----------
+async function loadSales() {
+  try {
+    var snap = await db.collection('sales').orderBy('createdAt', 'desc').limit(1000).get();
+    rawSales = [];
+    snap.forEach(function (doc) { rawSales.push({ id: doc.id, data: doc.data() }); });
+    renderSales();
+    renderReceivables();
+  } catch (e) {
+    log('Sales error: ' + e.code + ' — ' + e.message);
+    document.getElementById('allSales').innerHTML = '<p style="color:#ff4444">Could not load sales</p>';
+  }
+}
+
+function renderSales() {
+  var box = document.getElementById('allSales');
+  var q = (document.getElementById('saleSearch').value || '').toLowerCase();
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  var todayCount = 0, todayTotal = 0;
+
+  var visible = rawSales.filter(function (r) { return !r.data.archived; });
+
+  var filtered = visible.filter(function (r) {
+    var s = r.data;
+    if (!salesShowAll && !q) {
+      var sd = s.createdAt ? s.createdAt.toDate() : null;
+      if (!isToday(sd)) return false;
+    }
+    if (!q) return true;
+    return (s.customerName || '').toLowerCase().includes(q) || (s.workerName || '').toLowerCase().includes(q);
+  });
+
+  visible.forEach(function (r) {
+    var s = r.data;
+    var d = s.createdAt ? s.createdAt.toDate() : null;
+    if (d && d >= today) { todayCount++; todayTotal += (s.amount || 0); }
+  });
+  document.getElementById('stSales').textContent = todayCount;
+  document.getElementById('stRevenue').textContent = todayTotal.toLocaleString();
+  updateStatVisibility();
+  if (privacyGate('sales', box, 'Recent Sales', 'renderSales')) return;
+
+  var hiddenSalesCount = (!salesShowAll && !q) ? visible.filter(function (r) { return !isToday(r.data.createdAt ? r.data.createdAt.toDate() : null); }).length : 0;
+  var salesScopeNote = hiddenSalesCount > 0 ? '<p style="color:#666;font-size:0.75rem;margin-bottom:8px">Showing today only — ' + hiddenSalesCount + ' sale(s) from earlier days are hidden. Search or tap "Show All Days" to see them.</p>' : '';
+  if (filtered.length === 0) { box.innerHTML = salesScopeNote + '<p style="color:#888">No matching sales' + (hiddenSalesCount > 0 ? ' today' : '') + '</p>'; return; }
+  var html = '<table><tr><th>Amount</th><th>Customer</th><th>Payment</th><th>Worker</th><th>Time</th><th></th></tr>';
+  filtered.forEach(function (r) {
+    var s = r.data;
+    var d = s.createdAt ? s.createdAt.toDate().toLocaleString() : '—';
+    var diffNote = '';
+    var referenceTotal = typeof s.cartTotal === 'number' ? s.cartTotal : s.catalogTotal;
+    if (typeof referenceTotal === 'number' && referenceTotal !== s.amount) {
+      var diff = referenceTotal - s.amount;
+      diffNote = diff > 0
+        ? '<br><span style="color:#facc15;font-size:0.7rem">discount KSH ' + diff.toLocaleString() + '</span>'
+        : '<br><span style="color:#4ade80;font-size:0.7rem">+KSH ' + Math.abs(diff).toLocaleString() + ' above catalog</span>';
+    }
+    var itemsBadge;
+    if (s.items && s.items.length) {
+      itemsBadge = '<br><span style="color:#888;font-size:0.72rem">' + s.items.map(function (it) {
+        var t = it.priceTier === 'wholesale' ? ' (Wholesale)' : it.priceTier === 'retail' ? ' (Retail)' : '';
+        return it.qty + '×' + text(it.name) + t;
+      }).join(', ') + '</span>';
+    } else {
+      var tierBadge = s.priceTier === 'wholesale' ? ' <span style="color:#38bdf8;font-size:0.7rem">(Wholesale)</span>' : s.priceTier === 'retail' ? ' <span style="color:#888;font-size:0.7rem">(Retail)</span>' : '';
+      itemsBadge = s.productName ? '<br><span style="color:#888;font-size:0.72rem">' + (s.quantitySold || 1) + '×' + text(s.productName) + '</span>' + tierBadge : tierBadge;
+    }
+    var total = typeof s.totalAmount === 'number' ? s.totalAmount : (s.amount || 0);
+    var paid = typeof s.amountPaid === 'number' ? s.amountPaid : total;
+    var bal = typeof s.balance === 'number' ? s.balance : (total - paid);
+    var payStatus = s.paymentStatus || (bal <= 0 ? 'paid' : (paid > 0 ? 'partial' : 'unpaid'));
+    var payColor = payStatus === 'paid' ? '#4ade80' : payStatus === 'partial' ? '#fbbf24' : '#f87171';
+    var payLabel = payStatus === 'paid' ? 'Fully Paid' : payStatus === 'partial' ? 'Partially Paid' : 'Unpaid';
+
+    html += '<tr><td><strong>KSH ' + (s.amount || 0).toLocaleString() + '</strong>' + itemsBadge + diffNote + '</td><td>' + text(s.customerName, 'Walk-in') + '</td>';
+    html += '<td><span style="color:' + payColor + ';font-weight:700;font-size:0.8rem">' + payLabel + '</span>' + (bal > 0 ? '<br><span style="color:#f87171;font-size:0.72rem">KSH ' + bal.toLocaleString() + ' owed</span>' : '') + '</td>';
+    html += '<td>' + text(s.workerName, 'Unknown worker') + '</td><td style="color:#666;font-size:0.75rem">' + d + '</td>';
+    html += '<td><button class="small danger" onclick="archiveSale(\'' + r.id + '\')">Archive</button>' + (currentUserRole === 'owner' ? ' <button class="small danger" onclick="deleteSale(\'' + r.id + '\')">Delete</button>' : '') + '</td></tr>';
+  });
+  html += '</table>';
+  box.innerHTML = salesScopeNote + html;
+}
+
+function toggleArchivedSales() {
+  var box = document.getElementById('archivedSalesList');
+  if (box.dataset.open === 'true') {
+    box.innerHTML = '';
+    box.dataset.open = 'false';
+    return;
+  }
+  var archived = rawSales.filter(function (r) { return r.data.archived; });
+  if (archived.length === 0) { box.innerHTML = '<p style="color:#888;margin-top:8px">No archived sales</p>'; box.dataset.open = 'true'; return; }
+  var html = '<table style="margin-top:8px"><tr><th>Amount</th><th>Customer</th><th></th></tr>';
+  archived.forEach(function (r) {
+    html += '<tr><td>KSH ' + (r.data.amount || 0).toLocaleString() + '</td><td>' + text(r.data.customerName, 'Walk-in') + '</td>';
+    html += '<td><button class="small" onclick="restoreSale(\'' + r.id + '\')">Restore</button>' + (currentUserRole === 'owner' ? ' <button class="small danger" onclick="deleteSale(\'' + r.id + '\')">Delete</button>' : '') + '</td></tr>';
+  });
+  html += '</table>';
+  box.innerHTML = html;
+  box.dataset.open = 'true';
+}
+
+async function archiveSale(id) {
+  if (!confirm('Archive this sale? It will be removed from totals but can be restored later.')) return;
+  try {
+    await db.collection('sales').doc(id).update({ archived: true });
+    log('Archived sale ' + id);
+    toast('Sale archived');
+    var found = rawSales.find(function (r) { return r.id === id; });
+    if (found) found.data.archived = true;
+    var box = document.getElementById('archivedSalesList');
+    box.innerHTML = ''; box.dataset.open = 'false';
+    renderSales();
+    computeExtraStats();
+  } catch (e) {
+    log('Archive sale error: ' + e.code + ' — ' + e.message);
+    toast('Could not archive sale', true);
+  }
+}
+
+async function deleteSale(id) {
+  if (!confirm('Permanently delete this sale record? This cannot be undone and will NOT restore any deducted stock.')) return;
+  try {
+    await db.collection('sales').doc(id).delete();
+    rawSales = rawSales.filter(function (r) { return r.id !== id; });
+    log('Deleted sale ' + id);
+    toast('Sale deleted');
+    var box = document.getElementById('archivedSalesList');
+    box.innerHTML = ''; box.dataset.open = 'false';
+    renderSales();
+    computeExtraStats();
+    renderReceivables();
+  } catch (e) {
+    log('Delete sale error: ' + e.code + ' — ' + e.message);
+    toast(e.code === 'permission-denied' ? 'Only the owner account can delete sales' : 'Could not delete sale', true);
+  }
+}
+
+async function restoreSale(id) {
+  try {
+    await db.collection('sales').doc(id).update({ archived: false });
+    log('Restored sale ' + id);
+    toast('Sale restored');
+    var found = rawSales.find(function (r) { return r.id === id; });
+    if (found) found.data.archived = false;
+    var box = document.getElementById('archivedSalesList');
+    box.innerHTML = ''; box.dataset.open = 'false';
+    renderSales();
+    computeExtraStats();
+  } catch (e) {
+    log('Restore sale error: ' + e.code + ' — ' + e.message);
+    toast(e.code === 'permission-denied' ? 'You don\'t have permission to restore this sale' : 'Could not restore sale', true);
+  }
+}
+
+// ---------- ORDERS ----------
+async function loadOrders() {
+  try {
+    var snap = await db.collection('orders').orderBy('createdAt', 'desc').limit(500).get();
+    rawOrders = [];
+    snap.forEach(function (doc) { rawOrders.push({ id: doc.id, data: doc.data() }); });
+    renderOrders();
+  } catch (e) {
+    log('Orders error: ' + e.code + ' — ' + e.message);
+    document.getElementById('allOrders').innerHTML = '<p style="color:#ff4444">Could not load orders</p>';
+  }
+}
+
+var PRODUCTION_STAGES = ['new', 'designing', 'printing', 'finishing', 'ready', 'delivered'];
+var PRODUCTION_LABELS = { new: 'New', designing: 'Designing', printing: 'Printing', finishing: 'Finishing', ready: 'Ready for Pickup', delivered: 'Delivered' };
+var PAYMENT_LABELS = { unpaid: 'Unpaid', partial: 'Partially Paid', paid: 'Fully Paid' };
+
+// Legacy orders (pre line-items) may still have itemType/quantity/status/totalAmount.
+// This normalizes any order doc into the current shape so old and new orders both render.
+function normalizeOrder(o) {
+  if (!o.items) {
+    o.items = o.itemType ? [{ productId: null, name: o.itemType, qty: o.quantity || 1, unitPrice: o.totalAmount || 0, lineTotal: o.totalAmount || 0, custom: true }] : [];
+  }
+  if (typeof o.total !== 'number') o.total = o.totalAmount || 0;
+  if (typeof o.amountPaid !== 'number') o.amountPaid = 0;
+  if (typeof o.balance !== 'number') o.balance = o.total - o.amountPaid;
+  if (!o.paymentStatus) o.paymentStatus = o.balance <= 0 && o.total > 0 ? 'paid' : (o.amountPaid > 0 ? 'partial' : 'unpaid');
+  if (!o.productionStatus) {
+    var legacyMap = { pending: 'new', designing: 'designing', printing: 'printing', 'in-progress': 'printing', ready: 'ready', completed: 'delivered' };
+    o.productionStatus = legacyMap[o.status] || 'new';
+  }
+  if (!o.overallStatus) o.overallStatus = (o.productionStatus === 'delivered' && o.paymentStatus === 'paid') ? 'completed_settled' : 'open';
+  return o;
+}
+
+function itemsSummary(items) {
+  return items.map(function (it) { return it.qty + '× ' + it.name; }).join(', ') || '—';
+}
+
+function buildNotifyButton(o) {
+  if (!o.phone) return '';
+  var digits = normalizePhone(o.phone);
+  if (digits.length < 9) return '';
+  var waNumber = '254' + digits;
+  var statusText = {
+    'new': 'received and pending — we\'ll confirm details shortly',
+    'designing': 'now being designed',
+    'printing': 'currently printing',
+    'finishing': 'in finishing touches',
+    'ready': 'ready for pickup at Elite Customs, RNG Plaza',
+    'delivered': 'delivered — thank you for choosing Elite Customs'
+  }[o.productionStatus] || 'being processed';
+  var receipt = o.receiptNumber || '';
+  var messageText = 'Hello ' + (o.customerName || '') + ' 👋, your Elite Customs order' + (receipt ? ' ' + receipt : '') + ' for ' + itemsSummary(o.items) + ' is ' + statusText + '.';
+  var url = 'https://wa.me/' + waNumber + '?text=' + encodeURIComponent(messageText);
+  return '<a href="' + url + '" target="_blank" class="small secondary" style="display:inline-block;margin-top:4px;padding:5px 10px;border-radius:8px;border:1px solid #d4af37;color:#d4af37;text-decoration:none;font-size:0.75rem">📲 Notify</a>';
+}
+
+// ---------- PRODUCTION CHECKLISTS ----------
+// Real steps, given directly by the owner — not invented. Only "frosted"
+// items have a defined process so far; other product types show no checklist
+// until their real steps are documented the same way.
+var PRODUCTION_CHECKLISTS = {
+  frosted: [
+    'Understand the vision — what they want, how it\'ll look on their device',
+    'Design source — existing artwork picked, or custom (design + advise)',
+    'Deposit collected',
+    'Design finalized (if custom)',
+    'Print',
+    'Laminate',
+    'Trim',
+    'Install',
+    'Customer approval — final look',
+    'Balance payment',
+    'Delivered'
+  ]
+};
+
+function checklistTemplateFor(items) {
+  if (!items || !items.length) return null;
+  var isFrosted = items.some(function (it) { return /frosted/i.test(it.name || ''); });
+  return isFrosted ? 'frosted' : null;
+}
+
+function toggleChecklistPanel(orderId) {
+  var el = document.getElementById('checklistPanel-' + orderId);
+  if (el) el.classList.toggle('hidden');
+}
+
+function renderChecklistPanel(orderId, o) {
+  var templateKey = checklistTemplateFor(o.items);
+  var steps = PRODUCTION_CHECKLISTS[templateKey];
+  var saved = o.checklist || [];
+  var html = '<div id="checklistPanel-' + orderId + '" class="hidden" style="margin-top:6px;padding:8px;background:#151515;border-radius:6px">';
+  steps.forEach(function (label, i) {
+    var checked = saved[i] && saved[i].done;
+    html += '<label style="display:flex;align-items:flex-start;gap:6px;font-size:0.75rem;color:' + (checked ? '#4ade80' : '#ccc') + ';margin-bottom:6px;cursor:pointer">';
+    html += '<input type="checkbox" style="width:auto;margin:2px 0 0" ' + (checked ? 'checked' : '') + ' onchange="toggleChecklistStep(\'' + orderId + '\', ' + i + ', this.checked)">';
+    html += '<span>' + label + '</span></label>';
+  });
+  html += '</div>';
+  return html;
+}
+
+async function toggleChecklistStep(orderId, stepIndex, isDone) {
+  var found = rawOrders.find(function (r) { return r.id === orderId; });
+  if (!found) return;
+  var templateKey = checklistTemplateFor(found.data.items);
+  var steps = PRODUCTION_CHECKLISTS[templateKey];
+  var checklist = found.data.checklist || steps.map(function () { return { done: false }; });
+  checklist[stepIndex] = { done: isDone };
+  try {
+    await db.collection('orders').doc(orderId).update({ checklist: checklist });
+    found.data.checklist = checklist;
+    log('Checklist step ' + stepIndex + ' for order ' + orderId + ': ' + isDone);
+  } catch (e) {
+    log('Checklist update error: ' + e.code + ' — ' + e.message);
+    toast('Could not save checklist', true);
+  }
+}
+
+function renderOrders() {
+  var box = document.getElementById('allOrders');
+  var q = (document.getElementById('orderSearch').value || '').toLowerCase();
+  var statusFilter = document.getElementById('orderStatusFilter').value;
+  var pending = 0;
+
+  realOrders().forEach(function (r) { normalizeOrder(r.data); if (r.data.productionStatus === 'new') pending++; });
+  document.getElementById('stOrders').textContent = pending;
+  if (privacyGate('orders', box, 'Orders', 'renderOrders')) return;
+
+  var filtered = rawOrders.filter(function (r) {
+    var o = r.data;
+    if (statusFilter && o.productionStatus !== statusFilter) return false;
+    var testFilter = document.getElementById('orderTestFilter').value;
+    if (testFilter === 'hide' && o.isTestData) return false;
+    if (testFilter === 'only' && !o.isTestData) return false;
+    if (!ordersShowAll && !q) {
+      var od = o.createdAt ? o.createdAt.toDate() : null;
+      if (!isToday(od)) return false;
+    }
+    if (!q) return true;
+    var qDigits = normalizePhone(q);
+    var phoneMatches = qDigits.length >= 3 && normalizePhone(o.phone || '').includes(qDigits);
+    var receiptMatches = (o.receiptNumber || '').toLowerCase().includes(q);
+    return (o.customerName || '').toLowerCase().includes(q) || itemsSummary(o.items).toLowerCase().includes(q) || phoneMatches || receiptMatches;
+  });
+
+  var hiddenCount = (!ordersShowAll && !q) ? rawOrders.filter(function (r) { return !isToday(r.data.createdAt ? r.data.createdAt.toDate() : null); }).length : 0;
+  var scopeNote = hiddenCount > 0 ? '<p style="color:#666;font-size:0.75rem;margin-bottom:8px">Showing today only — ' + hiddenCount + ' order(s) from earlier days are hidden. Search or tap "Show All Days" to see them.</p>' : '';
+  if (filtered.length === 0) { box.innerHTML = scopeNote + '<p style="color:#888">No matching orders' + (hiddenCount > 0 ? ' today' : '') + '</p>'; return; }
+  var html = '<table><tr><th>Customer</th><th>Items</th><th>Production</th><th>Payment</th><th>Time</th></tr>';
+  filtered.forEach(function (r) {
+    var o = r.data;
+    var pStatus = o.productionStatus;
+    var statusClass = pStatus === 'new' ? 'badge pending' : pStatus === 'delivered' ? 'badge paid' : pStatus === 'ready' ? 'badge ready' : 'badge progress';
+    var d = o.createdAt ? o.createdAt.toDate().toLocaleString() : '—';
+
+    html += '<tr><td>' + (o.receiptNumber ? '<strong style="color:#d4af37">' + o.receiptNumber + '</strong><br>' : '') + text(o.customerName) + '<br><span style="color:#666;font-size:0.75rem">' + text(o.phone) + '</span>';
+    if (o.isTestData) html += '<br><span style="color:#fbbf24;font-size:0.7rem">🧪 Test data</span>';
+    if (o.overallStatus === 'completed_settled') html += '<br><span style="color:#4ade80;font-size:0.7rem">✅ Completed & Settled</span>';
+    html += '<div style="margin-top:4px"><button class="small secondary" onclick="toggleTestData(\'' + r.id + '\',' + (!o.isTestData) + ')">' + (o.isTestData ? 'Unmark Test' : 'Mark as Test') + '</button> ';
+    if (currentUserRole === 'owner') html += '<button class="small danger" onclick="deleteOrder(\'' + r.id + '\')">Delete</button>';
+    html += '</div>';
+    html += '</td>';
+
+    html += '<td style="font-size:0.8rem">';
+    o.items.forEach(function (it) {
+      html += '<div>' + it.qty + '× ' + text(it.name) + (it.priceTier === 'wholesale' ? ' <span style="color:#38bdf8;font-size:0.7rem">(bulk)</span>' : '') + (it.custom && !it.unitPrice ? ' <span style="color:#888">(price TBD)</span>' : ' — KSH ' + it.lineTotal.toLocaleString()) + '</div>';
+    });
+    if (o.artworkUrl) {
+      html += '<a href="' + o.artworkUrl + '" target="_blank" style="display:inline-block;margin-top:6px">';
+      html += '<img src="' + o.artworkUrl + '" style="width:48px;height:48px;object-fit:cover;border-radius:6px;border:1px solid #FF2E63" title="' + text(o.artworkFilename || 'artwork') + '">';
+      html += '</a><br><span style="color:#666;font-size:0.68rem">📎 ' + text(o.artworkFilename || 'artwork') + '</span>';
+    }
+    html += '</td>';
+
+    html += '<td><span class="' + statusClass + '">' + PRODUCTION_LABELS[pStatus] + '</span><br>';
+    html += '<select class="status-select" onchange="updateProductionStatus(\'' + r.id + '\', this.value)">';
+    PRODUCTION_STAGES.forEach(function (s) {
+      html += '<option value="' + s + '"' + (s === pStatus ? ' selected' : '') + '>' + PRODUCTION_LABELS[s] + '</option>';
+    });
+    html += '</select>';
+    html += buildNotifyButton(o);
+    if (checklistTemplateFor(o.items)) {
+      html += '<button class="small secondary" style="margin-top:4px" onclick="toggleChecklistPanel(\'' + r.id + '\')">📋 Checklist</button>';
+      html += renderChecklistPanel(r.id, o);
+    }
+    html += '</td><td>';
+
+    var payBadgeColor = o.paymentStatus === 'paid' ? '#4ade80' : o.paymentStatus === 'partial' ? '#fbbf24' : '#f87171';
+    html += '<div style="font-size:0.75rem">Total: KSH ' + o.total.toLocaleString() + '</div>';
+    html += '<div style="font-size:0.75rem;color:#4ade80">Paid: KSH ' + o.amountPaid.toLocaleString() + '</div>';
+    html += '<div style="font-size:0.75rem;font-weight:700;color:' + payBadgeColor + '">' + PAYMENT_LABELS[o.paymentStatus] + (o.balance > 0 ? ' (KSH ' + o.balance.toLocaleString() + ' owed)' : '') + '</div>';
+    if (o.paymentHistory && o.paymentHistory.length) {
+      html += '<div style="font-size:0.68rem;color:#888;margin-top:2px">' + o.paymentHistory.map(function (h) {
+        var hd = h.recordedAt ? new Date(h.recordedAt).toLocaleDateString() : '';
+        return 'KSH ' + h.amount.toLocaleString() + ' (' + hd + (h.recordedBy ? ', ' + h.recordedBy : '') + ')';
+      }).join(' · ') + '</div>';
+    }
+
+    var hasUnpriced = o.items.some(function (it) { return it.custom && !it.unitPrice; });
+    html += '<button class="small secondary" style="margin-top:4px" onclick="togglePaymentPanel(\'' + r.id + '\')">' + (hasUnpriced ? 'Set Prices / ' : '') + 'Receive Payment</button>';
+    html += '<div id="paymentPanel-' + r.id + '" class="hidden" style="margin-top:6px;padding:8px;background:#151515;border-radius:6px">';
+    if (hasUnpriced) {
+      html += '<div style="color:#fbbf24;font-size:0.72rem;margin-bottom:6px">Some items need a price before totals are accurate:</div>';
+      o.items.forEach(function (it, idx) {
+        if (it.custom && !it.unitPrice) {
+          html += '<label style="color:#888;font-size:0.72rem">' + text(it.name) + ' — unit price (KSH)</label>';
+          html += '<input type="number" id="itemPrice-' + r.id + '-' + idx + '" min="0" style="margin-bottom:6px">';
+        }
+      });
+      html += '<button class="small" onclick="saveItemPrices(\'' + r.id + '\')">Save Prices</button><hr style="border:none;border-top:1px solid #333;margin:8px 0">';
+    }
+    html += '<label style="color:#888;font-size:0.72rem">Record a payment (KSH)</label>';
+    html += '<input type="number" id="paymentInput-' + r.id + '" min="0" style="margin-bottom:6px">';
+    html += '<button class="small" onclick="receivePayment(\'' + r.id + '\')">Receive Payment</button>';
+    if (currentUserRole === 'owner') {
+      html += '<hr style="border:none;border-top:1px solid #333;margin:8px 0">';
+      html += '<label style="color:#f87171;font-size:0.72rem">Correct total paid (owner only — fixes mistakes, doesn\'t add a new payment)</label>';
+      html += '<input type="number" id="correctInput-' + r.id + '" min="0" placeholder="Correct amount paid should be...">';
+      html += '<button class="small danger" onclick="correctPayment(\'' + r.id + '\')">Apply Correction</button>';
+    }
+    html += '</div></td>';
+    html += '<td style="color:#666;font-size:0.75rem">' + d + '</td></tr>';
+  });
+  html += '</table>';
+  box.innerHTML = scopeNote + html;
+  renderReceivables();
+}
+
+// ---------- TEST DATA MANAGEMENT ----------
+async function toggleTestData(orderId, markAsTest) {
+  try {
+    await db.collection('orders').doc(orderId).update({ isTestData: markAsTest });
+    var found = rawOrders.find(function (r) { return r.id === orderId; });
+    if (found) found.data.isTestData = markAsTest;
+    log('Order ' + orderId + (markAsTest ? ' marked as test data' : ' unmarked as test data'));
+    toast(markAsTest ? 'Marked as test data' : 'Unmarked as test data');
+    renderOrders();
+  } catch (e) {
+    log('Toggle test data error: ' + e.code + ' — ' + e.message);
+    toast('Could not update', true);
+  }
+}
+
+async function deleteOrder(orderId) {
+  if (!confirm('Permanently delete this order? This cannot be undone and will NOT restore any deducted stock.')) return;
+  try {
+    await db.collection('orders').doc(orderId).delete();
+    rawOrders = rawOrders.filter(function (r) { return r.id !== orderId; });
+    log('Deleted order ' + orderId);
+    toast('Order deleted');
+    renderOrders();
+    computeExtraStats();
+  } catch (e) {
+    log('Delete order error: ' + e.code + ' — ' + e.message);
+    toast(e.code === 'permission-denied' ? 'Only the owner account can delete orders' : 'Could not delete order', true);
+  }
+}
+
+function toggleBulkTestActions() {
+  var box = document.getElementById('bulkTestActions');
+  if (box) box.classList.toggle('hidden');
+}
+
+async function bulkDeleteTestOrders() {
+  var testOrders = rawOrders.filter(function (r) { return r.data.isTestData; });
+  if (testOrders.length === 0) { toast('No orders are marked as test data', true); return; }
+  if (!confirm('Permanently delete ' + testOrders.length + ' order(s) marked as test data? This cannot be undone.')) return;
+  try {
+    var batch = db.batch();
+    testOrders.forEach(function (r) { batch.delete(db.collection('orders').doc(r.id)); });
+    await batch.commit();
+    var deletedIds = testOrders.map(function (r) { return r.id; });
+    rawOrders = rawOrders.filter(function (r) { return deletedIds.indexOf(r.id) === -1; });
+    log('Bulk-deleted ' + testOrders.length + ' test order(s)');
+    toast(testOrders.length + ' test order(s) deleted');
+    renderOrders();
+    computeExtraStats();
+  } catch (e) {
+    log('Bulk delete error: ' + e.code + ' — ' + e.message);
+    toast(e.code === 'permission-denied' ? 'Only the owner account can bulk-delete orders' : 'Bulk delete failed', true);
+  }
+}
+
+// ---------- PRODUCTS ----------
+async function loadProducts() {
+  var box = document.getElementById('productsList');
+  try {
+    var snap = await db.collection('products').orderBy('name').get();
+    rawProducts = [];
+    snap.forEach(function (doc) { rawProducts.push({ id: doc.id, data: doc.data() }); });
+    if (rawProducts.length === 0) { box.innerHTML = '<p style="color:#888">No products yet — add your first below</p>'; return; }
+    var html = '<table><tr><th>Product</th><th>Retail</th><th>Wholesale</th><th>Value</th><th></th></tr>';
+    rawProducts.forEach(function (r) {
+      var p = r.data;
+      var linkedInv = rawInventory.find(function (inv) { return inv.id === p.linkedInventoryItemId; });
+      var qty = linkedInv ? (linkedInv.data.qty || 0) : 0;
+      var hasCost = typeof p.costPrice === 'number' && p.costPrice > 0;
+
+      var mediaBadge = (p.imageUrl ? ' 📷' : '') + (p.videoUrl ? ' 🎥' : '');
+      html += '<tr><td>' + text(p.name) + mediaBadge + '<br><span style="color:#888;font-size:0.72rem">' + text(p.category) + (linkedInv ? ' · linked: ' + text(linkedInv.data.name) : ' · ⚠️ no stock link') + (hasCost ? '' : ' · ⚠️ no cost price') + '</span></td>';
+      html += '<td>KSH ' + text(p.retailPrice, 0) + '</td><td>KSH ' + text(p.wholesalePrice, 0) + '</td>';
+      if (linkedInv && hasCost) {
+        var invValue = qty * p.costPrice;
+        var expectedRevenue = qty * p.retailPrice;
+        var expectedProfit = expectedRevenue - invValue;
+        html += '<td style="font-size:0.75rem"><div>Stock cost: KSH ' + invValue.toLocaleString(undefined, { maximumFractionDigits: 0 }) + '</div><div style="color:#4ade80">Potential profit: KSH ' + expectedProfit.toLocaleString(undefined, { maximumFractionDigits: 0 }) + '</div></td>';
+      } else {
+        html += '<td style="color:#666;font-size:0.75rem">—</td>';
+      }
+      html += '<td class="row-actions">';
+      html += '<button class="small secondary" onclick="toggleLinkPanel(\'' + r.id + '\')">Link Stock</button>';
+      html += '<button class="small secondary" onclick="togglePricePanel(\'' + r.id + '\')">Edit Price</button>';
+      html += '<button class="small danger" onclick="deleteProduct(\'' + r.id + '\')">Del</button>';
+      html += '</td></tr>';
+
+      html += '<tr id="linkRow-' + r.id + '" class="hidden"><td colspan="5" style="padding:8px;background:#151515">';
+      html += '<select id="linkSelect-' + r.id + '" style="margin-bottom:6px">';
+      html += '<option value="">No stock link</option>';
+      rawInventory.forEach(function (inv) {
+        html += '<option value="' + inv.id + '"' + (inv.id === p.linkedInventoryItemId ? ' selected' : '') + '>' + text(inv.data.name) + '</option>';
+      });
+      html += '</select>';
+      html += '<button class="small" onclick="saveProductLink(\'' + r.id + '\')">Save Link</button>';
+      html += '</td></tr>';
+
+      html += '<tr id="priceRow-' + r.id + '" class="hidden"><td colspan="5" style="padding:8px;background:#151515">';
+      html += '<label style="color:#888;font-size:0.72rem">Retail</label><input type="number" id="editRetail-' + r.id + '" value="' + text(p.retailPrice, 0) + '" style="margin-bottom:6px">';
+      html += '<label style="color:#888;font-size:0.72rem">Wholesale</label><input type="number" id="editWholesale-' + r.id + '" value="' + text(p.wholesalePrice, 0) + '" style="margin-bottom:6px">';
+      html += '<label style="color:#888;font-size:0.72rem">Cost (what it costs you)</label><input type="number" id="editCost-' + r.id + '" value="' + (p.costPrice || 0) + '" style="margin-bottom:6px">';
+      html += '<label style="color:#888;font-size:0.72rem">Wholesale minimum qty</label><input type="number" id="editWholesaleMin-' + r.id + '" value="' + (p.wholesaleMinQty || 0) + '" style="margin-bottom:6px">';
+      html += '<label style="color:#888;font-size:0.72rem">Product photo (optional)</label>';
+      html += '<input type="file" accept="image/*" onchange="uploadProductPhoto(this, \'editImageUrl-' + r.id + '\')" style="margin-bottom:2px">';
+      html += '<p id="editImageUrl-' + r.id + 'Status" style="font-size:0.7rem;color:#888;margin:0 0 4px"></p>';
+      html += '<input type="text" id="editImageUrl-' + r.id + '" value="' + (p.imageUrl || '') + '" placeholder="https://... (auto-fills after upload)" style="margin-bottom:6px">';
+      html += '<label style="color:#888;font-size:0.72rem">Video URL (optional — shown to customers)</label><input type="text" id="editVideoUrl-' + r.id + '" value="' + (p.videoUrl || '') + '" placeholder="https://..." style="margin-bottom:6px">';
+      html += '<button class="small" onclick="saveProductPrices(\'' + r.id + '\')">Save Prices</button>';
+      html += '</td></tr>';
+    });
+    html += '</table>';
+    box.innerHTML = html;
+  } catch (e) {
+    log('Products error: ' + e.code + ' — ' + e.message);
+    box.innerHTML = '<p style="color:#ff4444">Could not load products</p>';
+  }
+}
+
+async function addProduct() {
+  var name = document.getElementById('prodName').value.trim();
+  var category = document.getElementById('prodCategory').value.trim();
+  var retailPrice = parseFloat(document.getElementById('prodRetail').value) || 0;
+  var wholesalePrice = parseFloat(document.getElementById('prodWholesale').value) || 0;
+  var costPrice = parseFloat(document.getElementById('prodCost').value) || 0;
+  var wholesaleMinQty = parseInt(document.getElementById('prodWholesaleMin').value) || 0;
+  var linkedInventoryItemId = document.getElementById('prodInventoryLink').value;
+  var unitsPerSale = parseInt(document.getElementById('prodUnitsPerSale').value) || 1;
+  var imageUrl = document.getElementById('prodImageUrl').value.trim();
+  var videoUrl = document.getElementById('prodVideoUrl').value.trim();
+  var msg = document.getElementById('prodMsg');
+
+  if (!name) { msg.className = 'error'; msg.textContent = 'Enter a product name'; return; }
+  if (retailPrice <= 0) { msg.className = 'error'; msg.textContent = 'Enter a retail price above 0'; return; }
+  var duplicate = rawProducts.some(function (p) { return (p.data.name || '').trim().toLowerCase() === name.toLowerCase(); });
+  if (duplicate) { msg.className = 'error'; msg.textContent = '⚠️ A product with this name already exists'; return; }
+  if (!linkedInventoryItemId && !confirm('No inventory item linked — selling this product won\'t auto-deduct stock. Continue anyway?')) return;
+
+  try {
+    await db.collection('products').add({
+      name: name, category: category, retailPrice: retailPrice, wholesalePrice: wholesalePrice, costPrice: costPrice,
+      wholesaleMinQty: wholesaleMinQty,
+      linkedInventoryItemId: linkedInventoryItemId || null, unitsPerSale: unitsPerSale,
+      imageUrl: imageUrl || null, videoUrl: videoUrl || null,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    log('Product added: ' + name);
+    ['prodName', 'prodCategory', 'prodRetail', 'prodWholesale', 'prodCost', 'prodWholesaleMin'].forEach(function (id) { document.getElementById(id).value = ''; });
+    document.getElementById('prodUnitsPerSale').value = '1';
+    msg.className = 'ok'; msg.textContent = 'Added';
+    loadProducts();
+  } catch (e) {
+    log('Add product error: ' + e.code + ' — ' + e.message);
+    msg.className = 'error'; msg.textContent = 'Could not add product';
+  }
+}
+
+async function deleteProduct(id) {
+  if (!confirm('Remove this product from the catalog? Past sales are unaffected.')) return;
+  try {
+    await db.collection('products').doc(id).delete();
+    log('Deleted product ' + id);
+    loadProducts();
+  } catch (e) {
+    log('Delete product error: ' + e.code + ' — ' + e.message);
+    toast('Could not delete product', true);
+  }
+}
+
+function toggleLinkPanel(productId) {
+  var row = document.getElementById('linkRow-' + productId);
+  if (row) row.classList.toggle('hidden');
+}
+
+function togglePaymentPanel(orderId) {
+  var row = document.getElementById('paymentPanel-' + orderId);
+  if (row) row.classList.toggle('hidden');
+}
+
+// Fills in unit prices for custom/unpriced line items, then recalculates the order total and balance
+async function saveItemPrices(orderId) {
+  var found = rawOrders.find(function (r) { return r.id === orderId; });
+  if (!found) return;
+  var o = found.data;
+  var changed = false;
+  o.items.forEach(function (it, idx) {
+    var input = document.getElementById('itemPrice-' + orderId + '-' + idx);
+    if (input) {
+      var val = parseFloat(input.value);
+      if (!isNaN(val) && val > 0) {
+        it.unitPrice = val;
+        it.lineTotal = val * it.qty;
+        changed = true;
+      }
+    }
+  });
+  if (!changed) { toast('Enter at least one price', true); return; }
+  var total = o.items.reduce(function (sum, it) { return sum + it.lineTotal; }, 0);
+  var balance = total - (o.amountPaid || 0);
+  var paymentStatus = balance <= 0 && total > 0 ? 'paid' : (o.amountPaid > 0 ? 'partial' : 'unpaid');
+  try {
+    await db.collection('orders').doc(orderId).update({ items: o.items, total: total, balance: balance, paymentStatus: paymentStatus });
+    o.total = total; o.balance = balance; o.paymentStatus = paymentStatus;
+    log('Saved item prices for order ' + orderId + ' — new total KSH ' + total);
+    toast('Prices saved');
+    renderOrders();
+  } catch (e) {
+    log('Save item prices error: ' + e.code + ' — ' + e.message);
+    toast('Could not save prices', true);
+  }
+}
+
+// Records a payment against an order and auto-derives balance + paymentStatus.
+// Also checks whether the order can now become Completed & Settled.
+async function receivePayment(orderId) {
+  var val = parseFloat(document.getElementById('paymentInput-' + orderId).value) || 0;
+  if (val <= 0) { toast('Enter a valid payment amount', true); return; }
+  var found = rawOrders.find(function (r) { return r.id === orderId; });
+  if (!found) return;
+  var o = found.data;
+  var newPaid = (o.amountPaid || 0) + val;
+  var newBalance = o.total - newPaid;
+  var newPaymentStatus = newBalance <= 0 ? 'paid' : (newPaid > 0 ? 'partial' : 'unpaid');
+  var newOverallStatus = (o.productionStatus === 'delivered' && newPaymentStatus === 'paid') ? 'completed_settled' : 'open';
+  var historyEntry = {
+    amount: val,
+    recordedBy: currentUserName || currentUserRole || 'Unknown',
+    recordedAt: new Date().toISOString() // plain timestamp — arrayUnion can't take serverTimestamp()
+  };
+  try {
+    await db.collection('orders').doc(orderId).update({
+      amountPaid: newPaid, balance: newBalance, paymentStatus: newPaymentStatus, overallStatus: newOverallStatus,
+      paymentHistory: firebase.firestore.FieldValue.arrayUnion(historyEntry)
+    });
+    logEvent('PaymentReceived', { orderId: orderId, amount: val, newAmountPaid: newPaid, newPaymentStatus: newPaymentStatus });
+    log('Recorded payment of KSH ' + val + ' for order ' + orderId + ' — status: ' + newPaymentStatus);
+    toast(newOverallStatus === 'completed_settled' ? 'Payment recorded — order Completed & Settled ✅' : 'Payment recorded');
+    o.amountPaid = newPaid; o.balance = newBalance; o.paymentStatus = newPaymentStatus; o.overallStatus = newOverallStatus;
+    o.paymentHistory = (o.paymentHistory || []).concat([historyEntry]);
+    document.getElementById('paymentInput-' + orderId).value = '';
+    renderOrders();
+  } catch (e) {
+    log('Receive payment error: ' + e.code + ' — ' + e.message);
+    toast('Could not record payment', true);
+  }
+}
+
+async function correctPayment(orderId) {
+  var input = document.getElementById('correctInput-' + orderId);
+  var val = parseFloat(input.value);
+  if (isNaN(val) || val < 0) { toast('Enter a valid corrected amount', true); return; }
+  var found = rawOrders.find(function (r) { return r.id === orderId; });
+  if (!found) return;
+  var o = found.data;
+  if (!confirm('Set total paid to KSH ' + val.toLocaleString() + '? This replaces the current recorded amount (KSH ' + (o.amountPaid || 0).toLocaleString() + '), it does not add to it.')) return;
+  var newBalance = o.total - val;
+  var newPaymentStatus = newBalance <= 0 ? 'paid' : (val > 0 ? 'partial' : 'unpaid');
+  var newOverallStatus = (o.productionStatus === 'delivered' && newPaymentStatus === 'paid') ? 'completed_settled' : 'open';
+  var historyEntry = {
+    amount: val - (o.amountPaid || 0),
+    correction: true,
+    recordedBy: currentUserName || currentUserRole || 'Unknown',
+    recordedAt: new Date().toISOString()
+  };
+  try {
+    await db.collection('orders').doc(orderId).update({
+      amountPaid: val, balance: newBalance, paymentStatus: newPaymentStatus, overallStatus: newOverallStatus,
+      paymentHistory: firebase.firestore.FieldValue.arrayUnion(historyEntry)
+    });
+    logEvent('PaymentCorrected', { orderId: orderId, previousAmountPaid: (o.amountPaid || 0), newAmountPaid: val });
+    log('Payment corrected for order ' + orderId + ' — set to KSH ' + val);
+    toast('Payment corrected');
+    o.amountPaid = val; o.balance = newBalance; o.paymentStatus = newPaymentStatus; o.overallStatus = newOverallStatus;
+    o.paymentHistory = (o.paymentHistory || []).concat([historyEntry]);
+    input.value = '';
+    renderOrders();
+  } catch (e) {
+    log('Correct payment error: ' + e.code + ' — ' + e.message);
+    toast(e.code === 'permission-denied' ? 'Only the owner account can correct payments' : 'Could not correct payment', true);
+  }
+}
+
+function computeReceivablesData() {
+  var accounts = {};
+  function addDebt(sourceId, name, phone, balance, dateVal) {
+    if (!(balance > 0)) return;
+    var key = phone ? normalizePhone(phone) : ('anon:' + sourceId);
+    if (key.length < 3 && !phone) key = 'anon:' + sourceId;
+    if (!accounts[key]) accounts[key] = { name: name || 'Walk-in', phone: phone || '', balance: 0, count: 0, lastDate: null };
+    accounts[key].balance += balance;
+    accounts[key].count += 1;
+    if (dateVal && (!accounts[key].lastDate || dateVal > accounts[key].lastDate)) accounts[key].lastDate = dateVal;
+  }
+  realOrders().forEach(function (r) {
+    var o = r.data;
+    addDebt('order-' + r.id, o.customerName, o.phone, o.balance || 0, o.createdAt ? o.createdAt.toDate() : null);
+  });
+  rawSales.forEach(function (r) {
+    var s = r.data;
+    if (s.archived) return;
+    addDebt('sale-' + r.id, s.customerName, s.phone, s.balance || 0, s.createdAt ? s.createdAt.toDate() : null);
+  });
+  var owing = Object.keys(accounts).map(function (k) { return accounts[k]; }).filter(function (a) { return a.balance > 0; });
+  var totalOutstanding = owing.reduce(function (sum, a) { return sum + a.balance; }, 0);
+  owing.sort(function (a, b) { return b.balance - a.balance; });
+  return { owing: owing, totalOutstanding: totalOutstanding };
+}
+
+function renderReceivables() {
+  var box = document.getElementById('receivablesBox');
+  if (!box) return;
+  if (privacyGate('receivables', box, 'Receivables', 'renderReceivables')) return;
+
+  var data = computeReceivablesData();
+  var owing = data.owing;
+  var totalOutstanding = data.totalOutstanding;
+
+  if (owing.length === 0) {
+    box.innerHTML = '<p style="color:#4ade80;font-size:0.85rem">✓ No outstanding balances</p>';
+    return;
+  }
+
+  var html = '<div style="display:flex;gap:16px;margin-bottom:10px">' +
+    '<div><span style="color:#888;font-size:0.75rem">TOTAL OWED</span><br><strong style="color:#f87171;font-size:1.2rem">KSH ' + totalOutstanding.toLocaleString() + '</strong></div>' +
+    '<div><span style="color:#888;font-size:0.75rem">ACCOUNTS OWING</span><br><strong style="color:#f87171;font-size:1.2rem">' + owing.length + '</strong></div>' +
+    '</div>';
+  owing.forEach(function (a) {
+    var d = a.lastDate ? a.lastDate.toLocaleDateString() : '—';
+    html += '<div style="padding:6px 0;border-bottom:1px solid #222;font-size:0.85rem">';
+    html += '<div style="display:flex;justify-content:space-between">';
+    html += '<span>' + text(a.name) + (a.count > 1 ? ' <span style="color:#666;font-size:0.7rem">(' + a.count + ' unpaid)</span>' : '') + ' <span style="color:#666;font-size:0.72rem">(' + d + ')</span></span>';
+    html += '<span style="color:#f87171;font-weight:700">KSH ' + a.balance.toLocaleString() + '</span>';
+    html += '</div>';
+    var digits = normalizePhone(a.phone);
+    if (digits.length >= 9) {
+      var waNumber = '254' + digits;
+      var reminderText = 'Hello ' + a.name + ', a friendly reminder from Elite Customs — you have an outstanding balance of KSH ' + a.balance.toLocaleString() + '. Let us know when you\'re able to settle it. Thank you!';
+      var waUrl = 'https://wa.me/' + waNumber + '?text=' + encodeURIComponent(reminderText);
+      html += '<a href="' + waUrl + '" target="_blank" style="display:inline-block;margin-top:4px;padding:4px 10px;border-radius:6px;background:#25D366;color:#000;text-decoration:none;font-size:0.72rem;font-weight:600">💬 Remind via WhatsApp</a>';
+    }
+    html += '</div>';
+  });
+  box.innerHTML = html;
+}
+
+function togglePricePanel(productId) {
+  var row = document.getElementById('priceRow-' + productId);
+  if (row) row.classList.toggle('hidden');
+}
+
+async function saveProductPrices(productId) {
+  var retail = parseFloat(document.getElementById('editRetail-' + productId).value) || 0;
+  var wholesale = parseFloat(document.getElementById('editWholesale-' + productId).value) || 0;
+  var cost = parseFloat(document.getElementById('editCost-' + productId).value) || 0;
+  var wholesaleMinQty = parseInt(document.getElementById('editWholesaleMin-' + productId).value) || 0;
+  var imageUrl = document.getElementById('editImageUrl-' + productId).value.trim();
+  var videoUrl = document.getElementById('editVideoUrl-' + productId).value.trim();
+  if (retail <= 0) { toast('Retail price must be above 0', true); return; }
+  try {
+    await db.collection('products').doc(productId).update({
+      retailPrice: retail, wholesalePrice: wholesale, costPrice: cost, wholesaleMinQty: wholesaleMinQty,
+      imageUrl: imageUrl || null, videoUrl: videoUrl || null
+    });
+    log('Updated prices/media for product ' + productId);
+    toast('Prices saved');
+    loadProducts();
+  } catch (e) {
+    log('Save prices error: ' + e.code + ' — ' + e.message);
+    toast('Could not save prices', true);
+  }
+}
+
+async function saveProductLink(productId) {
+  var select = document.getElementById('linkSelect-' + productId);
+  var linkedId = select.value || null;
+  try {
+    await db.collection('products').doc(productId).update({ linkedInventoryItemId: linkedId });
+    log('Updated stock link for product ' + productId);
+    toast('Stock link saved');
+    loadProducts();
+  } catch (e) {
+    log('Save link error: ' + e.code + ' — ' + e.message);
+    toast('Could not save link', true);
+  }
+}
+
+// ---------- EXPENSES ----------
+async function loadExpenses() {
+  var box = document.getElementById('expensesList');
+  try {
+    var snap = await db.collection('expenses').orderBy('createdAt', 'desc').limit(500).get();
+    rawExpenses = [];
+    snap.forEach(function (doc) { rawExpenses.push({ id: doc.id, data: doc.data() }); });
+    renderExpenses();
+  } catch (e) {
+    log('Expenses error: ' + e.code + ' — ' + e.message);
+    box.innerHTML = '<p style="color:#ff4444">Could not load expenses</p>';
+  }
+}
+
+function renderExpenses() {
+  var box = document.getElementById('expensesList');
+  var summaryBox = document.getElementById('expensesSummary');
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  var monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+  var todayTotal = 0, monthTotal = 0, pendingCount = 0;
+
+  rawExpenses.forEach(function (r) {
+    var e = r.data;
+    if (e.status === 'pending') { pendingCount++; return; }
+    var d = e.createdAt ? e.createdAt.toDate() : null;
+    if (!d) return;
+    if (d >= today) todayTotal += (e.amount || 0);
+    if (d >= monthStart) monthTotal += (e.amount || 0);
+  });
+
+  summaryBox.innerHTML = '<div style="display:flex;gap:16px;flex-wrap:wrap">' +
+    '<div><span style="color:#888;font-size:0.75rem">TODAY</span><br><strong style="color:#f87171">KSH ' + todayTotal.toLocaleString() + '</strong></div>' +
+    '<div><span style="color:#888;font-size:0.75rem">THIS MONTH</span><br><strong style="color:#f87171">KSH ' + monthTotal.toLocaleString() + '</strong></div>' +
+    (pendingCount > 0 ? '<div><span style="color:#888;font-size:0.75rem">AWAITING APPROVAL</span><br><strong style="color:#facc15">' + pendingCount + '</strong></div>' : '') +
+    '</div>';
+
+  if (rawExpenses.length === 0) { box.innerHTML = '<p style="color:#888">No expenses logged yet</p>'; return; }
+  var html = '<table><tr><th>Category</th><th>Amount</th><th>By</th><th>Note</th><th>Time</th><th></th></tr>';
+  rawExpenses.forEach(function (r) {
+    var e = r.data;
+    var d = e.createdAt ? e.createdAt.toDate().toLocaleString() : '—';
+    var pending = e.status === 'pending';
+    html += '<tr' + (pending ? ' style="background:#1a1508"' : '') + '><td>' + text(e.category) + (pending ? ' <span class="badge pending">pending</span>' : '') + '</td><td>KSH ' + (e.amount || 0).toLocaleString() + '</td><td>' + text(e.loggedBy, 'Owner') + '</td><td>' + text(e.note, '—') + '</td><td style="color:#666;font-size:0.75rem">' + d + '</td>';
+    if (pending) {
+      html += '<td class="row-actions"><button class="small" onclick="approveExpense(\'' + r.id + '\')">Approve</button><button class="small danger" onclick="deleteExpense(\'' + r.id + '\')">Reject</button></td></tr>';
+    } else {
+      html += '<td><button class="small danger" onclick="deleteExpense(\'' + r.id + '\')">Del</button></td></tr>';
+    }
+  });
+  html += '</table>';
+  box.innerHTML = html;
+}
+
+async function approveExpense(id) {
+  try {
+    await db.collection('expenses').doc(id).update({ status: 'approved' });
+    log('Approved expense ' + id);
+    toast('Expense approved');
+    var found = rawExpenses.find(function (r) { return r.id === id; });
+    if (found) found.data.status = 'approved';
+    renderExpenses();
+    computeExtraStats();
+  } catch (e) {
+    log('Approve expense error: ' + e.code + ' — ' + e.message);
+    toast('Could not approve expense', true);
+  }
+}
+
+async function addExpense() {
+  var category = document.getElementById('expCategory').value;
+  var amount = parseFloat(document.getElementById('expAmount').value) || 0;
+  var note = document.getElementById('expNote').value.trim();
+  var msg = document.getElementById('expMsg');
+
+  if (amount <= 0) { msg.className = 'error'; msg.textContent = 'Enter a valid amount'; return; }
+
+  try {
+    await db.collection('expenses').add({
+      category: category, amount: amount, note: note, status: 'approved',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    log('Expense logged: ' + category + ' KSH ' + amount);
+    document.getElementById('expAmount').value = '';
+    document.getElementById('expNote').value = '';
+    msg.className = 'ok'; msg.textContent = 'Logged';
+    loadExpenses();
+    computeExtraStats();
+  } catch (e) {
+    log('Add expense error: ' + e.code + ' — ' + e.message);
+    msg.className = 'error'; msg.textContent = 'Could not log expense';
+  }
+}
+
+async function deleteExpense(id) {
+  if (!confirm('Delete this expense record?')) return;
+  try {
+    await db.collection('expenses').doc(id).delete();
+    log('Deleted expense ' + id);
+    loadExpenses();
+    computeExtraStats();
+  } catch (e) {
+    log('Delete expense error: ' + e.code + ' — ' + e.message);
+    toast('Could not delete expense', true);
+  }
+}
+
+// Deducts stock for every line item linked to a product with a linkedInventoryItemId.
+// Runs once per order (guarded by order.inventoryDeducted) the first time production starts,
+// so custom/unlinked items are simply skipped rather than blocking the whole order.
+async function deductInventoryForOrder(orderId, order) {
+  if (order.inventoryDeducted) return;
+  var deducted = [], skipped = [], blockedItems = [];
+
+  // Quick upfront pass so we can ask the owner BEFORE the atomic transaction —
+  // a confirm() inside a transaction could re-fire on retry, which is bad UX.
+  var ownerOverrideConfirmed = false;
+  var overrideReason = null;
+  var toDeduct = [];
+  for (var i = 0; i < order.items.length; i++) {
+    var it = order.items[i];
+    if (!it.productId) { skipped.push(it.name); continue; }
+    var product = rawProducts.find(function (p) { return p.id === it.productId; });
+    var invId = product ? product.data.linkedInventoryItemId : null;
+    if (!invId) { skipped.push(it.name); continue; }
+    var invRecord = rawInventory.find(function (inv) { return inv.id === invId; });
+    var currentQty = invRecord ? (invRecord.data.qty || 0) : 0;
+    var deductQty = it.qty * (product.data.unitsPerSale || 1);
+    if (currentQty - deductQty < 0) {
+      if (currentUserRole === 'owner') {
+        var proceed = confirm('Only ' + currentQty + ' left of ' + it.name + ', but this order needs ' + deductQty + '. Continue and let stock go negative?');
+        if (!proceed) { skipped.push(it.name + ' (stock declined)'); continue; }
+        ownerOverrideConfirmed = true;
+        overrideReason = prompt('Optional: why override? (e.g. "customer paying deposit, restock arrives tomorrow")', '') || 'No reason given';
+        blockedItems.push(it.name);
+      } else {
+        toast('Only ' + currentQty + ' left of ' + it.name + ' — ask the owner to confirm this order if stock should go negative', true);
+        skipped.push(it.name + ' (insufficient stock, needs owner)');
+        continue;
+      }
+    }
+    toDeduct.push({ invId: invId, qty: it.qty, name: it.name });
+  }
+
+  try {
+    await db.runTransaction(async function (transaction) {
+      // Reads first — Firestore transactions require all reads before any writes.
+      var lineDeductions = [];
+      for (var j = 0; j < toDeduct.length; j++) {
+        var line = toDeduct[j];
+        var invRef = db.collection('inventory').doc(line.invId);
+        var invSnap = await transaction.get(invRef);
+        var freshQty = invSnap.exists ? (invSnap.data().qty || 0) : 0;
+        if (freshQty - line.qty < 0 && !ownerOverrideConfirmed) {
+          throw new Error('STOCK_RACE:' + line.name + ':' + freshQty);
+        }
+        lineDeductions.push({ ref: invRef, qty: line.qty, name: line.name });
+      }
+      lineDeductions.forEach(function (d) {
+        transaction.update(d.ref, { qty: firebase.firestore.FieldValue.increment(-d.qty) });
+        deducted.push(d.qty + '× ' + d.name);
+      });
+      transaction.update(db.collection('orders').doc(orderId), { inventoryDeducted: true, inventoryDeductedLog: deducted, inventoryDeductedSkipped: skipped });
+      if (blockedItems.length) {
+        transaction.set(db.collection('events').doc(), {
+          type: 'InventoryOverride',
+          items: blockedItems,
+          reason: overrideReason,
+          workerId: firebase.auth().currentUser.uid,
+          orderId: orderId,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }
+    });
+    order.inventoryDeducted = true;
+    log('Order ' + orderId + ' stock deducted: ' + (deducted.join(', ') || 'none') + (skipped.length ? ' | skipped: ' + skipped.join(', ') : ''));
+    await loadInventory();
+  } catch (e) {
+    if (e.message && e.message.indexOf('STOCK_RACE:') === 0) {
+      var parts = e.message.split(':');
+      toast('Stock changed right as you confirmed — only ' + parts[2] + ' left of ' + parts[1] + ' now. Try updating this order again.', true);
+      log('Stock race on order ' + orderId + ': ' + e.message);
+    } else {
+      log('Deduct stock transaction error: ' + e.code + ' — ' + e.message);
+      toast('Could not deduct stock for this order', true);
+    }
+  }
+}
+
+// Production status is independent from payment status. An order only becomes
+// "Completed & Settled" once production is Delivered AND payment is Fully Paid.
+async function updateProductionStatus(id, newStatus) {
+  var found = rawOrders.find(function (r) { return r.id === id; });
+  if (!found) return;
+  var o = found.data;
+
+  // Guardrail: your own policy is 60% deposit before production starts, but
+  // nothing enforced that until now — an order could silently move all the way
+  // to Finishing with zero shillings collected. This doesn't block it outright
+  // (sometimes you trust a regular customer), but it can't happen silently anymore.
+  if (newStatus !== 'new' && (o.amountPaid || 0) <= 0) {
+    var override = confirm('⚠️ No deposit recorded on this order (KSH 0 of KSH ' + (o.total || 0).toLocaleString() + ' paid).\n\nYour policy is 60% deposit before production starts.\n\nProceed anyway?');
+    if (!override) return;
+    log('Order ' + id + ' advanced to ' + newStatus + ' with KSH 0 paid — owner override confirmed');
+  }
+
+  var stageField = newStatus + 'At';
+  var newOverallStatus = (newStatus === 'delivered' && o.paymentStatus === 'paid') ? 'completed_settled' : 'open';
+  try {
+    var updatePayload = { productionStatus: newStatus, overallStatus: newOverallStatus, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+    updatePayload[stageField] = firebase.firestore.FieldValue.serverTimestamp();
+    await db.collection('orders').doc(id).update(updatePayload);
+    logEvent('ProductionStatusChanged', { orderId: id, from: o.productionStatus, to: newStatus });
+    o.productionStatus = newStatus;
+    o.overallStatus = newOverallStatus;
+    log('Order ' + id + ' production status set to ' + newStatus);
+    toast(newOverallStatus === 'completed_settled' ? 'Order Completed & Settled ✅' : 'Production updated to ' + PRODUCTION_LABELS[newStatus]);
+
+    // First time an order enters production (moves past "new"), deduct stock per line item
+    if (newStatus !== 'new' && !o.inventoryDeducted) {
+      await deductInventoryForOrder(id, o);
+    }
+    renderOrders();
+    computeExtraStats();
+  } catch (e) {
+    log('Update production status error: ' + e.code + ' — ' + e.message);
+    toast('Could not update order', true);
+  }
+}
+</script>
+</body>
+</html>

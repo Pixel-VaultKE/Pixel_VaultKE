@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Elite Customs - Place Order</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600;700;800&display=swap');
+:root{
+  --ink:#111114;         /* matte asphalt base */
+  --surface:#1C1C21;     /* card surface, flat, no blur */
+  --surface2:#232329;
+  --hot:#FF2E63;         /* spray-paint magenta — primary accent */
+  --volt:#C6FF3D;        /* acid lime — secondary accent */
+  --sky:#29D3F5;         /* cyan — tertiary, service icons */
+  --gold:#D4AF37;        /* money only */
+  --line:rgba(255,255,255,0.08);
+  --text:#EDEDEF;
+  --muted:#8A8A93;
+  --radius:14px;
+  --radius-sm:9px;
+}
+*{box-sizing:border-box}
+body{
+  font-family:'Inter',system-ui,sans-serif;
+  background:
+    radial-gradient(circle at 3px 3px, rgba(255,255,255,0.035) 1px, transparent 0) 0 0/22px 22px,
+    var(--ink);
+  color:var(--text);padding:16px;max-width:600px;margin:0 auto;
+  padding-bottom:84px; /* clears the sticky mini-cart bar */
+}
+.card{
+  background:var(--surface);border-radius:var(--radius);padding:20px;margin-bottom:14px;
+  border:1px solid var(--line);
+  box-shadow:0 1px 0 rgba(255,255,255,0.03) inset, 0 8px 20px -12px rgba(0,0,0,0.6);
+}
+h1{font-family:'Bebas Neue',sans-serif;letter-spacing:1px;font-size:2.6rem;line-height:0.92;margin:0 0 6px;
+   background:linear-gradient(100deg,var(--hot),var(--volt));-webkit-background-clip:text;background-clip:text;color:transparent}
+h2{font-family:'Bebas Neue',sans-serif;letter-spacing:0.5px;font-size:1.35rem;color:var(--text);margin:0 0 14px;
+   display:inline-block;position:relative;padding-bottom:5px}
+h2::after{content:'';position:absolute;left:0;bottom:0;width:36px;height:3px;background:var(--hot);border-radius:2px}
+.sub{color:var(--muted);font-size:0.85rem;margin-bottom:20px;font-weight:600;text-transform:uppercase;letter-spacing:0.6px}
+input,select,textarea{padding:12px 13px;border-radius:var(--radius-sm);border:1px solid var(--line);background:var(--surface2);color:var(--text);width:100%;margin-bottom:10px;font-size:0.95rem;font-family:'Inter',sans-serif;transition:border-color .15s}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--hot)}
+textarea{min-height:80px;resize:vertical}
+button{padding:13px;border-radius:var(--radius-sm);border:none;background:var(--hot);color:#fff;font-weight:800;width:100%;cursor:pointer;font-size:0.95rem;letter-spacing:0.3px;transition:transform .1s,background .15s}
+button:active:not(:disabled){transform:scale(0.98)}
+button:disabled{opacity:0.5;cursor:not-allowed}
+button:hover:not(:disabled){background:#E0195A}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin .6s linear infinite;margin-right:6px;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+button.secondary{background:transparent;color:var(--sky);border:1.5px solid var(--sky)}
+button.small{width:auto;padding:8px 14px;font-size:0.85rem}
+.error{color:#ff4444;font-size:0.85rem;margin-top:4px}
+.ok{color:var(--volt);font-size:0.85rem;margin-top:4px}
+.hidden{display:none !important}
+#log{background:var(--surface2);border:1px solid var(--line);border-radius:8px;padding:10px;font-family:monospace;font-size:0.75rem;color:var(--volt);max-height:120px;overflow-y:auto;white-space:pre-wrap}
+.hint{color:var(--muted);font-size:0.75rem;margin:-6px 0 10px}
+.row{display:flex;gap:8px}
+.row input,.row select{margin-bottom:0}
+.row .qty{max-width:80px;flex:none}
+.cartItem{display:flex;justify-content:space-between;align-items:center;padding:11px 12px;background:var(--surface2);border-radius:var(--radius-sm);margin-bottom:8px;border:1px solid transparent}
+.cartItem .meta{font-size:0.85rem;color:#ccc}
+.cartItem .price{color:var(--gold);font-weight:bold;margin-left:10px}
+.cartItem .remove{background:none;border:none;color:#f87171;font-size:1.1rem;width:auto;padding:0 0 0 12px;cursor:pointer}
+.totalRow{display:flex;justify-content:space-between;padding-top:10px;margin-top:6px;border-top:1px solid var(--line);font-size:1.05rem}
+.totalRow strong{color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:1.3rem;letter-spacing:0.5px}
+.empty{color:var(--muted);font-size:0.85rem;text-align:center;padding:8px 0}
+.floatingWa{position:fixed;bottom:78px;right:16px;background:#25D366;color:#000;width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.5rem;text-decoration:none;box-shadow:0 4px 16px rgba(0,0,0,.5);z-index:200}
+.eyebrow{display:block;width:max-content;background:var(--hot);color:#fff;font-size:0.65rem;font-weight:800;letter-spacing:1px;text-transform:uppercase;padding:3px 9px;border-radius:20px;transform:rotate(-2deg);margin-bottom:8px}
+.peel{position:relative;overflow:hidden;transition:transform .12s}
+.peel:not([style*="cursor:default"]):active{transform:scale(0.96)}
+.peel::after{content:'';position:absolute;top:0;right:0;width:0;height:0;border-style:solid;border-width:0 16px 16px 0;border-color:transparent var(--ink) transparent transparent;filter:drop-shadow(-1px 1px 2px rgba(0,0,0,0.4))}
+
+/* Sticky mini-cart bar — signature element: lets a customer track their
+   running total while still browsing the catalog, instead of only seeing
+   it after scrolling down to the order form. */
+#miniCartBar{
+  position:fixed;left:0;right:0;bottom:0;z-index:300;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 16px calc(12px + env(safe-area-inset-bottom));
+  background:rgba(28,28,33,0.92);backdrop-filter:blur(10px);
+  border-top:1px solid var(--line);
+  box-shadow:0 -8px 24px rgba(0,0,0,0.4);
+  transform:translateY(100%);transition:transform .25s ease;
+}
+#miniCartBar.visible{transform:translateY(0)}
+#miniCartBar .info{display:flex;flex-direction:column}
+#miniCartBar .count{color:var(--muted);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px;font-weight:700}
+#miniCartBar .amount{color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:0.5px}
+#miniCartBar button{width:auto;padding:11px 20px;font-size:0.85rem}
+</style>
+</head>
+<body>
+
+<h1>👑 ELITE CUSTOMS</h1>
+<p class="sub">From Cars to Consoles — We Customize It All</p>
+
+<div class="card" id="galleryCard" style="border-color:rgba(255,46,99,0.4);box-shadow:0 0 30px rgba(255,46,99,0.15),0 0 60px rgba(41,211,245,0.08)">
+  <span class="eyebrow" style="background:var(--hot)">Real Work, Real Photos</span><h2>📸 Our Work</h2>
+  <div id="galleryGrid"><p style="color:#888">Loading...</p></div>
+</div>
+
+<div id="lightbox" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:500;display:flex;flex-direction:column">
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px">
+    <span id="lightboxTitle" style="color:var(--hot);font-weight:bold;font-family:'Bebas Neue',sans-serif;letter-spacing:0.5px;font-size:1.2rem"></span>
+    <button onclick="closeLightbox()" style="width:auto;background:none;color:#fff;font-size:1.5rem;padding:0 8px">✕</button>
+  </div>
+  <div id="lightboxTrack" style="flex:1;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch"></div>
+  <div style="display:flex;justify-content:space-between;padding:14px 16px 20px">
+    <button onclick="lightboxNav(-1)" class="secondary" style="width:auto;padding:10px 20px">‹ Prev</button>
+    <span id="lightboxCounter" style="color:#888;align-self:center;font-size:0.85rem"></span>
+    <button onclick="lightboxNav(1)" class="secondary" style="width:auto;padding:10px 20px">Next ›</button>
+  </div>
+</div>
+
+<div class="card">
+  <span class="eyebrow" style="background:var(--sky);color:#0D0D10">The Story</span><h2>About Elite Customs</h2>
+  <p style="color:#ddd;font-size:0.9rem;line-height:1.6;margin-bottom:10px">Elite Customs is a customization and branding business focused on helping people make their vehicles, devices, businesses, and personal items stand out.</p>
+  <p style="color:#ddd;font-size:0.9rem;line-height:1.6;margin-bottom:10px">From stickers and window tinting to bike customization, laptop skins, fridge branding, gaming designs, and business branding, we turn ideas into finished custom work.</p>
+  <p style="color:#ddd;font-size:0.9rem;line-height:1.6">Every project is unique because every customer has their own style. Our goal is simple: quality work, clear communication, and results you'll be proud to show off.</p>
+</div>
+
+<div class="card">
+  <span class="eyebrow" style="background:var(--volt);color:#0D0D10">Services</span><h2>We Customize</h2>
+  <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Tap a service to message us directly — we'll quote you.</p>
+  <div id="featuredServices" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px"></div>
+</div>
+
+<div class="card">
+  <span class="eyebrow" style="background:var(--sky);color:#0D0D10">The Process</span><h2>How It Works</h2>
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <div style="display:flex;gap:10px;align-items:flex-start"><span style="font-size:1.1rem">1️⃣</span><span style="color:#ddd;font-size:0.88rem">Choose a product below, or message us for a custom job</span></div>
+    <div style="display:flex;gap:10px;align-items:flex-start"><span style="font-size:1.1rem">2️⃣</span><span style="color:#ddd;font-size:0.88rem">Place your order and fill in your details</span></div>
+    <div style="display:flex;gap:10px;align-items:flex-start"><span style="font-size:1.1rem">3️⃣</span><span style="color:#ddd;font-size:0.88rem">Pay a 60% deposit via M-PESA Till 4090756 to start production</span></div>
+    <div style="display:flex;gap:10px;align-items:flex-start"><span style="font-size:1.1rem">4️⃣</span><span style="color:#ddd;font-size:0.88rem">We work on your order and send updates on WhatsApp</span></div>
+    <div style="display:flex;gap:10px;align-items:flex-start"><span style="font-size:1.1rem">5️⃣</span><span style="color:#ddd;font-size:0.88rem">Collect your finished order, or arrange delivery</span></div>
+  </div>
+</div>
+
+<div class="card">
+  <span class="eyebrow" style="background:var(--gold);color:#0D0D10">Shop</span><h2>Sticker & Print Catalog</h2>
+  <input type="text" id="catalogSearch" placeholder="🔍 Search by name (e.g. 'Naruto')" oninput="filterCatalog(this.value)" style="margin-bottom:12px">
+  <div id="catalogList"><p style="color:#888">Loading catalog...</p></div>
+</div>
+
+<div class="card">
+  <span class="eyebrow" style="background:var(--hot)">Custom Job</span><h2>Have your own design?</h2>
+  <p style="color:#ccc;font-size:0.9rem;margin-bottom:10px">Send us your artwork directly on WhatsApp and we'll quote you.</p>
+  <a href="https://wa.me/254722912595?text=Hi%20Elite%20Customs%2C%20I%27d%20like%20to%20send%20my%20design" style="display:block;text-align:center;padding:12px;border-radius:8px;background:#25D366;color:#000;font-weight:bold;text-decoration:none">📎 Send Artwork on WhatsApp</a>
+</div>
+
+<div class="card">
+
+  <span class="eyebrow" style="background:var(--gold);color:#0D0D10">Payment</span><h2>How to Pay</h2>
+  <p style="color:#ccc;font-size:0.9rem;line-height:1.6">Pay a 60% deposit or the full amount via M-PESA to start your order:</p>
+  <p style="text-align:center;padding:12px;background:var(--surface2);border-radius:8px;border:1px solid var(--gold)">
+    <span style="color:#888;font-size:0.75rem;display:block">TILL NUMBER</span>
+    <strong style="color:var(--gold);font-size:1.4rem;letter-spacing:1px">4090756</strong>
+  </p>
+  <p style="color:#888;font-size:0.8rem">We'll confirm your order once payment is received.</p>
+  <p style="color:#888;font-size:0.8rem">📲 Send your payment screenshot on WhatsApp after ordering — speeds up confirmation.</p>
+  <ul style="color:#ccc;font-size:0.85rem;line-height:1.8;margin:12px 0 0;padding-left:20px">
+    <li>✓ Same-day design review</li>
+    <li>✓ Order updates via WhatsApp</li>
+    <li>✓ Pay 60% deposit to start production</li>
+  </ul>
+</div>
+
+<div id="orderForm" class="card">
+  <span class="eyebrow" style="background:var(--hot)">Almost There</span><h2>Order Details</h2>
+  <input type="text" id="cName" placeholder="Your full name *" required>
+  <input type="tel" id="cPhone" placeholder="Phone number *" required>
+  <p class="hint">Save this number — you'll use it to track your order later.</p>
+  <input type="email" id="cEmail" placeholder="Email address (optional)">
+
+  <h2 style="margin-top:6px">Need Bulk Pricing?</h2>
+  <p style="color:var(--muted);font-size:0.78rem;margin:-6px 0 8px">For bulk/wholesale quantities — otherwise just tap photos above.</p>
+  <select id="cProduct" onchange="onProductPick()">
+    <option value="">Select a product...</option>
+  </select>
+  <div class="row">
+    <input type="number" class="qty" id="cQty" placeholder="Qty" min="1" value="1" oninput="onProductPick()">
+    <select id="cTier" style="flex:1">
+      <option value="retail">Retail price</option>
+      <option value="wholesale">Bulk / Wholesale price</option>
+    </select>
+  </div>
+  <p class="hint" id="tierHint"></p>
+  <button type="button" class="small" onclick="addCartItem()" style="width:100%">+ Add Item</button>
+
+  <p class="hint" style="margin-top:10px">Don't see it, or need something custom? Add it here — we'll confirm pricing with you directly.</p>
+  <input type="text" id="cCustomName" placeholder="Custom item description">
+  <div class="row">
+    <input type="number" class="qty" id="cCustomQty" placeholder="Qty" min="1" value="1">
+    <button type="button" class="small" onclick="addCustomItem()" style="flex:1">+ Add Custom Item</button>
+  </div>
+
+  <h2 id="cartCard" style="margin-top:16px">Your Order</h2>
+  <div id="cartList"><p class="empty">No items added yet</p></div>
+  <div class="totalRow"><span>Total</span><strong id="cartTotal">KSH 0</strong></div>
+
+  <textarea id="cDesc" placeholder="Colors, sizes, or any special requests for the whole order..." style="margin-top:12px"></textarea>
+
+  <label style="color:var(--muted);font-size:0.8rem;display:block;margin-top:12px">Attach your design (optional)</label>
+  <input type="file" id="artworkFile" accept="image/*" onchange="uploadArtwork(this)">
+  <div id="artworkStatus" style="font-size:0.8rem;color:var(--muted);margin:4px 0 10px"></div>
+  <img id="artworkPreview" class="hidden" style="max-width:120px;max-height:120px;border-radius:8px;margin-bottom:10px;display:block">
+
+  <button id="placeOrderBtn" onclick="submitOrder()">Place Order</button>
+  <div id="orderMsg"></div>
+</div>
+
+<div id="successView" class="card hidden">
+  <h2>Thank You!</h2>
+  <p style="color:#ccc;line-height:1.6">Your order has been received. Our team will contact you shortly on the phone number you provided to confirm details and pricing.</p>
+  <p style="text-align:center;padding:12px;background:var(--surface2);border-radius:8px;border:1px solid var(--gold);margin:14px 0">
+    <span style="color:#888;font-size:0.75rem;display:block">PAY 60% DEPOSIT OR FULL AMOUNT — TILL NUMBER</span>
+    <strong style="color:var(--gold);font-size:1.4rem;letter-spacing:1px">4090756</strong>
+  </p>
+  <p style="color:#ccc;line-height:1.6">You can check your order status anytime at <strong>elite-customs-web.vercel.app/track.html</strong> using your phone number or the order ID below.</p>
+  <p id="lastOrderId" style="color:var(--volt);font-weight:600"></p>
+  <button onclick="resetForm()" class="secondary">Place Another Order</button>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+<script>
+window.onerror = function(msg, url, line) {
+  document.getElementById('log').textContent += '[ERROR] ' + msg + ' (line ' + line + ')\n';
+};
+
+var firebaseConfig = {
+  apiKey: "AIzaSyDTsJvTWgYdHb9wLF-MSXGbxvZf5LPA_jA",
+  authDomain: "elite-customs-os.firebaseapp.com",
+  projectId: "elite-customs-os",
+  storageBucket: "elite-customs-os.firebasestorage.app",
+  messagingSenderId: "628800846035",
+  appId: "1:628800846035:web:8d3f8f3f1935909876bc26",
+  measurementId: "G-H082LD7630"
+};
+firebase.initializeApp(firebaseConfig);
+var db = firebase.firestore();
+
+// Artwork upload — customer attaches their design directly to the order,
+// instead of it living only in a WhatsApp thread disconnected from the system.
+var CLOUDINARY_CLOUD_NAME = 'ffksanlm';
+var CLOUDINARY_UPLOAD_PRESET = 'ml_default';
+var attachedArtwork = null; // { url, filename, size, uploadedAt } or null if none attached
+
+async function uploadArtwork(fileInput) {
+  var file = fileInput.files[0];
+  if (!file) return;
+  var statusEl = document.getElementById('artworkStatus');
+  var previewEl = document.getElementById('artworkPreview');
+  if (file.size > 10 * 1024 * 1024) {
+    statusEl.textContent = 'File too large (max 10MB) — try a smaller image.';
+    statusEl.style.color = '#f87171';
+    fileInput.value = '';
+    return;
+  }
+  statusEl.textContent = 'Uploading...';
+  statusEl.style.color = 'var(--muted)';
+  var formData = new FormData();
+  formData.append('file', file);
+  formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+  try {
+    var res = await fetch('https://api.cloudinary.com/v1_1/' + CLOUDINARY_CLOUD_NAME + '/image/upload', {
+      method: 'POST',
+      body: formData
+    });
+    var data = await res.json();
+    if (!data.secure_url) throw new Error((data.error && data.error.message) || 'Upload failed');
+    attachedArtwork = {
+      url: data.secure_url,
+      filename: file.name,
+      size: file.size,
+      uploadedAt: new Date().toISOString()
+    };
+    statusEl.textContent = '✓ ' + file.name + ' attached';
+    statusEl.style.color = 'var(--volt)';
+    previewEl.src = data.secure_url;
+    previewEl.classList.remove('hidden');
+    log('Artwork uploaded: ' + file.name);
+  } catch (e) {
+    statusEl.textContent = 'Upload failed — you can still place your order and send the design on WhatsApp instead.';
+    statusEl.style.color = '#f87171';
+    attachedArtwork = null;
+    log('Artwork upload error: ' + e.message);
+  }
+}
+
+// Marketing source tracking — reads ?source=xxx from the URL, so each printed
+// QR code, flyer, or physical location can be tagged and later compared in Admin.
+var orderSource = (new URLSearchParams(window.location.search).get('source') || 'direct').trim().toLowerCase();
+
+// Gallery / Our Work
+var galleryByCategory = {};   // { categoryName: [imageUrl, imageUrl, ...] }
+var galleryCatOrder = [];     // category names in display order
+var lightboxIndex = 0;
+var lightboxPhotos = [];
+
+async function loadCustomerGallery() {
+  var box = document.getElementById('galleryGrid');
+  try {
+    var snap = await db.collection('gallery').get();
+    galleryByCategory = {};
+    var raw = {};
+    snap.forEach(function (doc) {
+      var g = doc.data();
+      var cat = g.category || 'Uncategorized';
+      if (!raw[cat]) raw[cat] = [];
+      raw[cat].push({ url: g.imageUrl, createdAt: g.createdAt ? g.createdAt.toMillis() : 0 });
+    });
+    galleryCatOrder = Object.keys(raw).sort();
+    galleryCatOrder.forEach(function (cat) {
+      raw[cat].sort(function (a, b) { return b.createdAt - a.createdAt; });
+      galleryByCategory[cat] = raw[cat].map(function (item) { return item.url; });
+    });
+    if (galleryCatOrder.length === 0) {
+      document.getElementById('galleryCard').classList.add('hidden');
+      return;
+    }
+    document.getElementById('galleryCard').classList.remove('hidden');
+    var html = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">';
+    galleryCatOrder.forEach(function (cat) {
+      var cover = galleryByCategory[cat][0];
+      html += '<div class="peel" onclick="openGallery(\'' + cat.replace(/'/g, "\\'") + '\')" style="cursor:pointer;position:relative;border-radius:8px;overflow:hidden;aspect-ratio:1">';
+      html += '<img src="' + cover + '" style="width:100%;height:100%;object-fit:cover" loading="lazy">';
+      html += '<div style="position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,0.85));padding:6px 6px 4px;font-size:0.68rem;color:#fff;font-weight:600">' + cat + '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+    box.innerHTML = html;
+  } catch (e) {
+    log('Gallery load error: ' + e.code + ' — ' + e.message);
+    document.getElementById('galleryCard').classList.add('hidden');
+  }
+}
+
+function openGallery(category) {
+  lightboxPhotos = galleryByCategory[category] || [];
+  if (lightboxPhotos.length === 0) return;
+  lightboxIndex = 0;
+  document.getElementById('lightboxTitle').textContent = category;
+  renderLightboxTrack();
+  document.getElementById('lightbox').classList.remove('hidden');
+}
+
+function renderLightboxTrack() {
+  var track = document.getElementById('lightboxTrack');
+  track.innerHTML = lightboxPhotos.map(function (url) {
+    return '<img src="' + url + '" style="min-width:100%;width:100%;height:100%;object-fit:contain;scroll-snap-align:start">';
+  }).join('');
+  track.scrollLeft = 0;
+  updateLightboxCounter();
+  track.onscroll = function () {
+    var idx = Math.round(track.scrollLeft / track.clientWidth);
+    if (idx !== lightboxIndex) { lightboxIndex = idx; updateLightboxCounter(); }
+  };
+}
+
+function updateLightboxCounter() {
+  document.getElementById('lightboxCounter').textContent = (lightboxIndex + 1) + ' / ' + lightboxPhotos.length;
+}
+
+function lightboxNav(dir) {
+  lightboxIndex = Math.max(0, Math.min(lightboxPhotos.length - 1, lightboxIndex + dir));
+  var track = document.getElementById('lightboxTrack');
+  track.scrollTo({ left: lightboxIndex * track.clientWidth, behavior: 'smooth' });
+  updateLightboxCounter();
+}
+
+function closeLightbox() {
+  document.getElementById('lightbox').classList.add('hidden');
+  document.getElementById('lightboxTrack').innerHTML = '';
+}
+
+// In-memory state
+var catalogProducts = [];   // [{id, name, category, retailPrice, wholesalePrice, wholesaleMinQty, linkedInventoryItemId}]
+var catalogByCategory = {}; // { category: [{name, html}, ...] }
+var catalogCategoryOrder = [];
+var cart = [];              // [{productId, name, qty, unitPrice, lineTotal, custom}]
+
+function toggleLog() {
+  var logEl = document.getElementById('log');
+  var arrow = document.getElementById('logArrow');
+  var collapsed = logEl.classList.toggle('hidden');
+  arrow.textContent = collapsed ? '▸' : '▾';
+}
+
+function log(msg) {
+  var el = document.getElementById('log');
+  var line = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+  console.log(line);
+  if(el) el.textContent = el.textContent + line + '\n';
+}
+log('Customer page loaded');
+loadCatalog();
+loadCustomerGallery();
+renderFeaturedServices();
+
+function renderFeaturedServices() {
+  var accents = ['var(--hot)', 'var(--sky)', 'var(--volt)', 'var(--gold)'];
+  var services = [
+    { icon: '🚗', label: 'Vehicle Customization' },
+    { icon: '🏍️', label: 'Bike Customization' },
+    { icon: '🪟', label: 'Window Tinting' },
+    { icon: '🏪', label: 'Shop & Office Branding' },
+    { icon: '💻', label: 'Laptop Customization' },
+    { icon: '🧊', label: 'Fridge Branding' },
+    { icon: '🎮', label: 'Anime & Gaming Designs' },
+    { icon: '💼', label: 'Business Branding' }
+  ];
+  var box = document.getElementById('featuredServices');
+  box.innerHTML = services.map(function (s, i) {
+    var accent = accents[i % accents.length];
+    var msg = encodeURIComponent('Hi Elite Customs, I\'m interested in ' + s.label + '. Can you quote me?');
+    return '<a href="https://wa.me/254722912595?text=' + msg + '" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:14px 6px 12px;background:var(--surface2);border:1px solid var(--line);border-top:3px solid ' + accent + ';border-radius:8px;text-decoration:none;text-align:center">' +
+      '<span style="font-size:1.6rem">' + s.icon + '</span>' +
+      '<span style="color:var(--text);font-size:0.75rem;font-weight:600">' + s.label + '</span></a>';
+  }).join('');
+}
+
+function renderCatalogGrid(searchTerm) {
+  var box = document.getElementById('catalogList');
+  var term = (searchTerm || '').trim().toLowerCase();
+  var html = '<p style="color:var(--muted);font-size:0.78rem;margin:-6px 0 12px">Tap a photo to add it to your order — 1 unit at a time, adjust below.</p>';
+  var anyMatch = false;
+
+  catalogCategoryOrder.forEach(function (cat) {
+    var items = catalogByCategory[cat].filter(function (item) {
+      return !term || item.name.toLowerCase().indexOf(term) !== -1;
+    });
+    if (items.length === 0) return;
+    anyMatch = true;
+    html += '<div style="margin-bottom:18px">';
+    html += '<div style="font-family:\'Bebas Neue\',sans-serif;letter-spacing:0.5px;color:var(--muted);font-size:0.95rem;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid var(--line)">' + cat + '</div>';
+    html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">' + items.map(function (i) { return i.html; }).join('') + '</div>';
+    html += '</div>';
+  });
+
+  if (!anyMatch) {
+    html += '<p style="color:var(--muted);text-align:center;padding:16px 0">No stickers match "' + text(searchTerm) + '" — try a different word, or send us a WhatsApp message and we\'ll check.</p>';
+  }
+  box.innerHTML = html;
+}
+
+function filterCatalog(searchTerm) {
+  renderCatalogGrid(searchTerm);
+}
+
+async function loadCatalog() {
+  var box = document.getElementById('catalogList');
+  var select = document.getElementById('cProduct');
+  try {
+    var [productSnap, inventorySnap] = await Promise.all([
+      db.collection('products').orderBy('name').get(),
+      db.collection('inventory').get()
+    ]);
+    var inventoryById = {};
+    inventorySnap.forEach(function (doc) { inventoryById[doc.id] = doc.data(); });
+
+    if (productSnap.empty) { box.innerHTML = '<p style="color:#888">Catalog coming soon — contact us directly for pricing.</p>'; return; }
+
+    var byCategory = {};
+    var categoryOrder = [];
+    catalogProducts = [];
+
+    productSnap.forEach(function (doc) {
+      var p = doc.data();
+      var inv = p.linkedInventoryItemId ? inventoryById[p.linkedInventoryItemId] : null;
+      var stockQty = (inv && typeof inv.qty === 'number') ? inv.qty : null;
+      var stockLabel = '';
+      if (stockQty !== null) {
+        stockLabel = stockQty > 0
+          ? '<span style="color:#4ade80;font-size:0.75rem">In stock (' + stockQty + ')</span>'
+          : '<span style="color:#f87171;font-size:0.75rem">Out of stock</span>';
+      }
+      var isLamination = /lamination/i.test(p.name || '');
+      var thisIdx = catalogProducts.length;
+      var stockBadge = stockQty === 0
+        ? '<span style="position:absolute;top:4px;left:4px;background:#f87171;color:#000;font-size:0.6rem;font-weight:700;padding:2px 6px;border-radius:4px">OUT</span>'
+        : '';
+      var imgHtml = p.imageUrl
+        ? '<img src="' + p.imageUrl + '" alt="' + (p.name || '') + '" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px 8px 0 0" loading="lazy" onerror="this.src=\'\';this.style.background=\'#232329\'">'
+        : '<div style="width:100%;aspect-ratio:1;background:#232329;display:flex;align-items:center;justify-content:center;font-size:1.8rem;border-radius:8px 8px 0 0">🏷️</div>';
+      var disabled = stockQty === 0;
+      var tileHtml = '<div class="peel" id="tile-' + thisIdx + '" onclick="' + (disabled ? '' : 'addToCartQuick(' + thisIdx + ')') + '" style="position:relative;background:var(--surface2);border-radius:var(--radius-sm);overflow:hidden;cursor:' + (disabled ? 'default' : 'pointer') + ';opacity:' + (disabled ? '0.5' : '1') + ';border:1px solid var(--line);box-shadow:0 4px 10px -6px rgba(0,0,0,0.5)">';
+      tileHtml += stockBadge;
+      tileHtml += imgHtml;
+      tileHtml += '<div style="padding:7px 7px 8px">';
+      tileHtml += '<div style="font-size:0.72rem;color:var(--text);line-height:1.25;min-height:1.8em;font-weight:500">' + (p.name || '') + '</div>';
+      tileHtml += '<div style="color:var(--gold);font-weight:800;font-size:0.88rem;margin-top:3px">KSH ' + (p.retailPrice || 0).toLocaleString() + '</div>';
+      if (p.wholesalePrice > 0 && p.wholesaleMinQty > 0) {
+        tileHtml += '<div style="color:var(--sky);font-size:0.62rem">Bulk: ' + p.wholesalePrice.toLocaleString() + ' (' + p.wholesaleMinQty + '+)</div>';
+      }
+      if (isLamination) tileHtml += '<div style="color:#facc15;font-size:0.6rem;margin-top:2px">Lamination only</div>';
+      tileHtml += '</div></div>';
+
+      var cat = p.category || 'Other';
+      if (!byCategory[cat]) { byCategory[cat] = []; categoryOrder.push(cat); }
+      byCategory[cat].push({ name: p.name || '', html: tileHtml });
+
+      catalogProducts.push({
+        id: doc.id,
+        name: p.name || '',
+        category: p.category || '',
+        retailPrice: p.retailPrice || 0,
+        wholesalePrice: p.wholesalePrice || 0,
+        wholesaleMinQty: p.wholesaleMinQty || 0,
+        linkedInventoryItemId: p.linkedInventoryItemId || null,
+        stockQty: stockQty
+      });
+    });
+
+    categoryOrder.sort();
+    catalogByCategory = byCategory;
+    catalogCategoryOrder = categoryOrder;
+    renderCatalogGrid('');
+
+    var optHtml = '<option value="">Select a product...</option>';
+    catalogProducts.forEach(function (p, i) {
+      optHtml += '<option value="' + i + '">' + p.name + ' — KSH ' + p.retailPrice.toLocaleString() + '</option>';
+    });
+    select.innerHTML = optHtml;
+
+    log('Catalog loaded: ' + productSnap.size + ' products');
+  } catch (e) {
+    log('Catalog load error: ' + e.code + ' — ' + e.message);
+    box.innerHTML = '<p style="color:#888">Catalog unavailable right now — contact us directly for pricing.</p>';
+    select.innerHTML = '<option value="">Catalog unavailable — use custom item below</option>';
+  }
+}
+
+function onProductPick() {
+  var idx = document.getElementById('cProduct').value;
+  var hint = document.getElementById('tierHint');
+  if (idx === '') { hint.textContent = ''; return; }
+  var p = catalogProducts[idx];
+  var qty = parseInt(document.getElementById('cQty').value) || 0;
+  if (p.wholesalePrice > 0 && p.wholesaleMinQty > 0) {
+    hint.textContent = qty >= p.wholesaleMinQty
+      ? '✓ Qualifies for bulk price: KSH ' + p.wholesalePrice.toLocaleString() + ' each'
+      : 'Order ' + p.wholesaleMinQty + '+ to unlock bulk price (KSH ' + p.wholesalePrice.toLocaleString() + ' each)';
+  } else {
+    hint.textContent = 'No bulk pricing for this item — retail only';
+  }
+}
+
+function addToCartQuick(idx) {
+  var p = catalogProducts[idx];
+  if (!p) return;
+  cart.push({
+    productId: p.id,
+    name: p.name,
+    qty: 1,
+    unitPrice: p.retailPrice,
+    lineTotal: p.retailPrice,
+    priceTier: 'retail',
+    custom: false
+  });
+  renderCart();
+  log('Tapped to add: ' + p.name);
+
+  var tile = document.getElementById('tile-' + idx);
+  if (tile) {
+    var flash = document.createElement('div');
+    flash.textContent = '✓ Added';
+    flash.style.cssText = 'position:absolute;inset:0;background:rgba(198,255,61,0.92);color:#0D0D10;font-weight:800;font-size:0.85rem;display:flex;align-items:center;justify-content:center;border-radius:8px;pointer-events:none';
+    tile.appendChild(flash);
+    setTimeout(function () { if (flash.parentNode) flash.parentNode.removeChild(flash); }, 500);
+  }
+
+  var cartCard = document.getElementById('cartCard');
+  if (cartCard) cartCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function addCartItem() {
+  var idx = document.getElementById('cProduct').value;
+  var qty = parseInt(document.getElementById('cQty').value) || 0;
+  var tier = document.getElementById('cTier').value;
+  if (idx === '' || qty < 1) { log('Add item: select a product and valid quantity'); return; }
+  var p = catalogProducts[idx];
+
+  if (tier === 'wholesale') {
+    if (!(p.wholesalePrice > 0)) { log('No wholesale price set for ' + p.name + ' — using retail'); tier = 'retail'; }
+    else if (qty < p.wholesaleMinQty) {
+      document.getElementById('orderMsg').className = 'error';
+      document.getElementById('orderMsg').textContent = 'Bulk price for ' + p.name + ' needs at least ' + p.wholesaleMinQty + ' units (you have ' + qty + '). Switch to retail or increase quantity.';
+      return;
+    }
+  }
+  document.getElementById('orderMsg').textContent = '';
+
+  var unitPrice = tier === 'wholesale' ? p.wholesalePrice : p.retailPrice;
+  cart.push({
+    productId: p.id,
+    name: p.name,
+    qty: qty,
+    unitPrice: unitPrice,
+    lineTotal: unitPrice * qty,
+    priceTier: tier,
+    custom: false
+  });
+  document.getElementById('cProduct').value = '';
+  document.getElementById('cQty').value = '1';
+  document.getElementById('cTier').value = 'retail';
+  document.getElementById('tierHint').textContent = '';
+  renderCart();
+  log('Added ' + qty + ' x ' + p.name + ' (' + tier + ')');
+}
+
+function addCustomItem() {
+  var name = document.getElementById('cCustomName').value.trim();
+  var qty = parseInt(document.getElementById('cCustomQty').value) || 0;
+  if (!name || qty < 1) { log('Add custom item: enter a description and valid quantity'); return; }
+  cart.push({
+    productId: null,
+    name: name,
+    qty: qty,
+    unitPrice: 0,
+    lineTotal: 0,
+    custom: true
+  });
+  document.getElementById('cCustomName').value = '';
+  document.getElementById('cCustomQty').value = '1';
+  renderCart();
+  log('Added custom item: ' + qty + ' x ' + name);
+}
+
+function removeCartItem(i) {
+  cart.splice(i, 1);
+  renderCart();
+}
+
+function renderCart() {
+  var box = document.getElementById('cartList');
+  if (cart.length === 0) {
+    box.innerHTML = '<p class="empty">No items added yet</p>';
+  } else {
+    var html = '';
+    cart.forEach(function (item, i) {
+      var priceLabel = item.custom ? 'To be quoted' : 'KSH ' + item.lineTotal.toLocaleString();
+      var tierBadge = item.priceTier === 'wholesale' ? ' <span style="color:#38bdf8;font-size:0.7rem">(bulk)</span>' : '';
+      html += '<div class="cartItem"><div class="meta">' + item.qty + ' × ' + item.name + tierBadge + '</div>';
+      html += '<div style="display:flex;align-items:center"><span class="price">' + priceLabel + '</span>';
+      html += '<button type="button" class="remove" onclick="removeCartItem(' + i + ')">✕</button></div></div>';
+    });
+    box.innerHTML = html;
+  }
+  var total = cart.reduce(function (sum, item) { return sum + item.lineTotal; }, 0);
+  document.getElementById('cartTotal').textContent = 'KSH ' + total.toLocaleString();
+  updateMiniCartBar(total);
+}
+
+function updateMiniCartBar(total) {
+  var bar = document.getElementById('miniCartBar');
+  var itemCount = cart.reduce(function (sum, item) { return sum + item.qty; }, 0);
+  document.getElementById('miniCartCount').textContent = itemCount + (itemCount === 1 ? ' item' : ' items');
+  document.getElementById('miniCartAmount').textContent = 'KSH ' + total.toLocaleString();
+  bar.classList.toggle('visible', cart.length > 0);
+}
+
+// Strips formatting so 0722 912 595 / +254722912595 / 254722912595 all resolve to the same key
+function normalizePhone(raw) {
+  var digits = (raw || '').replace(/\D/g, '');
+  return digits.slice(-9);
+}
+
+async function getNextReceiptNumber() {
+  var counterRef = db.collection('counters').doc('orderCounter');
+  var year = new Date().getFullYear();
+  return db.runTransaction(async function (transaction) {
+    var doc = await transaction.get(counterRef);
+    var next = (doc.exists ? (doc.data().count || 0) : 0) + 1;
+    transaction.set(counterRef, { count: next }, { merge: true });
+    return 'EC-' + year + '-' + String(next).padStart(5, '0');
+  });
+}
+
+async function submitOrder(){
+  var btn = document.getElementById('placeOrderBtn');
+  if (btn.disabled) return; // guard against double-tap while already submitting
+  log('Button clicked');
+  var name = document.getElementById('cName').value.trim();
+  var phone = document.getElementById('cPhone').value.trim();
+  var email = document.getElementById('cEmail').value.trim();
+  var desc = document.getElementById('cDesc').value.trim();
+  var msg = document.getElementById('orderMsg');
+
+  if(!name || !phone || cart.length === 0){
+    msg.className = 'error'; msg.textContent = 'Please add your details and at least one item.';
+    log('Validation failed');
+    return;
+  }
+  if (normalizePhone(phone).length < 9) {
+    msg.className = 'error'; msg.textContent = 'Enter a valid phone number (e.g. 0712345678).';
+    log('Invalid phone format');
+    return;
+  }
+  if (!navigator.onLine) {
+    msg.className = 'error'; msg.textContent = 'No internet connection. Reconnect and try again.';
+    log('Offline — order not submitted');
+    return;
+  }
+
+  var total = cart.reduce(function (sum, item) { return sum + item.lineTotal; }, 0);
+
+  msg.textContent = '';
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Placing your order...';
+  log('Submitting order...');
+  try {
+    var receiptNumber = await getNextReceiptNumber();
+    var doc = await db.collection('orders').add({
+      customerName: name,
+      phone: phone,
+      phoneKey: normalizePhone(phone),
+      email: email || null,
+      items: cart,
+      total: total,
+      amountPaid: 0,
+      balance: total,
+      paymentStatus: 'unpaid',
+      productionStatus: 'new',
+      overallStatus: 'open',
+      description: desc,
+      receiptNumber: receiptNumber,
+      source: orderSource,
+      artworkUrl: attachedArtwork ? attachedArtwork.url : null,
+      artworkFilename: attachedArtwork ? attachedArtwork.filename : null,
+      artworkSize: attachedArtwork ? attachedArtwork.size : null,
+      artworkUploadedAt: attachedArtwork ? attachedArtwork.uploadedAt : null,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    log('SUCCESS: Order ID ' + doc.id + ' — Receipt ' + receiptNumber);
+    document.getElementById('lastOrderId').textContent = 'Receipt: ' + receiptNumber;
+    document.getElementById('orderForm').classList.add('hidden');
+    document.getElementById('successView').classList.remove('hidden');
+    document.getElementById('miniCartBar').classList.remove('visible');
+  } catch(e){
+    log('FAIL: ' + e.code + ' — ' + e.message);
+    msg.className = 'error';
+    var waLink = '<a href="https://wa.me/254722912595?text=Hi%20Elite%20Customs%2C%20my%20order%20wouldn%27t%20submit%20on%20the%20website" style="color:#25D366;font-weight:bold">message us on WhatsApp</a>';
+    msg.innerHTML = e.code === 'unavailable'
+      ? 'Could not reach the server. Check your connection and tap Place Order again — or ' + waLink + '.'
+      : 'Something went wrong — please tap Place Order again. If it keeps failing, ' + waLink + '.';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Place Order';
+  }
+}
+
+function resetForm(){
+  document.getElementById('cName').value = '';
+  document.getElementById('cPhone').value = '';
+  document.getElementById('cEmail').value = '';
+  document.getElementById('cDesc').value = '';
+  document.getElementById('cCustomName').value = '';
+  document.getElementById('cCustomQty').value = '1';
+  document.getElementById('cQty').value = '1';
+  document.getElementById('cProduct').value = '';
+  document.getElementById('cTier').value = 'retail';
+  document.getElementById('tierHint').textContent = '';
+  document.getElementById('orderMsg').textContent = '';
+  cart = [];
+  renderCart();
+  attachedArtwork = null;
+  document.getElementById('artworkFile').value = '';
+  document.getElementById('artworkPreview').classList.add('hidden');
+  document.getElementById('artworkStatus').textContent = '';
+  document.getElementById('orderForm').classList.remove('hidden');
+  document.getElementById('successView').classList.add('hidden');
+}
+</script>
+<div id="miniCartBar">
+  <div class="info">
+    <span class="count" id="miniCartCount">0 items</span>
+    <span class="amount" id="miniCartAmount">KSH 0</span>
+  </div>
+  <button type="button" onclick="document.getElementById('cartCard').scrollIntoView({behavior:'smooth',block:'start'})">View Order</button>
+</div>
+
+<a href="https://wa.me/254722912595?text=Hi%20Elite%20Customs%2C%20I%27m%20having%20trouble%20on%20the%20website" class="floatingWa" title="Message us on WhatsApp">💬</a>
+
+</body>
+</html>

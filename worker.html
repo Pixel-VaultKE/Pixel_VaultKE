@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Elite Customs - Worker</title>
+<style>
+*{box-sizing:border-box}
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600;700;800&display=swap');
+body{font-family:'Inter',system-ui,sans-serif;background:radial-gradient(circle at 3px 3px, rgba(255,255,255,0.03) 1px, transparent 0) 0 0/22px 22px,#111114;color:#e0e0e0;padding:15px;max-width:600px;margin:0 auto}
+.card{background:#1C1C21;border-radius:10px;padding:18px;margin-bottom:12px;border:1px solid rgba(255,255,255,0.08)}
+h1{font-family:'Bebas Neue',sans-serif;letter-spacing:1px;color:#D4AF37;font-size:1.8rem;margin:0 0 4px}
+.eyebrow{display:block;width:max-content;color:#fff;font-size:0.65rem;font-weight:800;letter-spacing:1px;text-transform:uppercase;padding:3px 9px;border-radius:20px;transform:rotate(-2deg);margin-bottom:8px}
+.peel{position:relative;overflow:hidden}
+.peel::after{content:'';position:absolute;top:0;right:0;width:0;height:0;border-style:solid;border-width:0 14px 14px 0;border-color:transparent #111114 transparent transparent;filter:drop-shadow(-1px 1px 2px rgba(0,0,0,0.4))}
+h2{font-family:'Bebas Neue',sans-serif;letter-spacing:0.5px;color:#D4AF37;font-size:1.15rem;margin:0 0 12px}
+.sub{color:#888;font-size:0.85rem;margin-bottom:16px}
+input,select{padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:#232329;color:#e0e0e0;width:100%;margin-bottom:10px;font-size:0.95rem;font-family:'Inter',sans-serif}
+button{padding:12px;border-radius:8px;border:none;background:#d4af37;color:#000;font-weight:bold;width:100%;cursor:pointer;font-size:1rem}
+button:disabled{opacity:0.5;cursor:not-allowed}
+button:hover:not(:disabled){background:#c9a227}
+button.secondary{background:transparent;color:#29D3F5;border:1.5px solid #29D3F5}
+.error{color:#ff4444;font-size:0.85rem;margin-top:4px}
+.ok{color:#22c55e;font-size:0.85rem;margin-top:4px}
+.hidden{display:none !important}
+#log{background:#0f0f0f;border:1px solid #d4af37;border-radius:8px;padding:10px;font-family:monospace;font-size:0.75rem;color:#0f0;max-height:140px;overflow-y:auto;white-space:pre-wrap}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#22c55e;color:#000;padding:12px 20px;border-radius:8px;font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,.4);z-index:100;max-width:90%;text-align:center}
+.toast.error{background:#ef4444;color:#fff}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid #000;border-top-color:transparent;border-radius:50%;animation:spin .6s linear infinite;margin-right:6px;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+.offline-banner{background:#7c2d12;color:#fed7aa;padding:8px 12px;border-radius:8px;font-size:0.8rem;margin-bottom:12px;text-align:center}
+.sale-row{padding:10px;background:#0f0f0f;border-radius:6px;margin-bottom:6px}
+.order-card{background:#0f0f0f;border-radius:10px;padding:14px;border:1px solid #333;margin-top:10px}
+.order-id{color:#d4af37;font-weight:700;margin-bottom:8px}
+.field{margin-bottom:8px}
+.field .lbl{color:#888;font-size:0.72rem;text-transform:uppercase}
+.field .val{color:#e0e0e0;font-size:0.9rem;margin-top:2px}
+.status-line{display:flex;align-items:center;gap:6px;font-weight:600}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block}
+.dot.pending{background:#f87171}
+.dot.progress{background:#facc15}
+.dot.completed{background:#4ade80}
+</style>
+</head>
+<body>
+
+<div class="peel" style="margin-bottom:16px">
+  <span class="eyebrow" style="background:#29D3F5;color:#0D0D10">Team Portal</span>
+  <h1 style="background:linear-gradient(100deg,#D4AF37,#29D3F5);-webkit-background-clip:text;background-clip:text;color:transparent">ELITE CUSTOMS — WORKER</h1>
+  <p class="sub" style="margin-bottom:0">Your Workspace</p>
+</div>
+
+<div id="offlineBanner" class="offline-banner hidden">⚠️ No internet connection. Reconnect to sign in or save sales.</div>
+
+<div id="loginSection" class="card">
+  <h2>Worker Login</h2>
+  <input type="email" id="wEmail" placeholder="Email address" autocomplete="username">
+  <input type="password" id="wPass" placeholder="Password" autocomplete="current-password">
+  <button id="loginBtn" onclick="doLogin()">Sign In</button>
+  <div id="loginMsg"></div>
+</div>
+
+<div id="workerSection" class="hidden">
+  <div class="card peel" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-left:3px solid #C6FF3D">
+    <div>
+      <span class="eyebrow" style="background:#C6FF3D;color:#0D0D10">You're In</span>
+      <h2 id="workerName" style="margin-bottom:0">Worker</h2>
+    </div>
+    <button onclick="doLogout()" class="secondary" style="width:auto;padding:8px 16px;font-size:0.85rem">Logout</button>
+  </div>
+
+  <div class="card">
+    <span class="eyebrow" style="background:#29D3F5;color:#0D0D10">From The Boss</span><h2>📋 My Tasks</h2>
+    <div id="myTasksList"><p style="color:#888">Loading...</p></div>
+  </div>
+
+  <div class="card">
+    <span class="eyebrow" style="background:#FF2E63;color:#fff">Track Spend</span><h2>Log Business Expense</h2>
+    <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Transport, airtime, restock, etc. Logged expenses can't be edited or removed by workers — the owner reviews them.</p>
+    <select id="wExpCategory">
+      <option value="Transport">Transport</option>
+      <option value="Airtime">Airtime</option>
+      <option value="Restock">Restock</option>
+      <option value="Delivery">Delivery</option>
+      <option value="Utilities">Utilities</option>
+      <option value="Other">Other</option>
+    </select>
+    <input type="number" id="wExpAmount" placeholder="Amount KSH" min="0">
+    <input type="text" id="wExpNote" placeholder="Note (optional)">
+    <button onclick="logWorkerExpense()">Log Expense</button>
+    <div id="wExpMsg"></div>
+  </div>
+
+  <div class="card">
+    <span class="eyebrow" style="background:#29D3F5;color:#0D0D10">Check Status</span><h2>Look Up Customer Order</h2>
+    <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Customer walked in? Search by phone number or order ID to check status.</p>
+    <input type="text" id="lookupInput" placeholder="Phone number or Order ID">
+    <button id="lookupBtn" onclick="lookupOrder()">Search</button>
+    <div id="lookupMsg"></div>
+    <div id="lookupResults"></div>
+  </div>
+
+  <div class="card">
+    <span class="eyebrow" style="background:#C6FF3D;color:#0D0D10">New Sale</span><h2>Record Sale</h2>
+    <input type="text" id="sCustomer" placeholder="Customer name (optional)">
+    <input type="tel" id="sPhone" placeholder="Customer phone (optional, links their history)">
+
+    <h2 style="font-size:0.9rem;margin-top:6px">Add Items</h2>
+    <select id="sProduct" onchange="onSaleItemInputChange()">
+      <option value="">Select product...</option>
+    </select>
+    <div style="display:flex;gap:8px">
+      <select id="sTier" onchange="onSaleItemInputChange()" style="flex:1">
+        <option value="retail">Retail price</option>
+        <option value="wholesale">Wholesale price</option>
+      </select>
+      <input type="number" id="sQty" placeholder="Qty" min="1" value="1" style="max-width:80px;flex:none" oninput="onSaleItemInputChange()">
+    </div>
+    <div id="sCalcPrice" style="color:#666;font-size:0.75rem;margin:-6px 0 10px"></div>
+    <button type="button" class="secondary" onclick="addSaleItem()" style="margin-bottom:14px">+ Add Item</button>
+
+    <p style="color:#888;font-size:0.75rem;margin:-8px 0 8px">Don't see it, or it's a custom job? Add it directly:</p>
+    <input type="text" id="sCustomName" placeholder="Custom item description">
+    <div style="display:flex;gap:8px">
+      <input type="number" id="sCustomQty" placeholder="Qty" min="1" value="1" style="max-width:80px">
+      <input type="number" id="sCustomPrice" placeholder="Total price KSH" min="0" style="flex:1">
+    </div>
+    <button type="button" class="secondary" onclick="addCustomSaleItem()" style="margin-bottom:14px">+ Add Custom Item</button>
+
+    <h2 style="font-size:0.9rem">Items in This Sale</h2>
+    <div id="saleCartList"><p style="color:#666;font-size:0.85rem">No items added yet</p></div>
+    <div style="display:flex;justify-content:space-between;padding-top:8px;border-top:1px solid #333;margin:8px 0 14px">
+      <span>Cart Total</span><strong id="saleCartTotal" style="color:#d4af37">KSH 0</strong>
+    </div>
+
+    <label style="color:#888;font-size:0.75rem;display:block;margin-bottom:2px">Final total (adjust here for a discount — leave blank to charge the cart total)</label>
+    <input type="number" id="sFinalTotal" placeholder="Leave blank to use cart total" min="0" oninput="onTotalOrPaidChange()">
+    <label style="color:#888;font-size:0.75rem;display:block;margin-bottom:2px">Amount paid now (leave equal to total if paid in full)</label>
+    <input type="number" id="sAmountPaid" placeholder="Amount received KSH" min="0" oninput="onTotalOrPaidChange()">
+    <div id="sBalanceInfo" style="font-size:0.8rem;margin:-6px 0 10px"></div>
+
+    <select id="sPayment">
+      <option value="cash">Cash</option>
+      <option value="mpesa">M-PESA</option>
+    </select>
+    <input type="text" id="sDesc" placeholder="Description (optional)">
+    <button id="saleBtn" onclick="recordSale()">Record Sale</button>
+    <div id="saleMsg"></div>
+  </div>
+
+  <div class="card">
+    <span class="eyebrow" style="background:#D4AF37;color:#0D0D10">Your Wins</span><h2>My Recent Sales</h2>
+    <div id="mySales"><p style="color:#888">Loading...</p></div>
+  </div>
+</div>
+
+<div id="toastBox"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+<script>
+window.onerror = function(msg, url, line) {
+  log('[ERROR] ' + msg + ' (line ' + line + ')');
+};
+
+var firebaseConfig = {
+  apiKey: "AIzaSyDTsJvTWgYdHb9wLF-MSXGbxvZf5LPA_jA",
+  authDomain: "elite-customs-os.firebaseapp.com",
+  projectId: "elite-customs-os",
+  storageBucket: "elite-customs-os.firebasestorage.app",
+  messagingSenderId: "628800846035",
+  appId: "1:628800846035:web:8d3f8f3f1935909876bc26",
+  measurementId: "G-H082LD7630"
+};
+firebase.initializeApp(firebaseConfig);
+var auth = firebase.auth();
+var db = firebase.firestore();
+var currentWorker = null;
+var rawProducts = [];
+
+async function loadProductCatalog() {
+  try {
+    var snap = await db.collection('products').orderBy('name').get();
+    rawProducts = [];
+    snap.forEach(function (doc) { rawProducts.push({ id: doc.id, data: doc.data() }); });
+    var select = document.getElementById('sProduct');
+    select.innerHTML = '<option value="">Select product...</option>';
+    rawProducts.forEach(function (p) {
+      select.innerHTML += '<option value="' + p.id + '">' + p.data.name + '</option>';
+    });
+  } catch (e) {
+    log('Product catalog load error: ' + e.code + ' — ' + e.message);
+  }
+}
+
+var saleCart = []; // [{productId, name, qty, unitPrice, lineTotal, priceTier, custom}]
+
+// Live hint as the worker picks a product/tier/qty, before adding it to the cart
+function onSaleItemInputChange() {
+  var productId = document.getElementById('sProduct').value;
+  var product = rawProducts.find(function (p) { return p.id === productId; });
+  var tier = document.getElementById('sTier').value;
+  var qty = parseInt(document.getElementById('sQty').value) || 0;
+  var calcBox = document.getElementById('sCalcPrice');
+  if (!product || qty <= 0) { calcBox.textContent = ''; return; }
+  var unitPrice = tier === 'wholesale' ? (product.data.wholesalePrice || 0) : (product.data.retailPrice || 0);
+  var total = unitPrice * qty;
+  var minQty = product.data.wholesaleMinQty || 0;
+  if (tier === 'wholesale' && minQty > 0 && qty < minQty) {
+    calcBox.innerHTML = '<span style="color:#f87171">⚠️ Wholesale needs ' + minQty + '+ units for ' + product.data.name + ' (have ' + qty + ')</span>';
+  } else {
+    calcBox.textContent = 'KSH ' + unitPrice.toLocaleString() + ' x ' + qty + ' = KSH ' + total.toLocaleString();
+  }
+}
+
+function addSaleItem() {
+  var productId = document.getElementById('sProduct').value;
+  var product = rawProducts.find(function (p) { return p.id === productId; });
+  var tier = document.getElementById('sTier').value;
+  var qty = parseInt(document.getElementById('sQty').value) || 0;
+  if (!product || qty <= 0) { log('Add item: select a product and valid quantity'); return; }
+  if (tier === 'wholesale' && product.data.wholesaleMinQty > 0 && qty < product.data.wholesaleMinQty) {
+    document.getElementById('saleMsg').className = 'error';
+    document.getElementById('saleMsg').textContent = 'Wholesale price for ' + product.data.name + ' needs at least ' + product.data.wholesaleMinQty + ' units (you entered ' + qty + '). Switch to retail or increase quantity.';
+    return;
+  }
+  document.getElementById('saleMsg').textContent = '';
+  var unitPrice = tier === 'wholesale' ? (product.data.wholesalePrice || 0) : (product.data.retailPrice || 0);
+  saleCart.push({
+    productId: product.id,
+    name: product.data.name,
+    qty: qty,
+    unitPrice: unitPrice,
+    lineTotal: unitPrice * qty,
+    priceTier: tier,
+    custom: false
+  });
+  document.getElementById('sProduct').value = '';
+  document.getElementById('sQty').value = '1';
+  document.getElementById('sTier').value = 'retail';
+  document.getElementById('sCalcPrice').textContent = '';
+  renderSaleCart();
+  log('Added ' + qty + ' x ' + product.data.name + ' (' + tier + ') to sale');
+}
+
+function addCustomSaleItem() {
+  var name = document.getElementById('sCustomName').value.trim();
+  var qty = parseInt(document.getElementById('sCustomQty').value) || 0;
+  var priceRaw = document.getElementById('sCustomPrice').value;
+  var price = parseFloat(priceRaw);
+  if (!name || qty <= 0) { log('Add custom item: enter a description and valid quantity'); return; }
+  if (!priceRaw || isNaN(price) || price <= 0) {
+    document.getElementById('saleMsg').className = 'error';
+    document.getElementById('saleMsg').textContent = 'Enter a total price for the custom item';
+    return;
+  }
+  document.getElementById('saleMsg').textContent = '';
+  saleCart.push({
+    productId: null,
+    name: name,
+    qty: qty,
+    unitPrice: price / qty,
+    lineTotal: price,
+    priceTier: null,
+    custom: true
+  });
+  document.getElementById('sCustomName').value = '';
+  document.getElementById('sCustomQty').value = '1';
+  document.getElementById('sCustomPrice').value = '';
+  renderSaleCart();
+  log('Added custom item: ' + qty + ' x ' + name + ' — KSH ' + price);
+}
+
+function removeSaleItem(i) {
+  saleCart.splice(i, 1);
+  renderSaleCart();
+}
+
+function saleCartTotal() {
+  return saleCart.reduce(function (sum, item) { return sum + item.lineTotal; }, 0);
+}
+
+function renderSaleCart() {
+  var box = document.getElementById('saleCartList');
+  if (saleCart.length === 0) {
+    box.innerHTML = '<p style="color:#666;font-size:0.85rem">No items added yet</p>';
+  } else {
+    var html = '';
+    saleCart.forEach(function (item, i) {
+      var tierBadge = item.priceTier === 'wholesale' ? ' <span style="color:#38bdf8;font-size:0.7rem">(Wholesale)</span>' : item.priceTier === 'retail' ? ' <span style="color:#888;font-size:0.7rem">(Retail)</span>' : '';
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px;background:#151515;border-radius:6px;margin-bottom:6px">';
+      html += '<span style="font-size:0.85rem">' + item.qty + '× ' + item.name + tierBadge + '</span>';
+      html += '<span><strong style="color:#d4af37">KSH ' + item.lineTotal.toLocaleString() + '</strong> <button type="button" onclick="removeSaleItem(' + i + ')" style="width:auto;background:none;color:#f87171;padding:0 0 0 10px;font-size:1rem">✕</button></span>';
+      html += '</div>';
+    });
+    box.innerHTML = html;
+  }
+  document.getElementById('saleCartTotal').textContent = 'KSH ' + saleCartTotal().toLocaleString();
+  onTotalOrPaidChange();
+}
+
+// Shows a live "Paid in full" / "Partial — KSH X remaining" hint for the whole sale
+function onTotalOrPaidChange() {
+  var box = document.getElementById('sBalanceInfo');
+  var totalRaw = document.getElementById('sFinalTotal').value;
+  var total = totalRaw === '' ? saleCartTotal() : (parseFloat(totalRaw) || 0);
+  var paidRaw = document.getElementById('sAmountPaid').value;
+  var paid = paidRaw === '' ? total : (parseFloat(paidRaw) || 0);
+  var balance = total - paid;
+  if (total <= 0) { box.textContent = ''; return; }
+  if (balance <= 0) {
+    box.innerHTML = '<span style="color:#4ade80">✓ Paid in full</span>';
+  } else if (paid > 0) {
+    box.innerHTML = '<span style="color:#fbbf24">Partial — KSH ' + paid.toLocaleString() + ' paid, KSH ' + balance.toLocaleString() + ' remaining</span>';
+  } else {
+    box.innerHTML = '<span style="color:#f87171">Unpaid — full KSH ' + total.toLocaleString() + ' owed</span>';
+  }
+}
+
+function toggleLog() {
+  var logEl = document.getElementById('log');
+  var arrow = document.getElementById('logArrow');
+  var collapsed = logEl.classList.toggle('hidden');
+  arrow.textContent = collapsed ? '▸' : '▾';
+}
+
+function log(msg) {
+  var el = document.getElementById('log');
+  var line = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+  console.log(line);
+  if (el) el.textContent += line + '\n';
+}
+
+// ---------- EVENT LOG (ledger core, phase 1) ----------
+// Same helper as admin.html — fire-and-forget write to the append-only
+// `events` collection, additive only, never blocks the action it's attached to.
+function logEvent(type, payload) {
+  var data = Object.assign({
+    type: type,
+    workerId: (firebase.auth().currentUser && firebase.auth().currentUser.uid) || null,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  }, payload || {});
+  return db.collection('events').add(data).catch(function (e) {
+    log('Event log failed (' + type + '): ' + e.code + ' — ' + e.message);
+  });
+}
+
+// ---------- COMMAND HANDLERS (domain/rule engine, phase 3) ----------
+// Pure business-rules gate for an action before it's allowed to become a
+// real fact. Same checks that were previously inline in recordSale(),
+// extracted so they're named, testable, and reusable — behavior for what
+// gets accepted vs rejected is unchanged from before this refactor.
+function validateSaleCommand(input) {
+  if (!input.currentWorker) return { accepted: false, reason: 'Not logged in' };
+  if (!navigator.onLine) return { accepted: false, reason: 'No internet connection. Sale not saved — try again once connected.' };
+  if (isNaN(input.amount) || input.amount <= 0) return { accepted: false, reason: 'Enter a valid final total' };
+  if (input.amountPaid < 0) return { accepted: false, reason: 'Amount paid cannot be negative' };
+  if (input.amountPaid > input.amount) return { accepted: false, reason: 'Amount paid cannot exceed the total sale price' };
+  var balance = input.amount - input.amountPaid;
+  if (balance > 0 && !input.phone) {
+    return { accepted: false, reason: 'This sale has KSH ' + balance.toLocaleString() + ' still owed — enter the customer\'s phone number so it can be followed up.' };
+  }
+  return { accepted: true };
+}
+
+function toast(msg, isError) {
+  var box = document.getElementById('toastBox');
+  var t = document.createElement('div');
+  t.className = 'toast' + (isError ? ' error' : '');
+  t.textContent = msg;
+  box.appendChild(t);
+  setTimeout(function () { t.remove(); }, 3500);
+}
+
+function setBusy(btn, busy, idleText) {
+  btn.disabled = busy;
+  btn.innerHTML = busy ? '<span class="spinner"></span>Working...' : idleText;
+}
+
+window.addEventListener('online', function () {
+  document.getElementById('offlineBanner').classList.add('hidden');
+  log('Back online');
+});
+window.addEventListener('offline', function () {
+  document.getElementById('offlineBanner').classList.remove('hidden');
+  log('Connection lost');
+});
+if (!navigator.onLine) document.getElementById('offlineBanner').classList.remove('hidden');
+
+log('Worker page loaded');
+
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[c]; }); }
+function text(v, fallback) { var out = (v === undefined || v === null || v === '') ? (fallback || '—') : v; return escapeHtml(out); }
+
+function normalizePhone(raw) {
+  var digits = (raw || '').replace(/\D/g, '');
+  return digits.slice(-9);
+}
+
+function productionMeta(status) {
+  if (status === 'delivered') return { dot: 'completed', icon: '🟢', label: 'Delivered' };
+  if (status === 'ready') return { dot: 'progress', icon: '🔵', label: 'Ready for Pickup' };
+  if (status === 'finishing') return { dot: 'progress', icon: '🟣', label: 'Finishing' };
+  if (status === 'printing') return { dot: 'progress', icon: '🟠', label: 'Printing' };
+  if (status === 'designing') return { dot: 'progress', icon: '🟡', label: 'Designing' };
+  // legacy values from before the production/payment split
+  if (status === 'completed') return { dot: 'completed', icon: '🟢', label: 'Delivered' };
+  if (status === 'in-progress') return { dot: 'progress', icon: '🟡', label: 'In Progress' };
+  return { dot: 'pending', icon: '🔴', label: 'New' };
+}
+
+function paymentMeta(status) {
+  if (status === 'paid') return { icon: '🟢', label: 'Fully Paid' };
+  if (status === 'partial') return { icon: '🟠', label: 'Partially Paid' };
+  return { icon: '⚪', label: 'Unpaid' };
+}
+
+// Normalizes old orders (single itemType/status) so lookup works for orders
+// placed before the items[] + payment/production split too.
+function normalizeOrder(o) {
+  if (!o.items) {
+    o.items = o.itemType ? [{ name: o.itemType, qty: o.quantity || 1 }] : [];
+  }
+  if (typeof o.total !== 'number') o.total = o.totalAmount || 0;
+  if (typeof o.amountPaid !== 'number') o.amountPaid = 0;
+  if (typeof o.balance !== 'number') o.balance = o.total - o.amountPaid;
+  if (!o.paymentStatus) o.paymentStatus = o.balance <= 0 && o.total > 0 ? 'paid' : (o.amountPaid > 0 ? 'partial' : 'unpaid');
+  if (!o.productionStatus) {
+    var legacyMap = { pending: 'new', designing: 'designing', printing: 'printing', 'in-progress': 'printing', ready: 'ready', completed: 'delivered' };
+    o.productionStatus = legacyMap[o.status] || 'new';
+  }
+  return o;
+}
+
+async function logWorkerExpense() {
+  var category = document.getElementById('wExpCategory').value;
+  var amount = parseFloat(document.getElementById('wExpAmount').value) || 0;
+  var note = document.getElementById('wExpNote').value.trim();
+  var msg = document.getElementById('wExpMsg');
+
+  if (amount <= 0) { msg.className = 'error'; msg.textContent = 'Enter a valid amount'; return; }
+  if (!currentWorker) { msg.className = 'error'; msg.textContent = 'Not logged in'; return; }
+  if (!navigator.onLine) { msg.className = 'error'; msg.textContent = 'No internet connection'; return; }
+
+  try {
+    var expRef = await db.collection('expenses').add({
+      category: category,
+      amount: amount,
+      note: note,
+      loggedBy: currentWorker.name,
+      loggedByRole: 'worker',
+      workerId: currentWorker.id,
+      status: 'pending',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    log('Expense logged: ' + category + ' KSH ' + amount + ' (pending owner approval)');
+    logEvent('ExpenseLogged', { expenseId: expRef.id, category: category, amount: amount, loggedBy: currentWorker.name });
+    msg.className = 'ok'; msg.textContent = 'Logged — pending owner approval before it counts';
+    toast('Expense logged: KSH ' + amount.toLocaleString());
+    document.getElementById('wExpAmount').value = '';
+    document.getElementById('wExpNote').value = '';
+  } catch (e) {
+    log('Log expense error: ' + e.code + ' — ' + e.message);
+    msg.className = 'error'; msg.textContent = 'Could not log expense';
+  }
+}
+
+// ---------- PRODUCTION CHECKLISTS ----------
+// Same template as admin.html — real steps, given by the owner. Keep this in
+// sync with admin.html's PRODUCTION_CHECKLISTS if it's ever edited.
+var PRODUCTION_CHECKLISTS = {
+  frosted: [
+    'Understand the vision — what they want, how it\'ll look on their device',
+    'Design source — existing artwork picked, or custom (design + advise)',
+    'Deposit collected',
+    'Design finalized (if custom)',
+    'Print',
+    'Laminate',
+    'Trim',
+    'Install',
+    'Customer approval — final look',
+    'Balance payment',
+    'Delivered'
+  ]
+};
+
+// ---------- MY TASKS ----------
+async function loadMyTasks() {
+  var box = document.getElementById('myTasksList');
+  if (!box || !currentWorker) return;
+  try {
+    var snap = await db.collection('tasks')
+      .where('assignedToId', '==', currentWorker.id)
+      .where('status', '==', 'pending')
+      .get();
+    var tasks = [];
+    snap.forEach(function (doc) {
+      var t = doc.data();
+      tasks.push({ id: doc.id, data: t, ts: t.createdAt ? t.createdAt.toMillis() : 0 });
+    });
+    tasks.sort(function (a, b) { return b.ts - a.ts; });
+    if (tasks.length === 0) { box.innerHTML = '<p style="color:#888">Nothing assigned right now.</p>'; return; }
+    var html = '';
+    tasks.forEach(function (item) {
+      var t = item.data;
+      html += '<div style="background:#232329;border-radius:8px;padding:10px;margin-bottom:8px">';
+      html += '<div style="color:#fff;font-weight:600">' + text(t.description) + '</div>';
+      if (t.when) html += '<div style="color:#666;font-size:0.75rem;margin-top:2px">⏰ ' + text(t.when) + '</div>';
+      html += '<input type="text" id="taskNote-' + item.id + '" placeholder="Reply (optional — e.g. \'on it\', \'done, called her\')" style="margin-top:8px">';
+      html += '<button onclick="completeTask(\'' + item.id + '\')" style="margin-top:4px">✓ Mark Done</button>';
+      html += '</div>';
+    });
+    box.innerHTML = html;
+  } catch (e) {
+    log('Load my tasks error: ' + e.code + ' — ' + e.message);
+    box.innerHTML = '<p style="color:#ff4444">Could not load tasks</p>';
+  }
+}
+
+async function completeTask(id) {
+  var noteInput = document.getElementById('taskNote-' + id);
+  var note = noteInput ? noteInput.value.trim() : '';
+  try {
+    await db.collection('tasks').doc(id).update({
+      status: 'done',
+      workerNote: note,
+      completedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    logEvent('TaskCompleted', { taskId: id, note: note });
+    log('Task ' + id + ' marked done');
+    loadMyTasks();
+  } catch (e) {
+    log('Complete task error: ' + e.code + ' — ' + e.message);
+    toast(e.code === 'permission-denied' ? 'Could not update — check your connection and try again' : 'Could not mark done', true);
+  }
+}
+
+function checklistTemplateFor(items) {
+  if (!items || !items.length) return null;
+  var isFrosted = items.some(function (it) { return /frosted/i.test(it.name || ''); });
+  return isFrosted ? 'frosted' : null;
+}
+
+async function toggleChecklistStep(orderId, stepIndex, isDone, templateKey) {
+  try {
+    var doc = await db.collection('orders').doc(orderId).get();
+    var steps = PRODUCTION_CHECKLISTS[templateKey];
+    var checklist = (doc.exists && doc.data().checklist) || steps.map(function () { return { done: false }; });
+    checklist[stepIndex] = { done: isDone };
+    await db.collection('orders').doc(orderId).update({ checklist: checklist });
+    log('Checklist step ' + stepIndex + ' for order ' + orderId + ': ' + isDone);
+  } catch (e) {
+    log('Checklist update error: ' + e.code + ' — ' + e.message);
+  }
+}
+
+async function lookupOrder() {
+  var raw = document.getElementById('lookupInput').value.trim();
+  var msg = document.getElementById('lookupMsg');
+  var results = document.getElementById('lookupResults');
+  var btn = document.getElementById('lookupBtn');
+  msg.textContent = ''; results.innerHTML = '';
+
+  if (!raw) { msg.className = 'error'; msg.textContent = 'Enter a phone number or order ID'; return; }
+  if (!navigator.onLine) { msg.className = 'error'; msg.textContent = 'No internet connection'; return; }
+
+  btn.disabled = true; btn.textContent = 'Searching...';
+  log('Looking up order: ' + raw);
+
+  try {
+    var list = [];
+    // looks like a phone number (mostly digits) -> search by phone, else treat as order ID
+    var isPhone = /^[0-9+\s-]{6,}$/.test(raw);
+    if (isPhone) {
+      var key = normalizePhone(raw);
+      var snap = await db.collection('orders').where('phoneKey', '==', key).orderBy('createdAt', 'desc').limit(10).get();
+      snap.forEach(function (d) { list.push({ id: d.id, data: d.data() }); });
+      if (list.length === 0) {
+        log('No phoneKey match, trying legacy exact match');
+        var legacySnap = await db.collection('orders').where('phone', '==', raw).orderBy('createdAt', 'desc').limit(10).get();
+        legacySnap.forEach(function (d) { list.push({ id: d.id, data: d.data() }); });
+      }
+    } else {
+      var doc = await db.collection('orders').doc(raw).get();
+      if (doc.exists) list.push({ id: doc.id, data: doc.data() });
+    }
+
+    if (list.length === 0) {
+      log('No order found for: ' + raw);
+      msg.className = 'error'; msg.textContent = 'No order found. Check the phone number or order ID with the customer.';
+      return;
+    }
+
+    var html = '';
+    list.forEach(function (item) {
+      var o = normalizeOrder(item.data);
+      var meta = productionMeta(o.productionStatus);
+      var pay = paymentMeta(o.paymentStatus);
+      var updated = o.updatedAt ? o.updatedAt.toDate().toLocaleString() : (o.createdAt ? o.createdAt.toDate().toLocaleString() : '—');
+      var itemsLabel = o.items.length ? o.items.map(function (it) { return it.qty + '× ' + it.name; }).join(', ') : '—';
+      html += '<div class="order-card">';
+      html += '<div class="order-id">' + (o.receiptNumber ? o.receiptNumber : 'Order #' + item.id.slice(0, 8)) + '</div>';
+      html += '<div class="field"><div class="lbl">Customer</div><div class="val">' + text(o.customerName) + '</div></div>';
+      html += '<div class="field"><div class="lbl">Items</div><div class="val">' + itemsLabel + '</div></div>';
+      html += '<div class="field"><div class="lbl">Production Status</div><div class="val status-line"><span class="dot ' + meta.dot + '"></span>' + meta.icon + ' ' + meta.label + '</div></div>';
+      html += '<div class="field"><div class="lbl">Payment Status</div><div class="val status-line">' + pay.icon + ' ' + pay.label + (o.balance > 0 ? ' — KSH ' + o.balance.toLocaleString() + ' owed' : '') + '</div></div>';
+      html += '<div class="field"><div class="lbl">Last Updated</div><div class="val">' + updated + '</div></div>';
+      if (o.description) html += '<div class="field"><div class="lbl">Notes</div><div class="val">' + text(o.description) + '</div></div>';
+      if (o.artworkUrl) {
+        html += '<div class="field"><div class="lbl">Artwork</div><div class="val">';
+        html += '<a href="' + o.artworkUrl + '" target="_blank"><img src="' + o.artworkUrl + '" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid #FF2E63"></a>';
+        html += '<br><span style="color:#8A8A93;font-size:0.75rem">📎 ' + text(o.artworkFilename || 'design file') + '</span>';
+        html += '</div></div>';
+      }
+      var templateKey = checklistTemplateFor(o.items);
+      if (templateKey) {
+        html += '<div class="field"><div class="lbl">Production Checklist</div><div class="val">';
+        var steps = PRODUCTION_CHECKLISTS[templateKey];
+        var saved = o.checklist || [];
+        steps.forEach(function (label, i) {
+          var checked = saved[i] && saved[i].done;
+          html += '<label style="display:flex;align-items:flex-start;gap:6px;font-size:0.78rem;color:' + (checked ? '#C6FF3D' : '#ccc') + ';margin-bottom:6px;cursor:pointer">';
+          html += '<input type="checkbox" style="width:auto;margin:2px 0 0" ' + (checked ? 'checked' : '') + ' onchange="toggleChecklistStep(\'' + item.id + '\', ' + i + ', this.checked, \'' + templateKey + '\')">';
+          html += '<span>' + label + '</span></label>';
+        });
+        html += '</div></div>';
+      }
+      html += '</div>';
+    });
+    results.innerHTML = html;
+    log('Found ' + list.length + ' order(s)');
+  } catch (e) {
+    log('Lookup error: ' + e.code + ' — ' + e.message);
+    msg.className = 'error';
+    msg.textContent = e.code === 'permission-denied' ? 'Order lookup is not enabled yet.' : 'Search failed. Try again.';
+  } finally {
+    btn.disabled = false; btn.textContent = 'Search';
+  }
+}
+
+auth.onAuthStateChanged(function (user) {
+  if (user) {
+    log('Auth state: logged in as ' + user.email);
+    loadWorkerProfile(user.uid);
+  } else {
+    log('Auth state: logged out');
+    document.getElementById('loginSection').classList.remove('hidden');
+    document.getElementById('workerSection').classList.add('hidden');
+    currentWorker = null;
+  }
+});
+
+async function doLogin() {
+  var email = document.getElementById('wEmail').value.trim();
+  var pass = document.getElementById('wPass').value;
+  var msg = document.getElementById('loginMsg');
+  var btn = document.getElementById('loginBtn');
+  msg.textContent = '';
+
+  if (!email || !pass) {
+    msg.className = 'error'; msg.textContent = 'Enter email and password';
+    return;
+  }
+  if (!navigator.onLine) {
+    msg.className = 'error'; msg.textContent = 'No internet connection. Try again once connected.';
+    return;
+  }
+
+  setBusy(btn, true, 'Sign In');
+  log('Logging in...');
+  try {
+    await auth.signInWithEmailAndPassword(email, pass);
+    log('Login success');
+  } catch (e) {
+    log('Login error: ' + e.code + ' — ' + e.message);
+    msg.className = 'error';
+    msg.textContent = friendlyAuthError(e.code);
+  } finally {
+    setBusy(btn, false, 'Sign In');
+  }
+}
+
+function friendlyAuthError(code) {
+  switch (code) {
+    case 'auth/invalid-email': return 'That email address looks wrong. Check for typos.';
+    case 'auth/user-not-found': return 'No account found with that email.';
+    case 'auth/wrong-password': return 'Wrong password.';
+    case 'auth/invalid-credential': return 'Email or password is incorrect.';
+    case 'auth/too-many-requests': return 'Too many attempts. Wait a bit and try again.';
+    case 'auth/network-request-failed': return 'Network error. Check your connection.';
+    default: return 'Sign in failed. Try again.';
+  }
+}
+
+async function doLogout() {
+  try {
+    await auth.signOut();
+    log('Logged out');
+    location.reload();
+  } catch (e) {
+    log('Logout error: ' + e.message);
+  }
+}
+
+async function loadWorkerProfile(uid) {
+  try {
+    var snap = await db.collection('workers').doc(uid).get();
+    if (!snap.exists) {
+      log('ERROR: No worker profile document for this account');
+      toast('No worker profile found for this account. Ask admin to set one up.', true);
+      await auth.signOut();
+      return;
+    }
+    var data = snap.data();
+    if (data.role !== 'worker' && data.role !== 'admin' && data.role !== 'owner') {
+      log('ERROR: Account role is "' + data.role + '", not authorized here');
+      toast('This account is not authorized as a worker.', true);
+      await auth.signOut();
+      return;
+    }
+    if (data.active === false) {
+      log('ERROR: Account marked inactive');
+      toast('This account has been deactivated. Contact the owner.', true);
+      await auth.signOut();
+      return;
+    }
+    currentWorker = { id: uid, name: data.name || 'Worker', role: data.role };
+    var hr = new Date().getHours();
+    var greeting = hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening';
+    document.getElementById('workerName').textContent = greeting + ', ' + currentWorker.name + (data.role !== 'worker' ? ' (' + (data.role === 'owner' ? 'Owner' : 'Admin') + ')' : '');
+    document.getElementById('loginSection').classList.add('hidden');
+    document.getElementById('workerSection').classList.remove('hidden');
+    log('Welcome ' + currentWorker.name);
+    loadProductCatalog();
+    loadMySales(uid);
+    loadMyTasks();
+  } catch (e) {
+    log('Profile load error: ' + e.code + ' — ' + e.message);
+    toast('Could not load your profile. ' + (e.code === 'unavailable' ? 'You appear offline.' : ''), true);
+  }
+}
+
+async function recordSale() {
+  var customer = document.getElementById('sCustomer').value.trim() || 'Walk-in';
+  var phone = document.getElementById('sPhone').value.trim();
+  var payment = document.getElementById('sPayment').value;
+  var desc = document.getElementById('sDesc').value.trim();
+  var msg = document.getElementById('saleMsg');
+  var btn = document.getElementById('saleBtn');
+  msg.textContent = '';
+
+  if (saleCart.length === 0) { msg.className = 'error'; msg.textContent = 'Add at least one item to this sale'; return; }
+
+  var cartTotal = saleCartTotal();
+  var totalRaw = document.getElementById('sFinalTotal').value;
+  var amount = totalRaw === '' ? cartTotal : parseFloat(totalRaw);
+  var paidRaw = document.getElementById('sAmountPaid').value;
+  var amountPaid = paidRaw === '' ? amount : (parseFloat(paidRaw) || 0);
+  var balance = (isNaN(amount) ? 0 : amount) - amountPaid;
+
+  // ---------- COMMAND HANDLER: SaleRecorded ----------
+  // Business rules gate — same checks that existed inline before, now named
+  // and reusable, with rejections recorded to the ledger too (so "someone
+  // tried to record an invalid sale" is part of business memory, not lost
+  // the moment the error message disappears from screen).
+  var check = validateSaleCommand({ amount: amount, amountPaid: amountPaid, phone: phone, currentWorker: currentWorker });
+  if (!check.accepted) {
+    msg.className = 'error'; msg.textContent = check.reason;
+    logEvent('CommandRejected', { command: 'RecordSale', reason: check.reason, customerName: customer });
+    return;
+  }
+  var paymentStatus = balance <= 0 ? 'paid' : (amountPaid > 0 ? 'partial' : 'unpaid');
+
+  setBusy(btn, true, 'Record Sale');
+  var itemsSummaryStr = saleCart.map(function (it) { return it.qty + '× ' + it.name; }).join(', ');
+  log('Recording sale of KSH ' + amount + ' (' + itemsSummaryStr + ')...');
+  try {
+    var saleData = {
+      customerName: customer,
+      phone: phone || null,
+      phoneKey: phone ? normalizePhone(phone) : null,
+      items: saleCart,
+      amount: amount,
+      totalAmount: amount,
+      cartTotal: cartTotal,
+      amountPaid: amountPaid,
+      balance: balance,
+      paymentStatus: paymentStatus,
+      paymentMethod: payment,
+      description: desc,
+      workerId: currentWorker.id,
+      workerName: currentWorker.name,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+
+    // Pre-flight stock check — warn before committing, instead of silently going negative
+    var stockWarnings = [];
+    for (var k = 0; k < saleCart.length; k++) {
+      var checkItem = saleCart[k];
+      if (!checkItem.productId) continue;
+      var checkProduct = rawProducts.find(function (p) { return p.id === checkItem.productId; });
+      var checkInvId = checkProduct ? checkProduct.data.linkedInventoryItemId : null;
+      if (!checkInvId) continue;
+      var checkDeductQty = checkItem.qty * (checkProduct.data.unitsPerSale || 1);
+      try {
+        var invDoc = await db.collection('inventory').doc(checkInvId).get();
+        var currentQty = invDoc.exists ? (invDoc.data().qty || 0) : 0;
+        if (currentQty < checkDeductQty) {
+          stockWarnings.push(checkItem.name + ' (have ' + currentQty + ', this sale needs ' + checkDeductQty + ')');
+        }
+      } catch (checkErr) {
+        log('Stock check failed for ' + checkItem.name + ': ' + checkErr.message);
+      }
+    }
+    if (stockWarnings.length > 0) {
+      var proceed = confirm(
+        'Not enough recorded stock for:\n' + stockWarnings.join('\n') +
+        '\n\nRecording this sale will push inventory below zero. Continue anyway, or cancel to fix the count first?'
+      );
+      if (!proceed) {
+        setBusy(btn, false, 'Record Sale');
+        msg.className = 'error'; msg.textContent = 'Sale cancelled — insufficient recorded stock.';
+        return;
+      }
+      log('Worker confirmed overselling: ' + stockWarnings.join('; '));
+    }
+
+    var docRef = await db.collection('sales').add(saleData);
+    log('Sale recorded: ' + docRef.id);
+    logEvent('SaleRecorded', {
+      saleId: docRef.id, amount: amount, amountPaid: amountPaid, balance: balance,
+      paymentStatus: paymentStatus, workerName: currentWorker.name, customerName: customer
+    });
+
+    // Automatic per-line inventory deduction for any item linked to a catalog product
+    var deductedNames = [], skippedNames = [];
+    for (var i = 0; i < saleCart.length; i++) {
+      var item = saleCart[i];
+      if (!item.productId) { skippedNames.push(item.name); continue; }
+      var product = rawProducts.find(function (p) { return p.id === item.productId; });
+      var invId = product ? product.data.linkedInventoryItemId : null;
+      if (!invId) { skippedNames.push(item.name); continue; }
+      var deductQty = item.qty * (product.data.unitsPerSale || 1);
+      try {
+        await db.collection('inventory').doc(invId).update({ qty: firebase.firestore.FieldValue.increment(-deductQty) });
+        deductedNames.push(deductQty + ' units of ' + item.name);
+      } catch (invErr) {
+        log('Inventory auto-deduct failed for ' + item.name + ': ' + invErr.code + ' — ' + invErr.message);
+        skippedNames.push(item.name);
+      }
+    }
+    if (deductedNames.length) log('Auto-deducted: ' + deductedNames.join(', '));
+    if (skippedNames.length) log('Not linked to inventory, skipped: ' + skippedNames.join(', '));
+    if (skippedNames.length) toast('Sale saved — some items have no inventory link, check stock manually', true);
+
+    msg.className = 'ok';
+    msg.textContent = 'Saved — KSH ' + amount.toLocaleString() + ' from ' + customer + ' (' + itemsSummaryStr + ')' + (balance > 0 ? ' — KSH ' + balance.toLocaleString() + ' still owed' : ' — paid in full');
+    toast('Sale recorded: KSH ' + amount.toLocaleString());
+
+    document.getElementById('sCustomer').value = '';
+    document.getElementById('sPhone').value = '';
+    document.getElementById('sFinalTotal').value = '';
+    document.getElementById('sAmountPaid').value = '';
+    document.getElementById('sBalanceInfo').textContent = '';
+    document.getElementById('sDesc').value = '';
+    document.getElementById('sCalcPrice').textContent = '';
+    saleCart = [];
+    renderSaleCart();
+
+    await loadMySales(currentWorker.id);
+  } catch (e) {
+    log('Sale error: ' + e.code + ' — ' + e.message);
+    msg.className = 'error';
+    msg.textContent = e.code === 'unavailable'
+      ? 'Could not reach the server. Check your connection and try again.'
+      : 'Failed to save: ' + e.message;
+    toast('Sale failed to save', true);
+  } finally {
+    setBusy(btn, false, 'Record Sale');
+  }
+}
+
+async function loadMySales(uid) {
+  var box = document.getElementById('mySales');
+  try {
+    var todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    var snap = await db.collection('sales')
+      .where('workerId', '==', uid)
+      .where('createdAt', '>=', todayStart)
+      .orderBy('createdAt', 'desc')
+      .limit(20)
+      .get();
+    var visible = [];
+    snap.forEach(function (doc) {
+      var s = doc.data();
+      if (!s.archived) visible.push(s);
+    });
+    if (visible.length === 0) { box.innerHTML = '<p style="color:#888">No sales yet today</p>'; return; }
+    var html = '';
+    visible.forEach(function (s) {
+      var d = s.createdAt ? s.createdAt.toDate().toLocaleString() : 'Just now';
+      var total = typeof s.totalAmount === 'number' ? s.totalAmount : (s.amount || 0);
+      var paid = typeof s.amountPaid === 'number' ? s.amountPaid : total;
+      var bal = typeof s.balance === 'number' ? s.balance : (total - paid);
+      var payStatus = s.paymentStatus || (bal <= 0 ? 'paid' : (paid > 0 ? 'partial' : 'unpaid'));
+      var payColor = payStatus === 'paid' ? '#4ade80' : payStatus === 'partial' ? '#fbbf24' : '#f87171';
+      var payLabel = payStatus === 'paid' ? 'Fully Paid' : payStatus === 'partial' ? 'Partially Paid' : 'Unpaid';
+      var itemsLabel;
+      if (s.items && s.items.length) {
+        itemsLabel = s.items.map(function (it) {
+          var badge = it.priceTier === 'wholesale' ? ' (Wholesale)' : it.priceTier === 'retail' ? ' (Retail)' : '';
+          return it.qty + '× ' + it.name + badge;
+        }).join(', ');
+      } else {
+        // legacy single-item sale from before the cart rewrite
+        var tierBadge = s.priceTier === 'wholesale' ? ' (Wholesale)' : s.priceTier === 'retail' ? ' (Retail)' : '';
+        itemsLabel = s.productName ? (s.quantitySold || 1) + '× ' + s.productName + tierBadge : 'Custom sale';
+      }
+      html += '<div class="sale-row">';
+      html += '<div style="display:flex;justify-content:space-between"><strong>KSH ' + total.toLocaleString() + '</strong><span style="color:#888;font-size:0.8rem">' + (s.paymentMethod || '-') + '</span></div>';
+      html += '<p style="margin:4px 0;color:#aaa;font-size:0.85rem">' + (s.customerName || 'Walk-in') + ' — ' + itemsLabel + '</p>';
+      html += '<p style="margin:2px 0;color:' + payColor + ';font-size:0.78rem;font-weight:600">' + payLabel + (bal > 0 ? ' — KSH ' + bal.toLocaleString() + ' remaining' : '') + '</p>';
+      html += '<p style="margin:0;color:#666;font-size:0.75rem">' + d + '</p>';
+      html += '</div>';
+    });
+    box.innerHTML = html;
+  } catch (e) {
+    log('Load sales error: ' + e.code + ' — ' + e.message);
+    box.innerHTML = '<p style="color:#ff4444">Could not load sales. ' + (e.code === 'unavailable' ? 'Check your connection.' : '') + '</p>';
+  }
+}
+</script>
+</body>
+</html>

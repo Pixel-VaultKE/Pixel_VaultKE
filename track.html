@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Elite Customs - Track Order</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600;700;800&display=swap');
+*{box-sizing:border-box}
+body{font-family:'Inter',system-ui,sans-serif;background:radial-gradient(circle at 3px 3px, rgba(255,255,255,0.03) 1px, transparent 0) 0 0/22px 22px,#111114;color:#e0e0e0;padding:15px;max-width:600px;margin:0 auto}
+.card{background:#1C1C21;border-radius:10px;padding:18px;margin-bottom:12px;border:1px solid rgba(255,255,255,0.08)}
+h1{font-family:'Bebas Neue',sans-serif;letter-spacing:1px;font-size:2rem;margin:0 0 4px;background:linear-gradient(100deg,#FF2E63,#C6FF3D);-webkit-background-clip:text;background-clip:text;color:transparent}
+h2{font-family:'Bebas Neue',sans-serif;letter-spacing:0.5px;color:#e0e0e0;font-size:1.15rem;margin:0 0 12px}
+.sub{color:#8A8A93;font-size:0.85rem;margin-bottom:16px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
+.eyebrow{display:block;width:max-content;color:#fff;font-size:0.65rem;font-weight:800;letter-spacing:1px;text-transform:uppercase;padding:3px 9px;border-radius:20px;transform:rotate(-2deg);margin-bottom:8px}
+.peel{position:relative;overflow:hidden}
+.peel::after{content:'';position:absolute;top:0;right:0;width:0;height:0;border-style:solid;border-width:0 14px 14px 0;border-color:transparent #111114 transparent transparent;filter:drop-shadow(-1px 1px 2px rgba(0,0,0,0.4))}
+input{padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:#232329;color:#e0e0e0;width:100%;margin-bottom:10px;font-size:0.95rem;font-family:'Inter',sans-serif}
+button{padding:13px;border-radius:8px;border:none;background:#FF2E63;color:#fff;font-weight:800;width:100%;cursor:pointer;font-size:0.95rem;letter-spacing:0.3px}
+button:disabled{opacity:0.5;cursor:not-allowed}
+button:hover:not(:disabled){background:#E0195A}
+.error{color:#ff4444;font-size:0.85rem;margin-top:4px}
+.hidden{display:none !important}
+.order-card{background:#232329;border-radius:10px;padding:16px;border:1px solid rgba(255,255,255,0.08);margin-bottom:10px}
+.order-id{color:#D4AF37;font-family:'Bebas Neue',sans-serif;letter-spacing:0.5px;font-weight:700;font-size:1.3rem;margin-bottom:10px}
+.field{margin-bottom:10px}
+.field .lbl{color:#8A8A93;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.5px}
+.field .val{color:#e0e0e0;font-size:0.95rem;margin-top:2px}
+.status-line{display:flex;align-items:center;gap:6px;font-weight:600}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+.dot.pending{background:#f87171}
+.dot.progress{background:#facc15}
+.dot.ready{background:#29D3F5}
+.dot.completed{background:#4ade80}
+.balance-box{background:#111114;border-radius:8px;padding:10px;margin-top:6px}
+.trust-footer{text-align:center;color:#666;font-size:0.75rem;margin:16px 0;line-height:1.6}
+.trust-footer strong{color:#8A8A93}
+#log{background:#232329;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px;font-family:monospace;font-size:0.75rem;color:#C6FF3D;max-height:120px;overflow-y:auto;white-space:pre-wrap}
+</style>
+</head>
+<body>
+
+<div class="peel" style="margin-bottom:16px">
+  <span class="eyebrow" style="background:#FF2E63">Order Status</span>
+  <h1>👑 ELITE CUSTOMS</h1>
+  <p class="sub" style="margin-bottom:0">Track Your Order</p>
+</div>
+
+<div class="card">
+  <h2>Search</h2>
+  <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Enter your phone number, receipt number, or order ID — any of them work.</p>
+  <input type="text" id="searchInput" placeholder="e.g. 0712345678 or EC-2026-00001">
+  <button id="searchBtn" onclick="doSearch()">Search</button>
+  <div id="searchMsg"></div>
+</div>
+
+<div id="results"></div>
+
+<div class="trust-footer">
+  🔒 We only use your details to find and update your order.<br>
+  <strong>Elite Customs</strong> · RNG Plaza, Nairobi · Pay via Till <strong>4090756</strong>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics-compat.js"></script>
+
+<script>
+window.onerror = function (msg, url, line) { log('[ERROR] ' + msg + ' (line ' + line + ')'); };
+
+var firebaseConfig = {
+  apiKey: "AIzaSyDTsJvTWgYdHb9wLF-MSXGbxvZf5LPA_jA",
+  authDomain: "elite-customs-os.firebaseapp.com",
+  projectId: "elite-customs-os",
+  storageBucket: "elite-customs-os.firebasestorage.app",
+  messagingSenderId: "628800846035",
+  appId: "1:628800846035:web:8d3f8f3f1935909876bc26",
+  measurementId: "G-H082LD7630"
+};
+firebase.initializeApp(firebaseConfig);
+try { firebase.analytics(); } catch (e) { console.log('Analytics init skipped:', e.message); }
+var db = firebase.firestore();
+
+function toggleLog() {
+  var logEl = document.getElementById('log');
+  var arrow = document.getElementById('logArrow');
+  var collapsed = logEl.classList.toggle('hidden');
+  arrow.textContent = collapsed ? '▸' : '▾';
+}
+
+function log(msg) {
+  var el = document.getElementById('log');
+  var line = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+  console.log(line);
+  if (el) el.textContent += line + '\n';
+}
+log('Track page loaded');
+
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[c]; }); }
+function text(v, fallback) { var out = (v === undefined || v === null || v === '') ? (fallback || '—') : v; return escapeHtml(out); }
+
+function normalizePhone(raw) {
+  var digits = (raw || '').replace(/\D/g, '');
+  return digits.slice(-9);
+}
+
+// Normalizes both current-schema orders (items[]/productionStatus/total) and
+// older legacy-schema orders (itemType/quantity/status/totalAmount) into one
+// consistent shape. Previously this file only understood the legacy shape,
+// which meant every order placed after the schema changed showed blank
+// service, stuck "Pending" status, and no payment section at all.
+function normalizeOrder(o) {
+  if (!o.items) {
+    o.items = o.itemType ? [{ name: o.itemType, qty: o.quantity || 1 }] : [];
+  }
+  if (typeof o.total !== 'number') o.total = o.totalAmount || 0;
+  if (typeof o.amountPaid !== 'number') o.amountPaid = 0;
+  if (typeof o.balance !== 'number') o.balance = Math.max(0, o.total - o.amountPaid);
+  if (!o.productionStatus) {
+    var legacyMap = { pending: 'new', designing: 'designing', printing: 'printing', 'in-progress': 'printing', ready: 'ready', completed: 'delivered' };
+    o.productionStatus = legacyMap[o.status] || 'new';
+  }
+  return o;
+}
+
+function statusMeta(productionStatus) {
+  if (productionStatus === 'delivered') return { dot: 'completed', icon: '🟢', label: 'Delivered' };
+  if (productionStatus === 'ready') return { dot: 'ready', icon: '🔵', label: 'Ready for Pickup' };
+  if (productionStatus === 'printing') return { dot: 'progress', icon: '🟡', label: 'Printing' };
+  if (productionStatus === 'designing') return { dot: 'progress', icon: '🟡', label: 'Designing' };
+  if (productionStatus === 'finishing') return { dot: 'progress', icon: '🟡', label: 'Finishing' };
+  return { dot: 'pending', icon: '🔴', label: 'Received — Pending' };
+}
+
+async function doSearch() {
+  var msg = document.getElementById('searchMsg');
+  var results = document.getElementById('results');
+  var btn = document.getElementById('searchBtn');
+  var raw = document.getElementById('searchInput').value.trim();
+  msg.textContent = '';
+  results.innerHTML = '';
+
+  if (!raw) { msg.className = 'error'; msg.textContent = 'Enter your phone number, receipt number, or order ID'; return; }
+  if (!navigator.onLine) { msg.className = 'error'; msg.textContent = 'No internet connection.'; return; }
+
+  btn.disabled = true; btn.textContent = 'Searching...';
+  log('Searching for: ' + raw);
+
+  try {
+    var list = [];
+    var isPhoneLike = /^[0-9+\s-]{6,}$/.test(raw);
+
+    if (isPhoneLike) {
+      var key = normalizePhone(raw);
+      var snap = await db.collection('orders').where('phoneKey', '==', key).orderBy('createdAt', 'desc').limit(10).get();
+      snap.forEach(function (d) { list.push({ id: d.id, data: d.data() }); });
+      if (list.length === 0) {
+        log('No phoneKey match, trying legacy exact match');
+        var legacySnap = await db.collection('orders').where('phone', '==', raw).orderBy('createdAt', 'desc').limit(10).get();
+        legacySnap.forEach(function (d) { list.push({ id: d.id, data: d.data() }); });
+      }
+    } else {
+      var receiptSnap = await db.collection('orders').where('receiptNumber', '==', raw.toUpperCase()).limit(5).get();
+      receiptSnap.forEach(function (d) { list.push({ id: d.id, data: d.data() }); });
+
+      if (list.length === 0) {
+        var doc = await db.collection('orders').doc(raw).get();
+        if (doc.exists) list.push({ id: doc.id, data: doc.data() });
+      }
+    }
+
+    if (list.length === 0) {
+      log('No orders found for: ' + raw);
+      msg.className = 'error'; msg.textContent = 'No order found. Double check your phone number or receipt number.';
+      return;
+    }
+    renderOrders(list);
+  } catch (e) {
+    log('Search error: ' + e.code + ' — ' + e.message);
+    if (e.code === 'permission-denied') {
+      msg.className = 'error'; msg.textContent = 'Order tracking is not enabled yet. Ask Elite Customs to finish setup.';
+    } else if (e.code === 'unavailable') {
+      msg.className = 'error'; msg.textContent = 'Could not reach the server. Check your connection.';
+    } else {
+      msg.className = 'error'; msg.textContent = 'Something went wrong searching for your order.';
+    }
+  } finally {
+    btn.disabled = false; btn.textContent = 'Search';
+  }
+}
+
+function renderOrders(list) {
+  var box = document.getElementById('results');
+  var html = '';
+  list.forEach(function (item) {
+    var o = normalizeOrder(item.data);
+    var meta = statusMeta(o.productionStatus);
+    var updated = o.updatedAt ? o.updatedAt.toDate().toLocaleString() : (o.createdAt ? o.createdAt.toDate().toLocaleString() : '—');
+    var itemsLabel = o.items.length ? o.items.map(function (it) { return it.qty + '× ' + it.name; }).join(', ') : '—';
+
+    html += '<div class="order-card">';
+    html += '<div class="order-id">' + (o.receiptNumber ? o.receiptNumber : 'Order #' + item.id.slice(0, 8)) + '</div>';
+    html += '<div class="field"><div class="lbl">Customer</div><div class="val">' + text(o.customerName) + '</div></div>';
+    html += '<div class="field"><div class="lbl">Items</div><div class="val">' + itemsLabel + '</div></div>';
+    html += '<div class="field"><div class="lbl">Status</div><div class="val status-line"><span class="dot ' + meta.dot + '"></span>' + meta.icon + ' ' + meta.label + '</div></div>';
+    html += '<div class="field"><div class="lbl">Last Updated</div><div class="val">' + updated + '</div></div>';
+    if (o.description) html += '<div class="field"><div class="lbl">Notes</div><div class="val">' + text(o.description) + '</div></div>';
+
+    if (o.artworkUrl) {
+      html += '<div class="field"><div class="lbl">Your Design</div><div class="val">';
+      html += '<a href="' + o.artworkUrl + '" target="_blank"><img src="' + o.artworkUrl + '" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid #FF2E63"></a>';
+      html += '<br><span style="color:#8A8A93;font-size:0.75rem">📎 ' + text(o.artworkFilename || 'design file') + '</span>';
+      html += '</div></div>';
+    }
+
+    if (o.total) {
+      var paid = o.amountPaid || 0;
+      var balance = o.balance;
+      html += '<div class="balance-box"><div class="lbl" style="color:#8A8A93;font-size:0.72rem;text-transform:uppercase">Payment</div>';
+      html += '<div style="display:flex;justify-content:space-between;margin-top:4px;font-size:0.9rem"><span>Total</span><span style="color:#D4AF37">KSH ' + o.total.toLocaleString() + '</span></div>';
+      html += '<div style="display:flex;justify-content:space-between;font-size:0.9rem;color:#4ade80"><span>Paid</span><span>KSH ' + paid.toLocaleString() + '</span></div>';
+      if (balance > 0) {
+        html += '<div style="display:flex;justify-content:space-between;font-size:0.9rem;color:#f87171;font-weight:700"><span>Balance</span><span>KSH ' + balance.toLocaleString() + '</span></div>';
+      } else {
+        html += '<div style="color:#4ade80;font-size:0.8rem;margin-top:2px">✓ Fully paid</div>';
+      }
+      html += '</div>';
+    }
+
+    html += '<div class="field" style="margin-top:10px"><div class="lbl">Pickup</div><div class="val">Elite Customs, RNG Plaza</div></div>';
+    html += '</div>';
+  });
+  box.innerHTML = html;
+  log('Displayed ' + list.length + ' order(s)');
+}
+</script>
+</body>
+</html>
