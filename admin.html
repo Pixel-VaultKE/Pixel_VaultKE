@@ -502,7 +502,7 @@ async function loadMarketingSources() {
     html += '<tr style="color:#888;text-align:left;border-bottom:1px solid #333"><th style="padding:6px 4px">Source</th><th style="padding:6px 4px;text-align:right">Orders</th><th style="padding:6px 4px;text-align:right">Revenue</th></tr>';
     sources.forEach(function (src) {
       var s = bySource[src];
-      html += '<tr style="border-bottom:1px solid #262626"><td style="padding:6px 4px">' + src + '</td><td style="padding:6px 4px;text-align:right">' + s.count + '</td><td style="padding:6px 4px;text-align:right;color:#D4AF37">KSH ' + s.revenue.toLocaleString() + '</td></tr>';
+      html += '<tr style="border-bottom:1px solid #262626"><td style="padding:6px 4px">' + text(src) + '</td><td style="padding:6px 4px;text-align:right">' + s.count + '</td><td style="padding:6px 4px;text-align:right;color:#D4AF37">KSH ' + s.revenue.toLocaleString() + '</td></tr>';
     });
     html += '</table>';
     box.innerHTML = html;
@@ -876,7 +876,7 @@ function populateQuoteProductSelect() {
   var current = select.value;
   select.innerHTML = '<option value="">Select product...</option>';
   rawProducts.forEach(function (p) {
-    select.innerHTML += '<option value="' + p.id + '" data-price="' + (p.data.retailPrice || 0) + '">' + p.data.name + '</option>';
+    select.innerHTML += '<option value="' + p.id + '" data-price="' + (p.data.retailPrice || 0) + '">' + text(p.data.name) + '</option>';
   });
   select.value = current;
 }
@@ -914,7 +914,7 @@ function renderQuoteDraft() {
   quoteLines.forEach(function (line, idx) {
     total += line.lineTotal;
     html += '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #222;font-size:0.85rem">';
-    html += '<span>' + line.productName + ' x' + line.qty + ' @ KSH ' + line.unitPrice.toLocaleString() + '</span>';
+    html += '<span>' + text(line.productName) + ' x' + line.qty + ' @ KSH ' + line.unitPrice.toLocaleString() + '</span>';
     html += '<span>KSH ' + line.lineTotal.toLocaleString() + ' <button class="small danger" onclick="removeQuoteLine(' + idx + ')" style="margin-left:6px">✕</button></span>';
     html += '</div>';
   });
@@ -1015,7 +1015,7 @@ function renderQuotes() {
     html += '<div style="display:flex;justify-content:space-between"><strong style="color:#d4af37">' + q.quoteNumber + '</strong>';
     html += converted ? '<span class="badge paid">converted</span>' : '<span class="badge pending">sent</span>';
     html += '</div>';
-    html += '<div style="font-size:0.85rem;margin-top:4px">' + q.customerName + ' — KSH ' + (q.total || 0).toLocaleString() + '</div>';
+    html += '<div style="font-size:0.85rem;margin-top:4px">' + text(q.customerName) + ' — KSH ' + (q.total || 0).toLocaleString() + '</div>';
     if (!converted) {
       html += '<button class="small" style="margin-top:6px" onclick="convertQuoteToOrder(\'' + r.id + '\')">Convert to Order</button>';
     }
@@ -1328,14 +1328,14 @@ async function toggleSplitPanel(dateStr, profit) {
   if (result.workers.length === 0) { html += '<div style="color:#666">No active workers</div>'; }
   else if (result.workers.every(function (w) { return w.revenue === 0; })) { html += '<div style="color:#666">No worker sales today — this pool reverted to owner</div>'; }
   result.workers.forEach(function (w) {
-    html += '<div style="display:flex;justify-content:space-between;padding:2px 0"><span>' + w.name + ' <span style="color:#666">(sold: KSH ' + Math.round(w.revenue).toLocaleString() + ')</span></span><strong style="color:#C6FF3D">KSH ' + Math.round(w.cut).toLocaleString() + '</strong></div>';
+    html += '<div style="display:flex;justify-content:space-between;padding:2px 0"><span>' + text(w.name) + ' <span style="color:#666">(sold: KSH ' + Math.round(w.revenue).toLocaleString() + ')</span></span><strong style="color:#C6FF3D">KSH ' + Math.round(w.cut).toLocaleString() + '</strong></div>';
   });
 
   html += '<div style="color:#29D3F5;font-weight:700;margin-top:8px">Admin — 25% pool (KSH ' + Math.round(result.adminPoolTotal).toLocaleString() + ')</div>';
   if (result.admins.length === 0) { html += '<div style="color:#666">No active admins</div>'; }
   else if (result.admins.every(function (a) { return a.revenue === 0; })) { html += '<div style="color:#666">No admin sales today — this pool reverted to owner</div>'; }
   result.admins.forEach(function (a) {
-    html += '<div style="display:flex;justify-content:space-between;padding:2px 0"><span>' + a.name + ' <span style="color:#666">(sold: KSH ' + Math.round(a.revenue).toLocaleString() + ')</span></span><strong style="color:#29D3F5">KSH ' + Math.round(a.cut).toLocaleString() + '</strong></div>';
+    html += '<div style="display:flex;justify-content:space-between;padding:2px 0"><span>' + text(a.name) + ' <span style="color:#666">(sold: KSH ' + Math.round(a.revenue).toLocaleString() + ')</span></span><strong style="color:#29D3F5">KSH ' + Math.round(a.cut).toLocaleString() + '</strong></div>';
   });
 
   html += '<div style="display:flex;justify-content:space-between;margin-top:8px;padding-top:6px;border-top:1px solid #333"><span style="color:#D4AF37;font-weight:700">Owner remainder</span><strong style="color:#D4AF37">KSH ' + Math.round(result.ownerShare).toLocaleString() + '</strong></div>';
@@ -2036,7 +2036,7 @@ function renderLeaderboard() {
     var medal = medals[idx] || '　';
     html += '<div style="padding:10px 0;border-bottom:1px solid #222">';
     html += '<div style="display:flex;justify-content:space-between;align-items:center">';
-    html += '<strong>' + medal + ' ' + w.name + '</strong>';
+    html += '<strong>' + medal + ' ' + text(w.name) + '</strong>';
     html += '<span style="color:#d4af37;font-weight:700">KSH ' + w.revenue.toLocaleString() + '</span>';
     html += '</div>';
     html += '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:4px;font-size:0.72rem;color:#888">';
@@ -2084,7 +2084,7 @@ function renderProductRevenue() {
 
   var html = '<table><tr><th>Product</th><th>Units</th><th>Sales</th><th>Revenue</th></tr>';
   list.forEach(function (p) {
-    html += '<tr><td>' + p.name + '</td><td>' + p.unitsSold + '</td><td>' + p.count + '</td><td style="color:#d4af37;font-weight:700">KSH ' + p.revenue.toLocaleString() + '</td></tr>';
+    html += '<tr><td>' + text(p.name) + '</td><td>' + p.unitsSold + '</td><td>' + p.count + '</td><td style="color:#d4af37;font-weight:700">KSH ' + p.revenue.toLocaleString() + '</td></tr>';
   });
   html += '</table>';
   box.innerHTML = html;
@@ -2143,10 +2143,10 @@ function renderCustomerHistory() {
 
     html2 += '<div style="padding:10px;background:#0f0f0f;border-radius:8px;margin-bottom:8px">';
     html2 += '<div style="display:flex;justify-content:space-between;align-items:center">';
-    html2 += '<strong>' + c.name + '</strong>' + (isRepeat ? ' <span class="badge paid">⭐ repeat</span>' : '');
+    html2 += '<strong>' + text(c.name) + '</strong>' + (isRepeat ? ' <span class="badge paid">⭐ repeat</span>' : '');
     html2 += '<span style="color:#888;font-size:0.8rem">' + c.orders.length + ' order' + (c.orders.length === 1 ? '' : 's') + '</span>';
     html2 += '</div>';
-    html2 += '<div style="color:#666;font-size:0.75rem;margin-top:2px">' + c.phone + '</div>';
+    html2 += '<div style="color:#666;font-size:0.75rem;margin-top:2px">' + text(c.phone) + '</div>';
     if (c.totalSpent > 0) {
       html2 += '<div style="margin-top:6px;color:#d4af37;font-weight:700">Total Spent: KSH ' + c.totalSpent.toLocaleString() + '</div>';
     }

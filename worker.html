@@ -188,7 +188,7 @@ async function loadProductCatalog() {
     var select = document.getElementById('sProduct');
     select.innerHTML = '<option value="">Select product...</option>';
     rawProducts.forEach(function (p) {
-      select.innerHTML += '<option value="' + p.id + '">' + p.data.name + '</option>';
+      select.innerHTML += '<option value="' + p.id + '">' + text(p.data.name) + '</option>';
     });
   } catch (e) {
     log('Product catalog load error: ' + e.code + ' — ' + e.message);
@@ -209,7 +209,7 @@ function onSaleItemInputChange() {
   var total = unitPrice * qty;
   var minQty = product.data.wholesaleMinQty || 0;
   if (tier === 'wholesale' && minQty > 0 && qty < minQty) {
-    calcBox.innerHTML = '<span style="color:#f87171">⚠️ Wholesale needs ' + minQty + '+ units for ' + product.data.name + ' (have ' + qty + ')</span>';
+    calcBox.innerHTML = '<span style="color:#f87171">⚠️ Wholesale needs ' + minQty + '+ units for ' + text(product.data.name) + ' (have ' + qty + ')</span>';
   } else {
     calcBox.textContent = 'KSH ' + unitPrice.toLocaleString() + ' x ' + qty + ' = KSH ' + total.toLocaleString();
   }
@@ -291,7 +291,7 @@ function renderSaleCart() {
     saleCart.forEach(function (item, i) {
       var tierBadge = item.priceTier === 'wholesale' ? ' <span style="color:#38bdf8;font-size:0.7rem">(Wholesale)</span>' : item.priceTier === 'retail' ? ' <span style="color:#888;font-size:0.7rem">(Retail)</span>' : '';
       html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px;background:#151515;border-radius:6px;margin-bottom:6px">';
-      html += '<span style="font-size:0.85rem">' + item.qty + '× ' + item.name + tierBadge + '</span>';
+      html += '<span style="font-size:0.85rem">' + item.qty + '× ' + text(item.name) + tierBadge + '</span>';
       html += '<span><strong style="color:#d4af37">KSH ' + item.lineTotal.toLocaleString() + '</strong> <button type="button" onclick="removeSaleItem(' + i + ')" style="width:auto;background:none;color:#f87171;padding:0 0 0 10px;font-size:1rem">✕</button></span>';
       html += '</div>';
     });
