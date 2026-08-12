@@ -1086,17 +1086,39 @@ async function convertQuoteToOrder(quoteId) {
   }
 }
 
+// Estimates cost-of-goods-sold for a set of sale records by looking up each
+// line item's linked product cost price. Items with no linked product
+// (custom/one-off line items rung up without a catalog product) can't be
+// costed this way and are skipped, so this is a floor on true COGS — but
+// it's far more accurate than ignoring materials cost entirely, which is
+// what the profit figure did before.
+function estimateCOGS(salesForDay) {
+  var cogs = 0;
+  salesForDay.forEach(function (r) {
+    var s = r.data;
+    if (s.archived) return;
+    (s.items || []).forEach(function (item) {
+      if (!item.productId) return;
+      var product = rawProducts.find(function (p) { return p.id === item.productId; });
+      if (!product || typeof product.data.costPrice !== 'number') return;
+      cogs += (item.qty || 0) * product.data.costPrice * (product.data.unitsPerSale || 1);
+    });
+  });
+  return cogs;
+}
+
 async function closeBusinessDay() {
   var msg = document.getElementById('closingMsg');
   var today = new Date(); today.setHours(0, 0, 0, 0);
   var dateKey = localDateKey(today);
 
-  var cashToday = 0, mpesaToday = 0, jobsDone = 0;
+  var cashToday = 0, mpesaToday = 0, jobsDone = 0, salesToday = [];
   rawSales.forEach(function (r) {
     var s = r.data;
     if (s.archived) return;
     var d = s.createdAt ? s.createdAt.toDate() : null;
     if (!d || d < today) return;
+    salesToday.push(r);
     if (s.paymentMethod === 'mpesa') mpesaToday += (typeof s.amountPaid === 'number' ? s.amountPaid : (s.amount || 0));
     else cashToday += (typeof s.amountPaid === 'number' ? s.amountPaid : (s.amount || 0));
   });
@@ -1113,9 +1135,10 @@ async function closeBusinessDay() {
     if (d && d >= today) expensesToday += (r.data.amount || 0);
   });
   var revenue = cashToday + mpesaToday;
-  var profit = revenue - expensesToday;
+  var cogsToday = estimateCOGS(salesToday);
+  var profit = revenue - cogsToday - expensesToday;
 
-  if (!confirm('Close today\'s business day?\n\nRevenue: KSH ' + revenue.toLocaleString() + '\nExpenses: KSH ' + expensesToday.toLocaleString() + '\nProfit: KSH ' + profit.toLocaleString() + '\n\nThis saves a permanent snapshot.')) return;
+  if (!confirm('Close today\'s business day?\n\nRevenue: KSH ' + revenue.toLocaleString() + '\nMaterials/COGS: KSH ' + cogsToday.toLocaleString() + '\nExpenses: KSH ' + expensesToday.toLocaleString() + '\nProfit: KSH ' + profit.toLocaleString() + '\n\nThis saves a permanent snapshot.')) return;
 
   try {
     await db.collection('dailyReports').doc(dateKey).set({
@@ -1123,6 +1146,7 @@ async function closeBusinessDay() {
       revenue: revenue,
       cash: cashToday,
       mpesa: mpesaToday,
+      cogs: cogsToday,
       expenses: expensesToday,
       profit: profit,
       jobsCompleted: jobsDone,
@@ -1155,12 +1179,13 @@ async function closePastDay() {
   var existing = await db.collection('dailyReports').doc(dateKey).get();
   if (existing.exists && !confirm(dateKey + ' was already closed. Overwrite its saved snapshot with freshly recalculated numbers?')) return;
 
-  var cashD = 0, mpesaD = 0, jobsD = 0, expensesD = 0;
+  var cashD = 0, mpesaD = 0, jobsD = 0, expensesD = 0, salesD = [];
   rawSales.forEach(function (r) {
     var s = r.data;
     if (s.archived) return;
     var d = s.createdAt ? s.createdAt.toDate() : null;
     if (!d || d < dayStart || d >= dayEnd) return;
+    salesD.push(r);
     var received = typeof s.amountPaid === 'number' ? s.amountPaid : (s.amount || 0);
     if (s.paymentMethod === 'mpesa') mpesaD += received; else cashD += received;
   });
@@ -1176,9 +1201,10 @@ async function closePastDay() {
     if (d && d >= dayStart && d < dayEnd) expensesD += (r.data.amount || 0);
   });
   var revenue = cashD + mpesaD;
-  var profit = revenue - expensesD;
+  var cogsD = estimateCOGS(salesD);
+  var profit = revenue - cogsD - expensesD;
 
-  if (!confirm('Close ' + dateKey + '?\n\nRevenue: KSH ' + revenue.toLocaleString() + '\nExpenses: KSH ' + expensesD.toLocaleString() + '\nProfit: KSH ' + profit.toLocaleString() + '\n\nNote: this is calculated from currently loaded data (most recent sales/expenses) — if that day had heavy volume beyond what\'s cached, double-check against "Show All Days" in Sales first.')) return;
+  if (!confirm('Close ' + dateKey + '?\n\nRevenue: KSH ' + revenue.toLocaleString() + '\nMaterials/COGS: KSH ' + cogsD.toLocaleString() + '\nExpenses: KSH ' + expensesD.toLocaleString() + '\nProfit: KSH ' + profit.toLocaleString() + '\n\nNote: this is calculated from currently loaded data (most recent sales/expenses) — if that day had heavy volume beyond what\'s cached, double-check against "Show All Days" in Sales first.')) return;
 
   try {
     await db.collection('dailyReports').doc(dateKey).set({
@@ -1186,6 +1212,7 @@ async function closePastDay() {
       revenue: revenue,
       cash: cashD,
       mpesa: mpesaD,
+      cogs: cogsD,
       expenses: expensesD,
       profit: profit,
       jobsCompleted: jobsD,
