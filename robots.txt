@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Allow: /customer.html
+Allow: /track.html
+Disallow: /admin.html
+Disallow: /worker.html
+
+Sitemap: https://pixel-vault-ke.vercel.app/sitemap.xml

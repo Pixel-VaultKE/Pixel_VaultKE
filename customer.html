@@ -305,7 +305,10 @@ async function uploadArtwork(fileInput) {
 
 // Marketing source tracking — reads ?source=xxx from the URL, so each printed
 // QR code, flyer, or physical location can be tagged and later compared in Admin.
-var orderSource = (new URLSearchParams(window.location.search).get('source') || 'direct').trim().toLowerCase();
+// Sanitized at capture (not just on display) — this value comes straight from
+// the URL and gets shown later in the admin Marketing Sources report.
+var orderSource = ((new URLSearchParams(window.location.search).get('source') || 'direct')
+  .trim().toLowerCase().replace(/[^a-z0-9 _-]/g, '').slice(0, 40)) || 'direct';
 
 // Gallery / Our Work
 var galleryByCategory = {};   // { categoryName: [imageUrl, imageUrl, ...] }
@@ -535,7 +538,7 @@ async function loadCatalog() {
 
     var optHtml = '<option value="">Select a product...</option>';
     catalogProducts.forEach(function (p, i) {
-      optHtml += '<option value="' + i + '">' + p.name + ' — KSH ' + p.retailPrice.toLocaleString() + '</option>';
+      optHtml += '<option value="' + i + '">' + text(p.name) + ' — KSH ' + p.retailPrice.toLocaleString() + '</option>';
     });
     select.innerHTML = optHtml;
 
@@ -657,7 +660,7 @@ function renderCart() {
     cart.forEach(function (item, i) {
       var priceLabel = item.custom ? 'To be quoted' : 'KSH ' + item.lineTotal.toLocaleString();
       var tierBadge = item.priceTier === 'wholesale' ? ' <span style="color:#38bdf8;font-size:0.7rem">(bulk)</span>' : '';
-      html += '<div class="cartItem"><div class="meta">' + item.qty + ' × ' + item.name + tierBadge + '</div>';
+      html += '<div class="cartItem"><div class="meta">' + item.qty + ' × ' + text(item.name) + tierBadge + '</div>';
       html += '<div style="display:flex;align-items:center"><span class="price">' + priceLabel + '</span>';
       html += '<button type="button" class="remove" onclick="removeCartItem(' + i + ')">✕</button></div></div>';
     });
@@ -697,6 +700,8 @@ function setTip(amount, fromCustomInput) {
 }
 
 // Strips formatting so 0722 912 595 / +254722912595 / 254722912595 all resolve to the same key
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[c]; }); }
+function text(v, fallback) { var out = (v === undefined || v === null || v === '') ? (fallback || '—') : v; return escapeHtml(out); }
 function normalizePhone(raw) {
   var digits = (raw || '').replace(/\D/g, '');
   return digits.slice(-9);

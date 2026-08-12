@@ -3,54 +3,184 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Elite Customs</title>
+<title>Elite Customs — Custom Stickers, Branding &amp; Vehicle Wraps in Nairobi</title>
+<meta name="description" content="Elite Customs at RNG Plaza, Nairobi — custom stickers, business branding, vehicle & window wraps, canvas prints and more. Order online, track your job in real time.">
+<meta name="keywords" content="custom stickers Nairobi, vehicle branding Kenya, window tinting, business branding, sticker printing Nairobi, Elite Customs, RNG Plaza">
+<link rel="canonical" href="https://pixel-vault-ke.vercel.app/">
+
+<!-- Open Graph / social share preview -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Elite Customs — Custom Stickers, Branding & Vehicle Wraps">
+<meta property="og:description" content="Custom stickers, branding, vehicle wraps and more — RNG Plaza, Nairobi. Order online, track your job live.">
+<meta property="og:image" content="https://pixel-vault-ke.vercel.app/og-image.png">
+<meta property="og:url" content="https://pixel-vault-ke.vercel.app/">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#111114">
+
+<!-- Structured data — helps Google understand this is a real local business -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "LocalBusiness",
+  "name": "Elite Customs",
+  "image": "https://pixel-vault-ke.vercel.app/og-image.png",
+  "address": {
+    "@type": "PostalAddress",
+    "streetAddress": "RNG Plaza",
+    "addressLocality": "Nairobi",
+    "addressCountry": "KE"
+  },
+  "url": "https://pixel-vault-ke.vercel.app/",
+  "priceRange": "KSH",
+  "description": "Custom stickers, business branding, vehicle wraps, window tinting and canvas prints in Nairobi."
+}
+</script>
+
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600;700;800&display=swap');
+:root{--ink:#111114;--surface:#1C1C21;--surface2:#232329;--hot:#FF2E63;--volt:#C6FF3D;--sky:#29D3F5;--gold:#D4AF37;--line:rgba(255,255,255,0.08);--text:#EDEDEF;--muted:#8A8A93;}
 *{box-sizing:border-box;margin:0;padding:0}
 body{
   font-family:'Inter',system-ui,sans-serif;
   background:
     radial-gradient(circle at 3px 3px, rgba(255,255,255,0.04) 1px, transparent 0) 0 0/22px 22px,
-    #111114;
-  color:#EDEDEF;display:flex;flex-direction:column;align-items:center;justify-content:center;
-  min-height:100vh;padding:20px;text-align:center;
+    var(--ink);
+  color:var(--text);min-height:100vh;
 }
-.container{
-  max-width:400px;width:100%;
-  background:#1C1C21;
-  border:1px solid rgba(255,255,255,0.08);
-  border-radius:12px;
-  padding:40px 28px;
-  position:relative;
-  overflow:hidden;
-}
-.container::after{content:'';position:absolute;top:0;right:0;width:0;height:0;border-style:solid;border-width:0 22px 22px 0;border-color:transparent #111114 transparent transparent;filter:drop-shadow(-1px 1px 2px rgba(0,0,0,0.4))}
-.eyebrow{display:inline-block;background:#FF2E63;color:#fff;font-size:0.65rem;font-weight:800;letter-spacing:1px;text-transform:uppercase;padding:3px 10px;border-radius:20px;transform:rotate(-2deg);margin-bottom:14px}
-.logo{
-  font-family:'Bebas Neue',sans-serif;letter-spacing:1px;
-  font-size:2.6rem;line-height:0.95;
-  background:linear-gradient(100deg,#FF2E63,#C6FF3D);
-  -webkit-background-clip:text;background-clip:text;color:transparent;
-  margin-bottom:6px;
-}
-.tagline{color:#8A8A93;font-size:0.85rem;margin-bottom:32px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
-.btn{display:block;width:100%;padding:14px;border-radius:8px;border:none;font-weight:800;font-size:0.95rem;letter-spacing:0.3px;cursor:pointer;margin-bottom:12px;text-decoration:none;transition:transform .1s}
-.btn:active{transform:scale(0.98)}
-.btn-primary{background:#FF2E63;color:#fff}
-.btn-secondary{background:transparent;color:#29D3F5;border:1.5px solid #29D3F5}
-.btn-admin{background:linear-gradient(100deg,#FF2E63,#29D3F5);color:#fff}
-.footer{color:#555;font-size:0.75rem;margin-top:24px;letter-spacing:0.5px}
+a{color:inherit;text-decoration:none}
+
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;max-width:960px;margin:0 auto}
+.brand{display:flex;align-items:center;gap:8px;font-family:'Bebas Neue',sans-serif;font-size:1.3rem;letter-spacing:0.5px}
+.brand .crown{font-size:1.1rem}
+
+.staffCorner{position:relative}
+.staffToggle{font-size:0.7rem;color:var(--muted);border:1px solid var(--line);padding:6px 10px;border-radius:20px;cursor:pointer;letter-spacing:0.3px;background:transparent}
+.staffToggle:hover{color:var(--text);border-color:var(--muted)}
+.staffMenu{position:absolute;right:0;top:38px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px;min-width:150px;box-shadow:0 10px 30px rgba(0,0,0,0.4);display:none;z-index:20}
+.staffMenu.open{display:block}
+.staffMenu a{display:block;padding:8px 10px;border-radius:6px;font-size:0.8rem;color:var(--text)}
+.staffMenu a:hover{background:var(--surface2)}
+
+.hero{max-width:960px;margin:0 auto;padding:40px 20px 30px;text-align:center}
+.eyebrow{display:inline-block;background:var(--hot);color:#fff;font-size:0.65rem;font-weight:800;letter-spacing:1px;text-transform:uppercase;padding:3px 10px;border-radius:20px;transform:rotate(-2deg);margin-bottom:16px}
+.hero h1{font-family:'Bebas Neue',sans-serif;letter-spacing:1px;font-size:3.2rem;line-height:0.95;
+  background:linear-gradient(100deg,var(--hot),var(--volt));-webkit-background-clip:text;background-clip:text;color:transparent;margin-bottom:10px}
+.hero p{color:var(--muted);font-size:0.95rem;max-width:480px;margin:0 auto 26px;line-height:1.5}
+.ctaRow{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;max-width:420px;margin:0 auto}
+.btn{display:block;padding:15px 22px;border-radius:10px;border:none;font-weight:800;font-size:0.95rem;letter-spacing:0.3px;cursor:pointer;text-decoration:none;transition:transform .1s;flex:1;min-width:160px;text-align:center}
+.btn:active{transform:scale(0.97)}
+.btn-primary{background:var(--hot);color:#fff}
+.btn-outline{background:transparent;color:var(--sky);border:1.5px solid var(--sky)}
+
+.section{max-width:960px;margin:0 auto;padding:36px 20px}
+.section h2{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;letter-spacing:0.5px;margin-bottom:16px}
+.catGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+.catCard{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 12px;font-size:0.8rem;font-weight:700;text-align:center}
+.catCard .emoji{font-size:1.4rem;display:block;margin-bottom:6px}
+
+.galleryGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px}
+.galleryGrid img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
+.galleryEmpty{color:var(--muted);font-size:0.85rem}
+
+.footer{max-width:960px;margin:0 auto;padding:30px 20px 40px;text-align:center;color:#555;font-size:0.78rem;letter-spacing:0.3px;border-top:1px solid var(--line)}
+.footer .loc{color:var(--muted);margin-bottom:6px}
+.trackLink{display:inline-block;margin-top:10px;color:var(--gold);font-weight:700;font-size:0.82rem}
 </style>
 </head>
 <body>
-<div class="container">
-  <span class="eyebrow">RNG Plaza, Nairobi</span>
-  <div class="logo">👑 ELITE CUSTOMS</div>
-  <p class="tagline">Customize. Brand. Transform.</p>
-  <a href="customer.html?v=2" class="btn btn-primary">Place an Order</a>
-  <a href="worker.html?v=2" class="btn btn-secondary">Worker Portal</a>
-  <a href="admin.html?v=2" class="btn btn-admin">Admin Dashboard</a>
-  <p class="footer">elitecustoms.ke</p>
+
+<div class="topbar">
+  <div class="brand"><span class="crown">👑</span> ELITE CUSTOMS</div>
+  <div class="staffCorner">
+    <button class="staffToggle" onclick="document.getElementById('staffMenu').classList.toggle('open')">Staff Login ▾</button>
+    <div class="staffMenu" id="staffMenu">
+      <a href="worker.html?v=2">Worker Portal</a>
+      <a href="admin.html?v=2">Admin Dashboard</a>
+    </div>
+  </div>
 </div>
+
+<div class="hero">
+  <span class="eyebrow">RNG Plaza, Nairobi</span>
+  <h1>CUSTOMIZE.<br>BRAND.<br>TRANSFORM.</h1>
+  <p>Custom stickers, business branding, vehicle & window wraps, canvas prints and more — made to order, ready fast.</p>
+  <div class="ctaRow">
+    <a href="customer.html?v=2&source=website" class="btn btn-primary">Place an Order</a>
+    <a href="track.html" class="btn btn-outline">Track My Order</a>
+  </div>
+</div>
+
+<div class="section">
+  <h2>What We Do</h2>
+  <div class="catGrid">
+    <div class="catCard"><span class="emoji">🏷️</span>Custom Stickers</div>
+    <div class="catCard"><span class="emoji">💼</span>Business Branding</div>
+    <div class="catCard"><span class="emoji">🚗</span>Vehicle Customization</div>
+    <div class="catCard"><span class="emoji">🪟</span>Window Tinting</div>
+    <div class="catCard"><span class="emoji">🖼️</span>Canvas Prints</div>
+    <div class="catCard"><span class="emoji">💻</span>Laptop Customization</div>
+  </div>
+</div>
+
+<div class="section" id="galleryCard" style="display:none">
+  <h2>📸 Our Work</h2>
+  <div class="galleryGrid" id="galleryGrid"><p class="galleryEmpty">Loading...</p></div>
+</div>
+
+<div class="footer">
+  <div class="loc">📍 RNG Plaza, Nairobi</div>
+  <div>Elite Customs — Custom Stickers · Branding · Vehicle Wraps</div>
+  <a href="track.html" class="trackLink">Track an existing order →</a>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script>
+document.addEventListener('click', function (e) {
+  var corner = document.querySelector('.staffCorner');
+  var menu = document.getElementById('staffMenu');
+  if (menu.classList.contains('open') && !corner.contains(e.target)) menu.classList.remove('open');
+});
+
+var firebaseConfig = {
+  apiKey: "AIzaSyDTsJvTWgYdHb9wLF-MSXGbxvZf5LPA_jA",
+  authDomain: "elite-customs-os.firebaseapp.com",
+  projectId: "elite-customs-os",
+  storageBucket: "elite-customs-os.firebasestorage.app",
+  messagingSenderId: "628800846035",
+  appId: "1:628800846035:web:8d3f8f3f1935909876bc26",
+  measurementId: "G-H082LD7630"
+};
+firebase.initializeApp(firebaseConfig);
+var db = firebase.firestore();
+
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[c]; }); }
+
+// Live preview of real work — pulls a handful of photos from the same
+// public gallery collection the ordering page uses, so the homepage always
+// shows current work instead of a static stock image.
+(async function loadGalleryPreview() {
+  var card = document.getElementById('galleryCard');
+  var grid = document.getElementById('galleryGrid');
+  try {
+    var snap = await db.collection('gallery').limit(8).get();
+    var urls = [];
+    snap.forEach(function (doc) {
+      var d = doc.data();
+      if (d.imageUrl) urls.push(d.imageUrl);
+    });
+    if (urls.length === 0) { card.style.display = 'none'; return; }
+    grid.innerHTML = urls.slice(0, 8).map(function (u) {
+      return '<img src="' + escapeHtml(u) + '" loading="lazy" alt="Elite Customs finished work">';
+    }).join('');
+    card.style.display = '';
+  } catch (e) {
+    card.style.display = 'none';
+  }
+})();
+</script>
 </body>
 </html>

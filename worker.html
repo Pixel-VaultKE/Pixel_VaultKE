@@ -133,6 +133,9 @@ button.secondary{background:transparent;color:#29D3F5;border:1.5px solid #29D3F5
       <span>Cart Total</span><strong id="saleCartTotal" style="color:#d4af37">KSH 0</strong>
     </div>
 
+    <label style="color:#888;font-size:0.75rem;display:block;margin-bottom:2px">Tip (optional — if the client wants to add one on the spot)</label>
+    <input type="number" id="sTip" placeholder="Tip amount KSH" min="0" style="margin-bottom:10px">
+
     <label style="color:#888;font-size:0.75rem;display:block;margin-bottom:2px">Final total (adjust here for a discount — leave blank to charge the cart total)</label>
     <input type="number" id="sFinalTotal" placeholder="Leave blank to use cart total" min="0" oninput="onTotalOrPaidChange()">
     <label style="color:#888;font-size:0.75rem;display:block;margin-bottom:2px">Amount paid now (leave equal to total if paid in full)</label>
@@ -195,7 +198,7 @@ async function loadProductCatalog() {
     var select = document.getElementById('sProduct');
     select.innerHTML = '<option value="">Select product...</option>';
     rawProducts.forEach(function (p) {
-      select.innerHTML += '<option value="' + p.id + '">' + p.data.name + '</option>';
+      select.innerHTML += '<option value="' + p.id + '">' + text(p.data.name) + '</option>';
     });
   } catch (e) {
     log('Product catalog load error: ' + e.code + ' — ' + e.message);
@@ -216,7 +219,7 @@ function onSaleItemInputChange() {
   var total = unitPrice * qty;
   var minQty = product.data.wholesaleMinQty || 0;
   if (tier === 'wholesale' && minQty > 0 && qty < minQty) {
-    calcBox.innerHTML = '<span style="color:#f87171">⚠️ Wholesale needs ' + minQty + '+ units for ' + product.data.name + ' (have ' + qty + ')</span>';
+    calcBox.innerHTML = '<span style="color:#f87171">⚠️ Wholesale needs ' + minQty + '+ units for ' + text(product.data.name) + ' (have ' + qty + ')</span>';
   } else {
     calcBox.textContent = 'KSH ' + unitPrice.toLocaleString() + ' x ' + qty + ' = KSH ' + total.toLocaleString();
   }
@@ -298,7 +301,7 @@ function renderSaleCart() {
     saleCart.forEach(function (item, i) {
       var tierBadge = item.priceTier === 'wholesale' ? ' <span style="color:#38bdf8;font-size:0.7rem">(Wholesale)</span>' : item.priceTier === 'retail' ? ' <span style="color:#888;font-size:0.7rem">(Retail)</span>' : '';
       html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px;background:#151515;border-radius:6px;margin-bottom:6px">';
-      html += '<span style="font-size:0.85rem">' + item.qty + '× ' + item.name + tierBadge + '</span>';
+      html += '<span style="font-size:0.85rem">' + item.qty + '× ' + text(item.name) + tierBadge + '</span>';
       html += '<span><strong style="color:#d4af37">KSH ' + item.lineTotal.toLocaleString() + '</strong> <button type="button" onclick="removeSaleItem(' + i + ')" style="width:auto;background:none;color:#f87171;padding:0 0 0 10px;font-size:1rem">✕</button></span>';
       html += '</div>';
     });
@@ -398,7 +401,8 @@ if (!navigator.onLine) document.getElementById('offlineBanner').classList.remove
 
 log('Worker page loaded');
 
-function text(v, fallback) { return (v === undefined || v === null || v === '') ? (fallback || '—') : v; }
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[c]; }); }
+function text(v, fallback) { var out = (v === undefined || v === null || v === '') ? (fallback || '—') : v; return escapeHtml(out); }
 
 function normalizePhone(raw) {
   var digits = (raw || '').replace(/\D/g, '');
@@ -766,6 +770,10 @@ async function recordSale() {
   var paidRaw = document.getElementById('sAmountPaid').value;
   var amountPaid = paidRaw === '' ? amount : (parseFloat(paidRaw) || 0);
   var balance = (isNaN(amount) ? 0 : amount) - amountPaid;
+  // Tip is tracked as its own field, deliberately kept out of amount/amountPaid/
+  // balance — it's not part of the sale total and shouldn't affect revenue,
+  // profit, or the commission split calculated from those.
+  var tipAmount = parseFloat(document.getElementById('sTip').value) || 0;
 
   // ---------- COMMAND HANDLER: SaleRecorded ----------
   // Business rules gate — same checks that existed inline before, now named
@@ -794,6 +802,7 @@ async function recordSale() {
       cartTotal: cartTotal,
       amountPaid: amountPaid,
       balance: balance,
+      tipAmount: tipAmount,
       paymentStatus: paymentStatus,
       paymentMethod: payment,
       description: desc,
@@ -870,6 +879,7 @@ async function recordSale() {
     document.getElementById('sPhone').value = '';
     document.getElementById('sFinalTotal').value = '';
     document.getElementById('sAmountPaid').value = '';
+    document.getElementById('sTip').value = '';
     document.getElementById('sBalanceInfo').textContent = '';
     document.getElementById('sDesc').value = '';
     document.getElementById('sCalcPrice').textContent = '';
