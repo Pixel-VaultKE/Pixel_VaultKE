@@ -759,11 +759,14 @@ async function loadTasks() {
     snap.forEach(function (doc) {
       var t = doc.data();
       var isDone = t.status === 'done';
-      html += '<div style="background:#232329;border-radius:8px;padding:10px;margin-bottom:8px;opacity:' + (isDone ? '0.55' : '1') + '">';
-      html += '<div style="display:flex;justify-content:space-between"><strong>' + text(t.assignedToName) + '</strong><span style="color:' + (isDone ? '#4ade80' : '#facc15') + ';font-size:0.75rem;font-weight:700">' + (isDone ? '✓ DONE' : 'PENDING') + '</span></div>';
+      var isDismissed = t.status === 'dismissed';
+      var statusLabel = isDone ? '✓ DONE' : isDismissed ? '✕ DISMISSED' : 'PENDING';
+      var statusColor = isDone ? '#4ade80' : isDismissed ? '#888' : '#facc15';
+      html += '<div style="background:#232329;border-radius:8px;padding:10px;margin-bottom:8px;opacity:' + ((isDone || isDismissed) ? '0.55' : '1') + '">';
+      html += '<div style="display:flex;justify-content:space-between"><strong>' + text(t.assignedToName) + '</strong><span style="color:' + statusColor + ';font-size:0.75rem;font-weight:700">' + statusLabel + '</span></div>';
       html += '<div style="color:#ccc;font-size:0.85rem;margin:4px 0">' + text(t.description) + (t.when ? ' <span style="color:#666">(' + text(t.when) + ')</span>' : '') + '</div>';
       if (t.workerNote) html += '<div style="color:#29D3F5;font-size:0.8rem;margin-top:4px">💬 "' + text(t.workerNote) + '"</div>';
-      if (!isDone) html += '<button class="small danger" onclick="deleteTask(\'' + doc.id + '\')">Cancel Task</button>';
+      if (!isDone && !isDismissed) html += '<button class="small danger" onclick="deleteTask(\'' + doc.id + '\')">Cancel Task</button>';
       html += '</div>';
     });
     box.innerHTML = html;
@@ -3051,7 +3054,11 @@ function renderOrders() {
     html += '<tr><td>' + (o.receiptNumber ? '<strong style="color:#d4af37">' + o.receiptNumber + '</strong><br>' : '') + text(o.customerName) + '<br><span style="color:#666;font-size:0.75rem">' + text(o.phone) + '</span>';
     if (o.isTestData) html += '<br><span style="color:#fbbf24;font-size:0.7rem">🧪 Test data</span>';
     if (o.overallStatus === 'completed_settled') html += '<br><span style="color:#4ade80;font-size:0.7rem">✅ Completed & Settled</span>';
+    if (o.overallStatus === 'cancelled') html += '<br><span style="color:#f87171;font-size:0.7rem">🚫 Cancelled — stock restored</span>';
     html += '<div style="margin-top:4px"><button class="small secondary" onclick="toggleTestData(\'' + r.id + '\',' + (!o.isTestData) + ')">' + (o.isTestData ? 'Unmark Test' : 'Mark as Test') + '</button> ';
+    if (o.overallStatus !== 'cancelled' && o.overallStatus !== 'completed_settled') {
+      html += '<button class="small danger" onclick="cancelOrder(\'' + r.id + '\')">Cancel Order</button> ';
+    }
     if (currentUserRole === 'owner') html += '<button class="small danger" onclick="deleteOrder(\'' + r.id + '\')">Delete</button>';
     html += '</div>';
     html += '</td>';
@@ -3136,8 +3143,36 @@ async function toggleTestData(orderId, markAsTest) {
   }
 }
 
+async function cancelOrder(orderId) {
+  var order = rawOrders.find(function (r) { return r.id === orderId; });
+  if (!order) return;
+  if (!confirm('Cancel this order? Any stock reserved for it will be restored to inventory.')) return;
+  try {
+    var items = order.data.items || [];
+    var restored = [];
+    for (var i = 0; i < items.length; i++) {
+      var item = items[i];
+      if (!item.productId) continue;
+      var product = rawProducts.find(function (p) { return p.id === item.productId; });
+      var invId = product ? product.data.linkedInventoryItemId : null;
+      if (!invId) continue;
+      var restoreQty = item.qty * (product.data.unitsPerSale || 1);
+      await db.collection('inventory').doc(invId).update({ qty: firebase.firestore.FieldValue.increment(restoreQty) });
+      restored.push(restoreQty + ' × ' + item.name);
+    }
+    await db.collection('orders').doc(orderId).update({ overallStatus: 'cancelled', productionStatus: 'cancelled' });
+    logEvent('OrderCancelled', { orderId: orderId, restored: restored });
+    log('Order ' + orderId + ' cancelled. Restored: ' + (restored.join(', ') || 'nothing linked to inventory'));
+    toast('Order cancelled, stock restored');
+    await Promise.all([loadOrders(), loadInventory(), loadProducts()]);
+  } catch (e) {
+    log('Cancel order error: ' + e.code + ' — ' + e.message);
+    toast('Could not cancel order', true);
+  }
+}
+
 async function deleteOrder(orderId) {
-  if (!confirm('Permanently delete this order? This cannot be undone and will NOT restore any deducted stock.')) return;
+  if (!confirm('Permanently delete this order? This cannot be undone and will NOT restore any reserved stock — use "Cancel Order" first if you need that.')) return;
   try {
     await db.collection('orders').doc(orderId).delete();
     rawOrders = rawOrders.filter(function (r) { return r.id !== orderId; });

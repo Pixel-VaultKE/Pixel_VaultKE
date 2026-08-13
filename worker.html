@@ -9,6 +9,11 @@
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600;700;800&display=swap');
 body{font-family:'Inter',system-ui,sans-serif;background:radial-gradient(circle at 3px 3px, rgba(255,255,255,0.03) 1px, transparent 0) 0 0/22px 22px,#111114;color:#e0e0e0;padding:15px;max-width:600px;margin:0 auto}
 .card{background:#1C1C21;border-radius:10px;padding:18px;margin-bottom:12px;border:1px solid rgba(255,255,255,0.08)}
+.card.collapsed > *:not(.eyebrow):not(h2){display:none}
+.card.collapsible h2{cursor:pointer;user-select:none}
+.card.collapsible h2::after{content:' ▾';color:#666;font-size:0.8rem}
+.card.collapsible.collapsed h2::after{content:' ▸'}
+.card.collapsible.collapsed{padding-bottom:12px}
 h1{font-family:'Bebas Neue',sans-serif;letter-spacing:1px;color:#D4AF37;font-size:1.8rem;margin:0 0 4px}
 .eyebrow{display:block;width:max-content;color:#fff;font-size:0.65rem;font-weight:800;letter-spacing:1px;text-transform:uppercase;padding:3px 9px;border-radius:20px;transform:rotate(-2deg);margin-bottom:8px}
 .peel{position:relative;overflow:hidden}
@@ -152,6 +157,40 @@ button.secondary{background:transparent;color:#29D3F5;border:1.5px solid #29D3F5
   </div>
 
   <div class="card">
+    <span class="eyebrow" style="background:#FF2E63;color:#fff">Fast Restock</span><h2>📤 Bulk Import</h2>
+    <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">New stock came in? Upload a spreadsheet and shelve it all at once. New designs go straight up — if you need to change a price on something that already exists, ask the boss.</p>
+    <button type="button" class="secondary" onclick="downloadImportTemplate()">⬇️ Download CSV Template</button>
+    <input type="file" id="bulkImportFile" accept=".csv" onchange="handleImportFile(this)" style="margin-top:10px">
+    <div id="bulkImportPreview" style="margin-top:10px"></div>
+  </div>
+
+  <div class="card collapsible collapsed" id="wInvCard">
+    <span class="eyebrow" style="background:#C6FF3D;color:#0D0D10">Single Item</span><h2 onclick="toggleCard('wInvCard')">Add One Inventory Item</h2>
+    <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Just one thing to add? No need for a spreadsheet.</p>
+    <input type="text" id="wInvName" placeholder="Item name">
+    <input type="number" id="wInvQty" placeholder="Qty" min="0">
+    <input type="number" id="wInvMin" placeholder="Low stock at (optional)" min="0">
+    <button onclick="wAddInventoryItem()">Add Item</button>
+    <div id="wInvMsg"></div>
+  </div>
+
+  <div class="card collapsible collapsed" id="wProdCard">
+    <span class="eyebrow" style="background:#D4AF37;color:#0D0D10">Single Item</span><h2 onclick="toggleCard('wProdCard')">Add One Product / Design</h2>
+    <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Shelve a new design with its own price and photo. Once it exists, only the boss can change its price.</p>
+    <input type="text" id="wProdName" placeholder="Product name (e.g. Naruto Sticker)">
+    <input type="text" id="wProdCategory" placeholder="Category (e.g. Anime)">
+    <input type="number" id="wProdRetail" placeholder="Retail price (KSH)" min="0">
+    <input type="number" id="wProdWholesale" placeholder="Wholesale price (KSH, optional)" min="0">
+    <label style="color:#888;font-size:0.8rem;display:block;margin-bottom:4px">Product photo (optional)</label>
+    <input type="file" id="wProdImageFile" accept="image/*" onchange="uploadProductPhoto(this, 'wProdImageUrl')" style="margin-bottom:2px">
+    <p id="wProdImageUrlStatus" style="font-size:0.75rem;color:#888;margin:0 0 8px"></p>
+    <input type="text" id="wProdImageUrl" placeholder="Photo URL (auto-fills after upload)">
+    <select id="wProdInventoryLink"><option value="">Link to inventory item (optional)...</option></select>
+    <button onclick="wAddProduct()">Add Product</button>
+    <div id="wProdMsg"></div>
+  </div>
+
+  <div class="card">
     <span class="eyebrow" style="background:#D4AF37;color:#0D0D10">Your Wins</span><h2>My Recent Sales</h2>
     <div id="mySales"><p style="color:#888">Loading...</p></div>
   </div>
@@ -187,6 +226,115 @@ window.onerror = function(msg, url, line) {
 // firebaseConfig / firebase.initializeApp / auth / db now come from shared.js
 var currentWorker = null;
 var rawProducts = [];
+var rawInventory = [];
+
+function text(v, fallback) { return (v === undefined || v === null || v === '') ? (fallback || '—') : v; }
+
+function toggleCard(id) {
+  document.getElementById(id).classList.toggle('collapsed');
+}
+
+var CLOUDINARY_CLOUD_NAME = 'ffksanlm';
+var CLOUDINARY_UPLOAD_PRESET = 'ml_default';
+
+async function uploadProductPhoto(fileInput, targetInputId) {
+  var file = fileInput.files[0];
+  if (!file) return;
+  var statusId = targetInputId + 'Status';
+  var statusEl = document.getElementById(statusId);
+  if (statusEl) { statusEl.textContent = 'Uploading...'; statusEl.style.color = '#888'; }
+  var formData = new FormData();
+  formData.append('file', file);
+  formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+  try {
+    var res = await fetch('https://api.cloudinary.com/v1_1/' + CLOUDINARY_CLOUD_NAME + '/image/upload', { method: 'POST', body: formData });
+    var data = await res.json();
+    if (data.secure_url) {
+      document.getElementById(targetInputId).value = data.secure_url;
+      if (statusEl) { statusEl.textContent = '✓ Uploaded'; statusEl.style.color = '#22c55e'; }
+    } else {
+      throw new Error((data.error && data.error.message) || 'Upload failed');
+    }
+  } catch (e) {
+    if (statusEl) { statusEl.textContent = 'Upload failed: ' + e.message; statusEl.style.color = '#ff4444'; }
+  } finally {
+    fileInput.value = '';
+  }
+}
+
+async function wAddInventoryItem() {
+  var name = document.getElementById('wInvName').value.trim();
+  var qty = parseInt(document.getElementById('wInvQty').value) || 0;
+  var minQty = parseInt(document.getElementById('wInvMin').value) || 0;
+  var msg = document.getElementById('wInvMsg');
+  if (!name) { msg.className = 'error'; msg.textContent = 'Enter an item name'; return; }
+  var duplicate = rawInventory.some(function (inv) { return (inv.data.name || '').trim().toLowerCase() === name.toLowerCase(); });
+  if (duplicate) { msg.className = 'error'; msg.textContent = '⚠️ Already exists — use Bulk Import or the qty buttons to restock it instead'; return; }
+  try {
+    await db.collection('inventory').add({ name: name, qty: qty, minQty: minQty, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+    log('Inventory item added: ' + name);
+    document.getElementById('wInvName').value = '';
+    document.getElementById('wInvQty').value = '';
+    document.getElementById('wInvMin').value = '';
+    msg.className = 'ok'; msg.textContent = 'Added';
+    loadInventoryCache();
+  } catch (e) {
+    log('Add inventory error: ' + e.code + ' — ' + e.message);
+    msg.className = 'error'; msg.textContent = 'Could not add item';
+  }
+}
+
+function populateWorkerInventoryLinkSelect() {
+  var sel = document.getElementById('wProdInventoryLink');
+  if (!sel) return;
+  var opts = '<option value="">Link to inventory item (optional)...</option>';
+  rawInventory.forEach(function (inv) { opts += '<option value="' + inv.id + '">' + text(inv.data.name) + '</option>'; });
+  sel.innerHTML = opts;
+}
+
+async function wAddProduct() {
+  var name = document.getElementById('wProdName').value.trim();
+  var category = document.getElementById('wProdCategory').value.trim();
+  var retailPrice = parseFloat(document.getElementById('wProdRetail').value) || 0;
+  var wholesalePrice = parseFloat(document.getElementById('wProdWholesale').value) || 0;
+  var linkedInventoryItemId = document.getElementById('wProdInventoryLink').value;
+  var imageUrl = document.getElementById('wProdImageUrl').value.trim();
+  var msg = document.getElementById('wProdMsg');
+
+  if (!name) { msg.className = 'error'; msg.textContent = 'Enter a product name'; return; }
+  if (retailPrice <= 0) { msg.className = 'error'; msg.textContent = 'Enter a retail price above 0'; return; }
+  var duplicate = rawProducts.some(function (p) { return (p.data.name || '').trim().toLowerCase() === name.toLowerCase(); });
+  if (duplicate) { msg.className = 'error'; msg.textContent = '⚠️ A product with this name already exists — the boss can update its price, but a new one won\'t be created'; return; }
+
+  try {
+    await db.collection('products').add({
+      name: name, category: category, retailPrice: retailPrice, wholesalePrice: wholesalePrice, costPrice: 0,
+      wholesaleMinQty: 0, linkedInventoryItemId: linkedInventoryItemId || null, unitsPerSale: 1,
+      imageUrl: imageUrl || null, videoUrl: null,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    logEvent('ProductAdded', { name: name, retailPrice: retailPrice, addedBy: currentWorker ? currentWorker.name : 'worker' });
+    log('Product added: ' + name);
+    ['wProdName', 'wProdCategory', 'wProdRetail', 'wProdWholesale', 'wProdImageUrl'].forEach(function (id) { document.getElementById(id).value = ''; });
+    document.getElementById('wProdImageUrlStatus').textContent = '';
+    msg.className = 'ok'; msg.textContent = 'Added — it\'ll show up in the catalog right away';
+    loadProductCatalog();
+  } catch (e) {
+    log('Add product error: ' + e.code + ' — ' + e.message);
+    msg.className = 'error'; msg.textContent = 'Could not add product';
+  }
+}
+
+async function loadInventoryCache() {
+  try {
+    var snap = await db.collection('inventory').get();
+    rawInventory = [];
+    snap.forEach(function (doc) { rawInventory.push({ id: doc.id, data: doc.data() }); });
+    populateWorkerInventoryLinkSelect();
+  } catch (e) {
+    log('Inventory cache load error: ' + e.code + ' — ' + e.message);
+  }
+}
 
 async function loadProductCatalog() {
   try {
@@ -480,13 +628,32 @@ async function loadMyTasks() {
       html += '<div style="color:#fff;font-weight:600">' + text(t.description) + '</div>';
       if (t.when) html += '<div style="color:#666;font-size:0.75rem;margin-top:2px">⏰ ' + text(t.when) + '</div>';
       html += '<input type="text" id="taskNote-' + item.id + '" placeholder="Reply (optional — e.g. \'on it\', \'done, called her\')" style="margin-top:8px">';
-      html += '<button onclick="completeTask(\'' + item.id + '\')" style="margin-top:4px">✓ Mark Done</button>';
+      html += '<div style="display:flex;gap:6px;margin-top:4px"><button onclick="completeTask(\'' + item.id + '\')" style="flex:1">✓ Mark Done</button><button class="secondary" onclick="dismissTask(\'' + item.id + '\')" style="width:auto">✕ Dismiss</button></div>';
       html += '</div>';
     });
     box.innerHTML = html;
   } catch (e) {
     log('Load my tasks error: ' + e.code + ' — ' + e.message);
     box.innerHTML = '<p style="color:#ff4444">Could not load tasks</p>';
+  }
+}
+
+async function dismissTask(id) {
+  if (!confirm('Dismiss this task without marking it done? The boss can still see it was dismissed.')) return;
+  var noteInput = document.getElementById('taskNote-' + id);
+  var note = noteInput ? noteInput.value.trim() : '';
+  try {
+    await db.collection('tasks').doc(id).update({
+      status: 'dismissed',
+      workerNote: note,
+      completedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    logEvent('TaskDismissed', { taskId: id, note: note });
+    log('Task ' + id + ' dismissed');
+    loadMyTasks();
+  } catch (e) {
+    log('Dismiss task error: ' + e.code + ' — ' + e.message);
+    toast('Could not dismiss task', true);
   }
 }
 
@@ -701,6 +868,7 @@ async function loadWorkerProfile(uid) {
     document.getElementById('workerSection').classList.remove('hidden');
     log('Welcome ' + currentWorker.name);
     loadProductCatalog();
+    loadInventoryCache();
     loadMySales(uid);
     loadMyTasks();
     loadMyTips(uid);
@@ -708,6 +876,149 @@ async function loadWorkerProfile(uid) {
     log('Profile load error: ' + e.code + ' — ' + e.message);
     toast('Could not load your profile. ' + (e.code === 'unavailable' ? 'You appear offline.' : ''), true);
   }
+}
+
+// ---------- BULK IMPORT (CSV) — same logic as admin, workers can only
+// create new designs, never edit prices on ones that already exist ----------
+var pendingImportRows = [];
+
+function downloadImportTemplate() {
+  var csv = 'Name,Category,Retail Price,Wholesale Price,Cost Price,Wholesale Min Qty,Stock Qty,Low Stock At\n'
+    + 'Naruto Sticker,Anime,100,50,20,15,50,10\n'
+    + 'Canvas Print,Canvas,2000,1700,800,2,5,2\n';
+  var blob = new Blob([csv], { type: 'text/csv' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'elite-customs-import-template.csv';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+function parseCSV(text) {
+  var rows = [];
+  var row = [];
+  var field = '';
+  var inQuotes = false;
+  for (var i = 0; i < text.length; i++) {
+    var c = text[i];
+    if (inQuotes) {
+      if (c === '"' && text[i + 1] === '"') { field += '"'; i++; }
+      else if (c === '"') { inQuotes = false; }
+      else { field += c; }
+    } else {
+      if (c === '"') { inQuotes = true; }
+      else if (c === ',') { row.push(field); field = ''; }
+      else if (c === '\n' || c === '\r') {
+        if (c === '\r' && text[i + 1] === '\n') i++;
+        row.push(field); field = '';
+        if (row.some(function (v) { return v.trim() !== ''; })) rows.push(row);
+        row = [];
+      } else { field += c; }
+    }
+  }
+  if (field.length || row.length) { row.push(field); if (row.some(function (v) { return v.trim() !== ''; })) rows.push(row); }
+  return rows;
+}
+
+function handleImportFile(input) {
+  var file = input.files[0];
+  var box = document.getElementById('bulkImportPreview');
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function (e) {
+    var rows = parseCSV(e.target.result);
+    if (rows.length < 2) { box.innerHTML = '<p class="error">File looks empty — needs a header row plus at least one item.</p>'; return; }
+    var header = rows[0].map(function (h) { return h.trim().toLowerCase(); });
+    var col = function (name) { return header.indexOf(name); };
+    var idx = {
+      name: col('name'), category: col('category'), retail: col('retail price'),
+      wholesale: col('wholesale price'), cost: col('cost price'), wholesaleMin: col('wholesale min qty'),
+      qty: col('stock qty'), lowAt: col('low stock at')
+    };
+    if (idx.name === -1 || idx.retail === -1 || idx.qty === -1) {
+      box.innerHTML = '<p class="error">Missing required columns — needs at least Name, Retail Price, and Stock Qty. Download the template to check the exact headers.</p>';
+      return;
+    }
+    pendingImportRows = [];
+    var errors = [];
+    for (var r = 1; r < rows.length; r++) {
+      var cells = rows[r];
+      var name = (cells[idx.name] || '').trim();
+      var retail = parseFloat(cells[idx.retail]);
+      var qty = parseInt(cells[idx.qty], 10);
+      if (!name) { continue; }
+      if (isNaN(retail) || retail <= 0) { errors.push('Row ' + (r + 1) + ' (' + name + '): invalid retail price'); continue; }
+      if (isNaN(qty) || qty < 0) { errors.push('Row ' + (r + 1) + ' (' + name + '): invalid stock qty'); continue; }
+      pendingImportRows.push({
+        name: name,
+        category: idx.category > -1 ? (cells[idx.category] || '').trim() : '',
+        retailPrice: retail,
+        wholesalePrice: idx.wholesale > -1 ? (parseFloat(cells[idx.wholesale]) || 0) : 0,
+        costPrice: idx.cost > -1 ? (parseFloat(cells[idx.cost]) || 0) : 0,
+        wholesaleMinQty: idx.wholesaleMin > -1 ? (parseInt(cells[idx.wholesaleMin], 10) || 0) : 0,
+        qty: qty,
+        minQty: idx.lowAt > -1 ? (parseInt(cells[idx.lowAt], 10) || 0) : 0
+      });
+    }
+    var html = '<div style="color:#C6FF3D;font-weight:700;font-size:0.85rem;margin-bottom:6px">' + pendingImportRows.length + ' item(s) ready to import</div>';
+    if (errors.length) {
+      html += '<div style="color:#ff6b6b;font-size:0.78rem;margin-bottom:8px">' + errors.length + ' row(s) skipped:<br>' + errors.map(text).join('<br>') + '</div>';
+    }
+    if (pendingImportRows.length) {
+      html += '<div style="max-height:180px;overflow-y:auto;background:#232329;border-radius:8px;padding:8px;margin-bottom:8px;font-size:0.78rem">';
+      pendingImportRows.forEach(function (row) {
+        html += '<div style="display:flex;justify-content:space-between;padding:3px 0"><span>' + text(row.name) + ' <span style="color:#666">(' + text(row.category || 'no category') + ')</span></span><span>KSH ' + row.retailPrice + ' · qty ' + row.qty + '</span></div>';
+      });
+      html += '</div>';
+      html += '<button onclick="runBulkImport()">Import ' + pendingImportRows.length + ' Item(s)</button>';
+    }
+    box.innerHTML = html;
+  };
+  reader.readAsText(file);
+}
+
+async function runBulkImport() {
+  var box = document.getElementById('bulkImportPreview');
+  var results = { restocked: 0, created: 0, skipped: 0 };
+  box.innerHTML = '<p style="color:#888"><span class="spinner"></span>Importing...</p>';
+  for (var i = 0; i < pendingImportRows.length; i++) {
+    var row = pendingImportRows[i];
+    try {
+      var existingInv = rawInventory.find(function (inv) { return (inv.data.name || '').trim().toLowerCase() === row.name.toLowerCase(); });
+      var invId;
+      if (existingInv) {
+        await db.collection('inventory').doc(existingInv.id).update({ qty: firebase.firestore.FieldValue.increment(row.qty) });
+        invId = existingInv.id;
+        results.restocked++;
+      } else {
+        var invDoc = await db.collection('inventory').add({ name: row.name, qty: row.qty, minQty: row.minQty, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+        invId = invDoc.id;
+        results.created++;
+      }
+      // Products: workers can only CREATE (matches Firestore rules — editing
+      // an existing product's price stays admin/owner-only), so if a product
+      // with this name already exists we just top up its stock and stop there.
+      var existingProd = rawProducts.find(function (p) { return (p.data.name || '').trim().toLowerCase() === row.name.toLowerCase(); });
+      if (!existingProd) {
+        await db.collection('products').add({
+          name: row.name, category: row.category, retailPrice: row.retailPrice, wholesalePrice: row.wholesalePrice,
+          costPrice: row.costPrice, wholesaleMinQty: row.wholesaleMinQty, linkedInventoryItemId: invId, unitsPerSale: 1,
+          imageUrl: null, videoUrl: null, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      } else {
+        results.skipped++;
+      }
+    } catch (e) {
+      log('Bulk import error on ' + row.name + ': ' + e.code + ' — ' + e.message);
+    }
+  }
+  logEvent('BulkImport', { itemCount: pendingImportRows.length, created: results.created, restocked: results.restocked });
+  pendingImportRows = [];
+  document.getElementById('bulkImportFile').value = '';
+  box.innerHTML = '<p class="ok">Done — ' + results.created + ' new item(s) added, ' + results.restocked + ' restocked' + (results.skipped ? ', ' + results.skipped + ' product(s) already existed so only their stock was topped up' : '') + '.</p>';
+  toast('Import complete 📦');
+  await Promise.all([loadInventoryCache(), loadProductCatalog()]);
 }
 
 async function recordSale() {
