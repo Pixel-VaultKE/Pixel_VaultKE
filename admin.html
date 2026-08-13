@@ -306,7 +306,14 @@ tr:hover td{background:rgba(255,255,255,0.02)}
     <span class="eyebrow" style="background:#29D3F5;color:#0D0D10">Where Orders Come From</span><h2 onclick="toggleCard('marketingSourcesCard')">📍 Marketing Sources</h2>
     <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Which QR code, flyer, or location is actually driving orders. Tag each printed QR with a different link (see below), then check back here.</p>
     <div id="sourcesList"><p style="color:#888">Loading...</p></div>
-    <p style="color:#666;font-size:0.72rem;margin-top:10px">To tag a QR code: point it at <code style="color:#29D3F5">elite-customs-web.vercel.app/customer.html?source=NAME</code> — replace NAME with something like <code style="color:#29D3F5">matatu1</code>, <code style="color:#29D3F5">friendshop</code>, or <code style="color:#29D3F5">rngplaza</code>. Untagged scans show as "direct".</p>
+    <p style="color:#666;font-size:0.72rem;margin-top:10px">To tag a QR code: point it at <code style="color:#29D3F5">pixel-vault-ke.vercel.app/customer.html?source=NAME</code> — replace NAME with something like <code style="color:#29D3F5">matatu1</code>, <code style="color:#29D3F5">friendshop</code>, or <code style="color:#29D3F5">rngplaza</code>. Untagged scans show as "direct".</p>
+  </div>
+
+  <div class="card collapsible collapsed" id="reviewsCard">
+    <span class="eyebrow" style="background:#D4AF37;color:#0D0D10">Word Of Mouth</span><h2 onclick="toggleCard('reviewsCard')">⭐ Customer Reviews</h2>
+    <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Customers rate their order from the tracking page once it's Delivered. New ratings start hidden — approve the ones you want shown on the website.</p>
+    <div id="reviewsSummary" style="margin-bottom:10px"></div>
+    <div id="reviewsList"><p style="color:#888">Loading...</p></div>
   </div>
 
   <div class="card collapsible collapsed" id="galleryCard2">
@@ -389,6 +396,7 @@ tr:hover td{background:rgba(255,255,255,0.02)}
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="shared.js"></script>
 
 <script>
 window.onerror = function (msg, url, line) { log('[ERROR] ' + msg + ' (line ' + line + ')'); };
@@ -397,15 +405,6 @@ function toggleCard(id) {
   document.getElementById(id).classList.toggle('collapsed');
 }
 
-var firebaseConfig = {
-  apiKey: "AIzaSyDTsJvTWgYdHb9wLF-MSXGbxvZf5LPA_jA",
-  authDomain: "elite-customs-os.firebaseapp.com",
-  projectId: "elite-customs-os",
-  storageBucket: "elite-customs-os.firebasestorage.app",
-  messagingSenderId: "628800846035",
-  appId: "1:628800846035:web:8d3f8f3f1935909876bc26",
-  measurementId: "G-H082LD7630"
-};
 var CLOUDINARY_CLOUD_NAME = 'ffksanlm';
 var CLOUDINARY_UPLOAD_PRESET = 'ml_default';
 
@@ -543,13 +542,115 @@ async function loadMarketingSources() {
     html += '<tr style="color:#888;text-align:left;border-bottom:1px solid #333"><th style="padding:6px 4px">Source</th><th style="padding:6px 4px;text-align:right">Orders</th><th style="padding:6px 4px;text-align:right">Revenue</th></tr>';
     sources.forEach(function (src) {
       var s = bySource[src];
-      html += '<tr style="border-bottom:1px solid #262626"><td style="padding:6px 4px">' + src + '</td><td style="padding:6px 4px;text-align:right">' + s.count + '</td><td style="padding:6px 4px;text-align:right;color:#D4AF37">KSH ' + s.revenue.toLocaleString() + '</td></tr>';
+      // Referral links (feature: customer referrals) are tagged ref-<phoneKey>
+      // at capture — label them distinctly here instead of showing the raw code.
+      var label = /^ref-\d+$/.test(src) ? '👥 Referral (customer ' + src.slice(4) + ')' : src;
+      html += '<tr style="border-bottom:1px solid #262626"><td style="padding:6px 4px">' + text(label) + '</td><td style="padding:6px 4px;text-align:right">' + s.count + '</td><td style="padding:6px 4px;text-align:right;color:#D4AF37">KSH ' + s.revenue.toLocaleString() + '</td></tr>';
     });
     html += '</table>';
     box.innerHTML = html;
   } catch (e) {
     log('Marketing sources load error: ' + e.code + ' — ' + e.message);
     box.innerHTML = '<p style="color:#ff4444">Could not load sources</p>';
+  }
+}
+
+// ---------- REVIEWS & RATINGS ----------
+// Feature: Customer Reviews. Customers rate on the track page after
+// delivery (approved:false by default); the owner moderates here before
+// anything shows publicly on index.html / customer.html.
+var rawReviews = [];
+
+async function loadReviews() {
+  try {
+    var snap = await db.collection('reviews').orderBy('createdAt', 'desc').limit(100).get();
+    rawReviews = [];
+    snap.forEach(function (doc) { rawReviews.push({ id: doc.id, data: doc.data() }); });
+    renderReviews();
+  } catch (e) {
+    log('Load reviews error: ' + e.code + ' — ' + e.message);
+    var box = document.getElementById('reviewsList');
+    if (box) box.innerHTML = '<p style="color:#ff4444">Could not load reviews' + (e.code === 'permission-denied' ? ' — ratings storage may not be set up yet.' : '.') + '</p>';
+  }
+}
+
+function renderReviews() {
+  var summaryBox = document.getElementById('reviewsSummary');
+  var box = document.getElementById('reviewsList');
+  if (!box) return;
+
+  var approved = rawReviews.filter(function (r) { return r.data.approved; });
+  var pending = rawReviews.filter(function (r) { return !r.data.approved; });
+  if (approved.length > 0) {
+    var avg = approved.reduce(function (sum, r) { return sum + (r.data.rating || 0); }, 0) / approved.length;
+    summaryBox.innerHTML = '<span style="color:#D4AF37;font-family:\'Bebas Neue\',sans-serif;font-size:1.4rem">⭐ ' + avg.toFixed(1) + '</span> <span style="color:#888;font-size:0.8rem">average from ' + approved.length + ' published review' + (approved.length === 1 ? '' : 's') + (pending.length ? ' · ' + pending.length + ' awaiting approval' : '') + '</span>';
+  } else {
+    summaryBox.innerHTML = '<span style="color:#888;font-size:0.85rem">No published reviews yet' + (pending.length ? ' — ' + pending.length + ' awaiting your approval below' : '') + '</span>';
+  }
+
+  if (rawReviews.length === 0) { box.innerHTML = '<p style="color:#888">No ratings submitted yet</p>'; return; }
+
+  var html = '';
+  rawReviews.forEach(function (r) {
+    var rv = r.data;
+    var stars = '★★★★★☆☆☆☆☆'.slice(5 - (rv.rating || 0), 10 - (rv.rating || 0));
+    var d = rv.createdAt ? rv.createdAt.toDate().toLocaleString() : 'Just now';
+    html += '<div style="padding:10px;background:#0f0f0f;border-radius:8px;margin-bottom:8px;border-left:3px solid ' + (rv.approved ? '#4ade80' : '#facc15') + '">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center">';
+    html += '<span style="color:#D4AF37;letter-spacing:1px">' + stars + '</span>';
+    html += '<span class="badge ' + (rv.approved ? 'paid' : 'progress') + '">' + (rv.approved ? 'Published' : 'Pending') + '</span>';
+    html += '</div>';
+    html += '<div style="color:#ccc;font-size:0.85rem;margin-top:4px">' + text(rv.customerName, 'Anonymous') + (rv.receiptNumber ? ' · ' + text(rv.receiptNumber) : '') + '</div>';
+    if (rv.comment) html += '<div style="color:#aaa;font-size:0.85rem;margin-top:4px">"' + text(rv.comment) + '"</div>';
+    html += '<div style="color:#666;font-size:0.72rem;margin-top:4px">' + d + '</div>';
+    html += '<div class="row-actions" style="margin-top:8px">';
+    if (rv.approved) {
+      html += '<button class="small secondary" onclick="unpublishReview(\'' + r.id + '\')">Unpublish</button>';
+    } else {
+      html += '<button class="small" onclick="approveReview(\'' + r.id + '\')">✓ Approve & Publish</button>';
+    }
+    html += '<button class="small danger" onclick="deleteReview(\'' + r.id + '\')">Delete</button>';
+    html += '</div></div>';
+  });
+  box.innerHTML = html;
+}
+
+async function approveReview(id) {
+  try {
+    await db.collection('reviews').doc(id).update({ approved: true });
+    var found = rawReviews.find(function (r) { return r.id === id; });
+    if (found) found.data.approved = true;
+    renderReviews();
+    toast('Review published ⭐');
+  } catch (e) {
+    log('Approve review error: ' + e.code + ' — ' + e.message);
+    toast('Could not approve review', true);
+  }
+}
+
+async function unpublishReview(id) {
+  try {
+    await db.collection('reviews').doc(id).update({ approved: false });
+    var found = rawReviews.find(function (r) { return r.id === id; });
+    if (found) found.data.approved = false;
+    renderReviews();
+    toast('Review unpublished');
+  } catch (e) {
+    log('Unpublish review error: ' + e.code + ' — ' + e.message);
+    toast('Could not unpublish review', true);
+  }
+}
+
+async function deleteReview(id) {
+  if (!confirm('Permanently delete this review?')) return;
+  try {
+    await db.collection('reviews').doc(id).delete();
+    rawReviews = rawReviews.filter(function (r) { return r.id !== id; });
+    renderReviews();
+    toast('Review deleted');
+  } catch (e) {
+    log('Delete review error: ' + e.code + ' — ' + e.message);
+    toast('Could not delete review', true);
   }
 }
 
@@ -812,9 +913,7 @@ async function deleteGalleryPhoto(id) {
   }
 }
 
-firebase.initializeApp(firebaseConfig);
-var auth = firebase.auth();
-var db = firebase.firestore();
+// firebaseConfig / firebase.initializeApp / auth / db now come from shared.js
 
 auth.setPersistence(firebase.auth.Auth.Persistence.SESSION).catch(function (e) {
   log('Persistence setup failed: ' + e.code + ' — ' + e.message);
@@ -957,8 +1056,7 @@ function toast(msg, isError) {
   setTimeout(function () { t.remove(); }, 3500);
 }
 
-function escapeHtml(s) { return String(s).replace(/[&<>"']/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[c]; }); }
-function text(v, fallback) { var out = (v === undefined || v === null || v === '') ? (fallback || '—') : v; return escapeHtml(out); }
+// escapeHtml / text now come from shared.js
 
 log('Admin page loaded — build v6 (Link Stock feature)');
 
@@ -1015,10 +1113,7 @@ async function doLogout() {
   location.reload();
 }
 
-function normalizePhone(raw) {
-  var digits = (raw || '').replace(/\D/g, '');
-  return digits.slice(-9);
-}
+// normalizePhone now comes from shared.js
 
 function localDateKey(d) {
   d = d || new Date();
@@ -1691,7 +1786,7 @@ async function downloadBackup() {
 }
 
 async function loadDashboard() {
-  await Promise.all([loadWorkers(), loadInventory(), loadSales(), loadOrders(), loadProducts(), loadExpenses(), loadGoal(), loadRecentClosings(), loadQuotes(), loadGallery(), loadMarketingSources(), loadPendingNotes(), loadTasks(), loadRecentTips()]);
+  await Promise.all([loadWorkers(), loadInventory(), loadSales(), loadOrders(), loadProducts(), loadExpenses(), loadGoal(), loadRecentClosings(), loadQuotes(), loadGallery(), loadMarketingSources(), loadPendingNotes(), loadTasks(), loadRecentTips(), loadReviews()]);
   populateTaskAssignDropdown();
   populateTipSendDropdown();
   loadUnassignedTips();
@@ -2308,12 +2403,19 @@ function renderCustomerHistory() {
   var html2 = '';
   list.forEach(function (c) {
     var visitCount = c.orders.length + c.sales.length;
-    var isRepeat = visitCount > 1;
+    // Loyalty tier — same "repeat" badge as before, now with a VIP step for
+    // real regulars. Purely a read of data already being tracked; nothing
+    // new is written anywhere.
+    var loyaltyBadge = visitCount >= 5
+      ? ' <span class="badge paid">👑 VIP · ' + visitCount + ' visits</span>'
+      : visitCount > 1
+        ? ' <span class="badge paid">⭐ Repeat · ' + visitCount + ' visits</span>'
+        : '';
     var mostOrdered = Object.keys(c.itemCounts).sort(function (a, b) { return c.itemCounts[b] - c.itemCounts[a]; })[0];
 
     html2 += '<div style="padding:10px;background:#0f0f0f;border-radius:8px;margin-bottom:8px">';
     html2 += '<div style="display:flex;justify-content:space-between;align-items:center">';
-    html2 += '<strong>' + text(c.name) + '</strong>' + (isRepeat ? ' <span class="badge paid">⭐ repeat</span>' : '');
+    html2 += '<strong>' + text(c.name) + '</strong>' + loyaltyBadge;
     html2 += '<span style="color:#888;font-size:0.8rem">' + c.orders.length + ' order' + (c.orders.length === 1 ? '' : 's') + '</span>';
     html2 += '</div>';
     html2 += '<div style="color:#666;font-size:0.75rem;margin-top:2px">' + text(c.phone) + '</div>';
@@ -2843,23 +2945,7 @@ var PRODUCTION_STAGES = ['new', 'designing', 'printing', 'finishing', 'ready', '
 var PRODUCTION_LABELS = { new: 'New', designing: 'Designing', printing: 'Printing', finishing: 'Finishing', ready: 'Ready for Pickup', delivered: 'Delivered' };
 var PAYMENT_LABELS = { unpaid: 'Unpaid', partial: 'Partially Paid', paid: 'Fully Paid' };
 
-// Legacy orders (pre line-items) may still have itemType/quantity/status/totalAmount.
-// This normalizes any order doc into the current shape so old and new orders both render.
-function normalizeOrder(o) {
-  if (!o.items) {
-    o.items = o.itemType ? [{ productId: null, name: o.itemType, qty: o.quantity || 1, unitPrice: o.totalAmount || 0, lineTotal: o.totalAmount || 0, custom: true }] : [];
-  }
-  if (typeof o.total !== 'number') o.total = o.totalAmount || 0;
-  if (typeof o.amountPaid !== 'number') o.amountPaid = 0;
-  if (typeof o.balance !== 'number') o.balance = o.total - o.amountPaid;
-  if (!o.paymentStatus) o.paymentStatus = o.balance <= 0 && o.total > 0 ? 'paid' : (o.amountPaid > 0 ? 'partial' : 'unpaid');
-  if (!o.productionStatus) {
-    var legacyMap = { pending: 'new', designing: 'designing', printing: 'printing', 'in-progress': 'printing', ready: 'ready', completed: 'delivered' };
-    o.productionStatus = legacyMap[o.status] || 'new';
-  }
-  if (!o.overallStatus) o.overallStatus = (o.productionStatus === 'delivered' && o.paymentStatus === 'paid') ? 'completed_settled' : 'open';
-  return o;
-}
+// normalizeOrder now comes from shared.js (handles legacy pre-line-item orders too)
 
 function itemsSummary(items) {
   return items.map(function (it) { return it.qty + '× ' + it.name; }).join(', ') || '—';
@@ -2884,31 +2970,9 @@ function buildNotifyButton(o) {
   return '<a href="' + url + '" target="_blank" class="small secondary" style="display:inline-block;margin-top:4px;padding:5px 10px;border-radius:8px;border:1px solid #d4af37;color:#d4af37;text-decoration:none;font-size:0.75rem">📲 Notify</a>';
 }
 
-// ---------- PRODUCTION CHECKLISTS ----------
-// Real steps, given directly by the owner — not invented. Only "frosted"
-// items have a defined process so far; other product types show no checklist
-// until their real steps are documented the same way.
-var PRODUCTION_CHECKLISTS = {
-  frosted: [
-    'Understand the vision — what they want, how it\'ll look on their device',
-    'Design source — existing artwork picked, or custom (design + advise)',
-    'Deposit collected',
-    'Design finalized (if custom)',
-    'Print',
-    'Laminate',
-    'Trim',
-    'Install',
-    'Customer approval — final look',
-    'Balance payment',
-    'Delivered'
-  ]
-};
-
-function checklistTemplateFor(items) {
-  if (!items || !items.length) return null;
-  var isFrosted = items.some(function (it) { return /frosted/i.test(it.name || ''); });
-  return isFrosted ? 'frosted' : null;
-}
+// PRODUCTION_CHECKLISTS / checklistTemplateFor now come from shared.js
+// (used by both this page and worker.html — was previously pasted into
+// both with a comment asking whoever edited it to "keep in sync").
 
 function toggleChecklistPanel(orderId) {
   var el = document.getElementById('checklistPanel-' + orderId);

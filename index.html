@@ -130,6 +130,12 @@ a{color:inherit;text-decoration:none}
   <div class="galleryGrid" id="galleryGrid"><p class="galleryEmpty">Loading...</p></div>
 </div>
 
+<div class="section" id="reviewsSection" style="display:none">
+  <h2>⭐ What Customers Say</h2>
+  <div id="reviewsSummaryPublic" style="margin-bottom:12px;color:var(--muted);font-size:0.9rem"></div>
+  <div id="reviewsWidgetList" style="display:flex;flex-direction:column;gap:10px"></div>
+</div>
+
 <div class="footer">
   <div class="loc">📍 RNG Plaza, Nairobi</div>
   <div>Elite Customs — Custom Stickers · Branding · Vehicle Wraps</div>
@@ -138,6 +144,7 @@ a{color:inherit;text-decoration:none}
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="shared.js"></script>
 <script>
 document.addEventListener('click', function (e) {
   var corner = document.querySelector('.staffCorner');
@@ -145,19 +152,10 @@ document.addEventListener('click', function (e) {
   if (menu.classList.contains('open') && !corner.contains(e.target)) menu.classList.remove('open');
 });
 
-var firebaseConfig = {
-  apiKey: "AIzaSyDTsJvTWgYdHb9wLF-MSXGbxvZf5LPA_jA",
-  authDomain: "elite-customs-os.firebaseapp.com",
-  projectId: "elite-customs-os",
-  storageBucket: "elite-customs-os.firebasestorage.app",
-  messagingSenderId: "628800846035",
-  appId: "1:628800846035:web:8d3f8f3f1935909876bc26",
-  measurementId: "G-H082LD7630"
-};
-firebase.initializeApp(firebaseConfig);
-var db = firebase.firestore();
-
-function escapeHtml(s) { return String(s).replace(/[&<>"']/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[c]; }); }
+// firebaseConfig / firebase.initializeApp / db / escapeHtml now come from
+// shared.js. (shared.js uses the same compat API surface regardless of SDK
+// version, so it works fine alongside this page's v9.23.0 script tags above
+// — no version bump needed here.)
 
 // Live preview of real work — pulls a handful of photos from the same
 // public gallery collection the ordering page uses, so the homepage always
@@ -179,6 +177,37 @@ function escapeHtml(s) { return String(s).replace(/[&<>"']/g, function (c) { ret
     card.style.display = '';
   } catch (e) {
     card.style.display = 'none';
+  }
+})();
+
+// Feature: Customer Reviews — public display. Only reads reviews with
+// approved:true (set by the owner in Admin); hides itself if there are
+// none yet or the collection isn't readable.
+(async function loadPublicReviews() {
+  var section = document.getElementById('reviewsSection');
+  try {
+    var snap = await db.collection('reviews').where('approved', '==', true).orderBy('createdAt', 'desc').limit(6).get();
+    var reviews = [];
+    snap.forEach(function (doc) { reviews.push(doc.data()); });
+    if (reviews.length === 0) { section.style.display = 'none'; return; }
+
+    var avg = reviews.reduce(function (sum, r) { return sum + (r.rating || 0); }, 0) / reviews.length;
+    document.getElementById('reviewsSummaryPublic').innerHTML =
+      '<span style="color:var(--gold);font-family:\'Bebas Neue\',sans-serif;font-size:1.8rem">⭐ ' + avg.toFixed(1) + '</span> from ' + reviews.length + ' happy customer' + (reviews.length === 1 ? '' : 's');
+
+    var html = '';
+    reviews.forEach(function (r) {
+      var stars = '★★★★★☆☆☆☆☆'.slice(5 - (r.rating || 0), 10 - (r.rating || 0));
+      html += '<div style="background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px">';
+      html += '<div style="color:var(--gold);letter-spacing:1px">' + stars + '</div>';
+      if (r.comment) html += '<div style="color:#ddd;font-size:0.85rem;margin-top:6px">"' + escapeHtml(r.comment) + '"</div>';
+      html += '<div style="color:var(--muted);font-size:0.75rem;margin-top:6px">— ' + escapeHtml(r.customerName || 'Happy customer') + '</div>';
+      html += '</div>';
+    });
+    document.getElementById('reviewsWidgetList').innerHTML = html;
+    section.style.display = '';
+  } catch (e) {
+    section.style.display = 'none';
   }
 })();
 </script>

@@ -162,6 +162,14 @@ button.secondary{background:transparent;color:#29D3F5;border:1.5px solid #29D3F5
     <div id="myTipsTotal" style="color:#D4AF37;font-family:'Bebas Neue',sans-serif;font-size:1.6rem;margin-bottom:8px">KSH 0</div>
     <div id="myTipsList"><p style="color:#888">Loading...</p></div>
   </div>
+
+  <!-- Bug fix: toggleLog()/log() already existed in the script but had no
+       matching panel on this page, so there was no way to see what went
+       wrong if a sale failed to save. Collapsed by default. -->
+  <div class="card">
+    <h2 id="logToggle" onclick="toggleLog()" style="cursor:pointer;user-select:none;font-size:0.9rem;color:#888">Debug Log <span id="logArrow">▸</span></h2>
+    <div id="log" class="hidden">Ready...\n</div>
+  </div>
 </div>
 
 <div id="toastBox"></div>
@@ -169,24 +177,14 @@ button.secondary{background:transparent;color:#29D3F5;border:1.5px solid #29D3F5
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="shared.js"></script>
 
 <script>
 window.onerror = function(msg, url, line) {
   log('[ERROR] ' + msg + ' (line ' + line + ')');
 };
 
-var firebaseConfig = {
-  apiKey: "AIzaSyDTsJvTWgYdHb9wLF-MSXGbxvZf5LPA_jA",
-  authDomain: "elite-customs-os.firebaseapp.com",
-  projectId: "elite-customs-os",
-  storageBucket: "elite-customs-os.firebasestorage.app",
-  messagingSenderId: "628800846035",
-  appId: "1:628800846035:web:8d3f8f3f1935909876bc26",
-  measurementId: "G-H082LD7630"
-};
-firebase.initializeApp(firebaseConfig);
-var auth = firebase.auth();
-var db = firebase.firestore();
+// firebaseConfig / firebase.initializeApp / auth / db now come from shared.js
 var currentWorker = null;
 var rawProducts = [];
 
@@ -401,13 +399,7 @@ if (!navigator.onLine) document.getElementById('offlineBanner').classList.remove
 
 log('Worker page loaded');
 
-function escapeHtml(s) { return String(s).replace(/[&<>"']/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[c]; }); }
-function text(v, fallback) { var out = (v === undefined || v === null || v === '') ? (fallback || '—') : v; return escapeHtml(out); }
-
-function normalizePhone(raw) {
-  var digits = (raw || '').replace(/\D/g, '');
-  return digits.slice(-9);
-}
+// escapeHtml / text / normalizePhone now come from shared.js
 
 function productionMeta(status) {
   if (status === 'delivered') return { dot: 'completed', icon: '🟢', label: 'Delivered' };
@@ -427,22 +419,7 @@ function paymentMeta(status) {
   return { icon: '⚪', label: 'Unpaid' };
 }
 
-// Normalizes old orders (single itemType/status) so lookup works for orders
-// placed before the items[] + payment/production split too.
-function normalizeOrder(o) {
-  if (!o.items) {
-    o.items = o.itemType ? [{ name: o.itemType, qty: o.quantity || 1 }] : [];
-  }
-  if (typeof o.total !== 'number') o.total = o.totalAmount || 0;
-  if (typeof o.amountPaid !== 'number') o.amountPaid = 0;
-  if (typeof o.balance !== 'number') o.balance = o.total - o.amountPaid;
-  if (!o.paymentStatus) o.paymentStatus = o.balance <= 0 && o.total > 0 ? 'paid' : (o.amountPaid > 0 ? 'partial' : 'unpaid');
-  if (!o.productionStatus) {
-    var legacyMap = { pending: 'new', designing: 'designing', printing: 'printing', 'in-progress': 'printing', ready: 'ready', completed: 'delivered' };
-    o.productionStatus = legacyMap[o.status] || 'new';
-  }
-  return o;
-}
+// normalizeOrder now comes from shared.js (handles legacy orders too)
 
 async function logWorkerExpense() {
   var category = document.getElementById('wExpCategory').value;
@@ -477,24 +454,8 @@ async function logWorkerExpense() {
   }
 }
 
-// ---------- PRODUCTION CHECKLISTS ----------
-// Same template as admin.html — real steps, given by the owner. Keep this in
-// sync with admin.html's PRODUCTION_CHECKLISTS if it's ever edited.
-var PRODUCTION_CHECKLISTS = {
-  frosted: [
-    'Understand the vision — what they want, how it\'ll look on their device',
-    'Design source — existing artwork picked, or custom (design + advise)',
-    'Deposit collected',
-    'Design finalized (if custom)',
-    'Print',
-    'Laminate',
-    'Trim',
-    'Install',
-    'Customer approval — final look',
-    'Balance payment',
-    'Delivered'
-  ]
-};
+// PRODUCTION_CHECKLISTS now comes from shared.js (shared with admin.html —
+// used to be pasted here with a "keep in sync" comment as the only safeguard).
 
 // ---------- MY TASKS ----------
 async function loadMyTasks() {
@@ -547,11 +508,7 @@ async function completeTask(id) {
   }
 }
 
-function checklistTemplateFor(items) {
-  if (!items || !items.length) return null;
-  var isFrosted = items.some(function (it) { return /frosted/i.test(it.name || ''); });
-  return isFrosted ? 'frosted' : null;
-}
+// checklistTemplateFor now comes from shared.js
 
 async function toggleChecklistStep(orderId, stepIndex, isDone, templateKey) {
   try {

@@ -36,6 +36,10 @@ button:hover:not(:disabled){background:#E0195A}
 .trust-footer{text-align:center;color:#666;font-size:0.75rem;margin:16px 0;line-height:1.6}
 .trust-footer strong{color:#8A8A93}
 #log{background:#232329;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px;font-family:monospace;font-size:0.75rem;color:#C6FF3D;max-height:120px;overflow-y:auto;white-space:pre-wrap}
+.reviewBox{background:#111114;border-radius:8px;padding:12px;margin-top:10px;border:1px solid rgba(212,175,55,0.3)}
+.reviewBox .stars span{cursor:pointer;font-size:1.5rem;color:#444;transition:color .1s}
+.reviewBox textarea{padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:#232329;color:#e0e0e0;width:100%;margin:8px 0;font-size:0.85rem;font-family:'Inter',sans-serif;min-height:50px;resize:vertical}
+.reviewBox button{padding:9px;font-size:0.85rem}
 </style>
 </head>
 <body>
@@ -61,25 +65,24 @@ button:hover:not(:disabled){background:#E0195A}
   <strong>Elite Customs</strong> · RNG Plaza, Nairobi · Pay via Till <strong>4090756</strong>
 </div>
 
+<!-- Bug fix: toggleLog()/log() already existed in the script but had no
+     matching panel on this page, so there was no way to see what went wrong
+     if a search failed. Collapsed by default, same pattern as Admin. -->
+<div class="card">
+  <h2 id="logToggle" onclick="toggleLog()" style="cursor:pointer;user-select:none;font-size:0.85rem;color:#8A8A93">Debug Log <span id="logArrow">▸</span></h2>
+  <div id="log" class="hidden">Ready...\n</div>
+</div>
+
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics-compat.js"></script>
+<script src="shared.js"></script>
 
 <script>
 window.onerror = function (msg, url, line) { log('[ERROR] ' + msg + ' (line ' + line + ')'); };
 
-var firebaseConfig = {
-  apiKey: "AIzaSyDTsJvTWgYdHb9wLF-MSXGbxvZf5LPA_jA",
-  authDomain: "elite-customs-os.firebaseapp.com",
-  projectId: "elite-customs-os",
-  storageBucket: "elite-customs-os.firebasestorage.app",
-  messagingSenderId: "628800846035",
-  appId: "1:628800846035:web:8d3f8f3f1935909876bc26",
-  measurementId: "G-H082LD7630"
-};
-firebase.initializeApp(firebaseConfig);
+// firebaseConfig / firebase.initializeApp / db now come from shared.js
 try { firebase.analytics(); } catch (e) { console.log('Analytics init skipped:', e.message); }
-var db = firebase.firestore();
 
 function toggleLog() {
   var logEl = document.getElementById('log');
@@ -96,32 +99,11 @@ function log(msg) {
 }
 log('Track page loaded');
 
-function escapeHtml(s) { return String(s).replace(/[&<>"']/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[c]; }); }
-function text(v, fallback) { var out = (v === undefined || v === null || v === '') ? (fallback || '—') : v; return escapeHtml(out); }
+// escapeHtml / text / normalizePhone now come from shared.js
 
-function normalizePhone(raw) {
-  var digits = (raw || '').replace(/\D/g, '');
-  return digits.slice(-9);
-}
-
-// Normalizes both current-schema orders (items[]/productionStatus/total) and
-// older legacy-schema orders (itemType/quantity/status/totalAmount) into one
-// consistent shape. Previously this file only understood the legacy shape,
-// which meant every order placed after the schema changed showed blank
-// service, stuck "Pending" status, and no payment section at all.
-function normalizeOrder(o) {
-  if (!o.items) {
-    o.items = o.itemType ? [{ name: o.itemType, qty: o.quantity || 1 }] : [];
-  }
-  if (typeof o.total !== 'number') o.total = o.totalAmount || 0;
-  if (typeof o.amountPaid !== 'number') o.amountPaid = 0;
-  if (typeof o.balance !== 'number') o.balance = Math.max(0, o.total - o.amountPaid);
-  if (!o.productionStatus) {
-    var legacyMap = { pending: 'new', designing: 'designing', printing: 'printing', 'in-progress': 'printing', ready: 'ready', completed: 'delivered' };
-    o.productionStatus = legacyMap[o.status] || 'new';
-  }
-  return o;
-}
+// normalizeOrder now comes from shared.js — handles both current-schema
+// orders (items[]/productionStatus/total) and older legacy-schema orders
+// (itemType/quantity/status/totalAmount) into one consistent shape.
 
 function statusMeta(productionStatus) {
   if (productionStatus === 'delivered') return { dot: 'completed', icon: '🟢', label: 'Delivered' };
@@ -192,6 +174,7 @@ async function doSearch() {
 function renderOrders(list) {
   var box = document.getElementById('results');
   var html = '';
+  reviewOrderData = {}; // reset each search — orderId -> {receiptNumber, customerName, phone}
   list.forEach(function (item) {
     var o = normalizeOrder(item.data);
     var meta = statusMeta(o.productionStatus);
@@ -228,10 +211,90 @@ function renderOrders(list) {
     }
 
     html += '<div class="field" style="margin-top:10px"><div class="lbl">Pickup</div><div class="val">Elite Customs, RNG Plaza</div></div>';
+
+    // Feature: Customer Reviews & Ratings — once an order is delivered,
+    // give the customer a one-tap way to leave a star rating right here
+    // (no separate account or link needed), instead of never asking.
+    if (o.productionStatus === 'delivered') {
+      // Order data is kept in memory (reviewOrderData) and looked up by ID
+      // inside submitReview — never re-interpolated into an onclick string,
+      // so a name/notes containing a quote character can't break the markup.
+      reviewOrderData[item.id] = { receiptNumber: o.receiptNumber || '', customerName: o.customerName || '', phone: o.phone || '' };
+      html += '<div id="reviewBox-' + item.id + '">' + (o.reviewSubmitted ? reviewThanksHtml() : reviewFormHtml(item.id)) + '</div>';
+    }
+
     html += '</div>';
   });
   box.innerHTML = html;
   log('Displayed ' + list.length + ' order(s)');
+}
+
+// ---------- REVIEWS & RATINGS ----------
+var reviewRatings = {};  // orderId -> selected star count (1-5), before submit
+var reviewOrderData = {}; // orderId -> {receiptNumber, customerName, phone}, populated by renderOrders
+
+function reviewThanksHtml() {
+  return '<div class="reviewBox" style="text-align:center;color:#4ade80;font-size:0.85rem">🙏 Thanks for your rating!</div>';
+}
+
+function reviewStarsHtml(orderId, current) {
+  var out = '<div class="stars">';
+  for (var i = 1; i <= 5; i++) {
+    out += '<span id="star-' + orderId + '-' + i + '" onclick="setReviewStar(\'' + orderId + '\',' + i + ')" style="color:' + (i <= current ? '#D4AF37' : '#444') + '">★</span>';
+  }
+  out += '</div>';
+  return out;
+}
+
+function reviewFormHtml(orderId) {
+  var html = '<div class="reviewBox">';
+  html += '<div style="color:#D4AF37;font-weight:700;font-size:0.85rem;margin-bottom:2px">⭐ How was your experience?</div>';
+  html += '<div id="reviewStars-' + orderId + '">' + reviewStarsHtml(orderId, 0) + '</div>';
+  html += '<textarea id="reviewComment-' + orderId + '" placeholder="Anything you\'d like to add? (optional)"></textarea>';
+  html += '<button onclick="submitReview(\'' + orderId + '\')">Submit Rating</button>';
+  html += '<div id="reviewMsg-' + orderId + '" style="font-size:0.78rem;margin-top:4px"></div>';
+  html += '</div>';
+  return html;
+}
+
+function setReviewStar(orderId, n) {
+  reviewRatings[orderId] = n;
+  for (var i = 1; i <= 5; i++) {
+    var el = document.getElementById('star-' + orderId + '-' + i);
+    if (el) el.style.color = i <= n ? '#D4AF37' : '#444';
+  }
+}
+
+async function submitReview(orderId) {
+  var msg = document.getElementById('reviewMsg-' + orderId);
+  var rating = reviewRatings[orderId] || 0;
+  if (rating < 1) { msg.className = 'error'; msg.textContent = 'Tap a star to rate first'; return; }
+  var comment = (document.getElementById('reviewComment-' + orderId).value || '').trim();
+  if (!navigator.onLine) { msg.className = 'error'; msg.textContent = 'No internet connection.'; return; }
+  var info = reviewOrderData[orderId] || {};
+  msg.textContent = 'Submitting...';
+  try {
+    await db.collection('reviews').add({
+      orderId: orderId,
+      receiptNumber: info.receiptNumber || null,
+      customerName: info.customerName || 'Anonymous',
+      phone: info.phone || null,
+      phoneKey: info.phone ? normalizePhone(info.phone) : null,
+      rating: rating,
+      comment: comment,
+      approved: false, // shown publicly only after the owner approves it in Admin
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    // Best-effort — if this fails the review is still saved, it just might
+    // be asked for again next time this order is looked up.
+    try { await db.collection('orders').doc(orderId).update({ reviewSubmitted: true }); } catch (e2) { log('Could not flag order as reviewed: ' + e2.message); }
+    log('Review submitted for order ' + orderId + ': ' + rating + ' stars');
+    document.getElementById('reviewBox-' + orderId).innerHTML = reviewThanksHtml();
+  } catch (e) {
+    log('Review submit error: ' + e.code + ' — ' + e.message);
+    msg.className = 'error';
+    msg.textContent = e.code === 'permission-denied' ? 'Ratings aren\'t enabled yet — ask Elite Customs to finish setup.' : 'Could not submit — try again.';
+  }
 }
 </script>
 </body>
