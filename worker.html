@@ -228,8 +228,6 @@ var currentWorker = null;
 var rawProducts = [];
 var rawInventory = [];
 
-function text(v, fallback) { return (v === undefined || v === null || v === '') ? (fallback || '—') : v; }
-
 function toggleCard(id) {
   document.getElementById(id).classList.toggle('collapsed');
 }

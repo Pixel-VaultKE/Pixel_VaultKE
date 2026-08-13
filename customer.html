@@ -759,6 +759,56 @@ async function getNextReceiptNumber() {
   });
 }
 
+// Reserves stock for any cart items linked to a tracked inventory item, the
+// moment an order is placed — not later when staff process the job. Runs as
+// one Firestore transaction so two customers can't both "win" the last copy
+// of a one-off design. Custom/typed-in items have no linked stock and are
+// skipped. Throws a SOLD_OUT error (with the item name) if something in the
+// cart just ran out — submitOrder() below catches that and stops before an
+// order is even created.
+async function reserveStockForCart(cartItems) {
+  var neededByInv = {};   // invId -> total qty needed across the cart
+  var nameByInv = {};     // invId -> a display name, for the error message
+  cartItems.forEach(function (item) {
+    var product = catalogProducts.find(function (p) { return p.id === item.productId; });
+    if (!product || !product.linkedInventoryItemId) return; // custom item, nothing to reserve
+    var invId = product.linkedInventoryItemId;
+    neededByInv[invId] = (neededByInv[invId] || 0) + item.qty;
+    nameByInv[invId] = item.name;
+  });
+  var invIds = Object.keys(neededByInv);
+  if (invIds.length === 0) return;
+
+  await db.runTransaction(async function (transaction) {
+    var refs = invIds.map(function (id) { return db.collection('inventory').doc(id); });
+    var docs = await Promise.all(refs.map(function (ref) { return transaction.get(ref); }));
+
+    docs.forEach(function (doc, i) {
+      if (!doc.exists) return; // untracked item — nothing to reserve against
+      var currentQty = typeof doc.data().qty === 'number' ? doc.data().qty : 0;
+      if (currentQty < neededByInv[invIds[i]]) {
+        throw new Error('SOLD_OUT:' + nameByInv[invIds[i]]);
+      }
+    });
+    docs.forEach(function (doc, i) {
+      if (!doc.exists) return;
+      var currentQty = typeof doc.data().qty === 'number' ? doc.data().qty : 0;
+      transaction.update(refs[i], { qty: Math.max(0, currentQty - neededByInv[invIds[i]]) });
+    });
+  });
+
+  // Reflect the reservation immediately in this tab's own view, so the item
+  // disappears/greys out without needing a reload. Other open tabs still
+  // won't see it until they refresh — that's a separate, already-known gap.
+  cartItems.forEach(function (item) {
+    var product = catalogProducts.find(function (p) { return p.id === item.productId; });
+    if (product && typeof product.stockQty === 'number') {
+      product.stockQty = Math.max(0, product.stockQty - item.qty);
+    }
+  });
+  renderCatalogGrid(document.getElementById('catalogSearch') ? document.getElementById('catalogSearch').value : '');
+}
+
 async function submitOrder(){
   var btn = document.getElementById('placeOrderBtn');
   if (btn.disabled) return; // guard against double-tap while already submitting
@@ -793,6 +843,21 @@ async function submitOrder(){
   btn.innerHTML = '<span class="spinner"></span>Placing your order...';
   log('Submitting order...');
   try {
+    try {
+      await reserveStockForCart(cart);
+    } catch (stockErr) {
+      var m = String(stockErr.message || '');
+      if (m.indexOf('SOLD_OUT:') === 0) {
+        msg.className = 'error';
+        msg.textContent = '"' + m.slice(9) + '" just sold out while you were ordering — remove it from your cart and try again.';
+        btn.disabled = false;
+        btn.innerHTML = 'Place Order';
+        log('Order blocked — sold out: ' + m.slice(9));
+        return;
+      }
+      throw stockErr; // some other (network/permissions) failure — fall through to the general error handler below
+    }
+
     var receiptNumber = await getNextReceiptNumber();
     var doc = await db.collection('orders').add({
       customerName: name,
