@@ -114,6 +114,12 @@ button.small{width:auto;padding:8px 14px;font-size:0.85rem}
   </div>
 </div>
 
+<div class="card hidden" id="reviewsWidgetCard">
+  <span class="eyebrow" style="background:var(--gold);color:#0D0D10">Real Feedback</span><h2>⭐ What Customers Say</h2>
+  <div id="reviewsSummaryPublic" style="margin-bottom:10px"></div>
+  <div id="reviewsWidgetList"></div>
+</div>
+
 <div class="card">
   <span class="eyebrow" style="background:var(--sky);color:#0D0D10">The Story</span><h2>About Elite Customs</h2>
   <p style="color:#ddd;font-size:0.9rem;line-height:1.6;margin-bottom:10px">Elite Customs is a customization and branding business focused on helping people make their vehicles, devices, businesses, and personal items stand out.</p>
@@ -230,30 +236,35 @@ button.small{width:auto;padding:8px 14px;font-size:0.85rem}
     <span style="color:#888;font-size:0.75rem;display:block">PAY 60% DEPOSIT OR FULL AMOUNT — TILL NUMBER</span>
     <strong style="color:var(--gold);font-size:1.4rem;letter-spacing:1px">4090756</strong>
   </p>
-  <p style="color:#ccc;line-height:1.6">You can check your order status anytime at <strong>elite-customs-web.vercel.app/track.html</strong> using your phone number or the order ID below.</p>
+  <p style="color:#ccc;line-height:1.6">You can check your order status anytime at <strong>pixel-vault-ke.vercel.app/track.html</strong> using your phone number or the order ID below.</p>
   <p id="lastOrderId" style="color:var(--volt);font-weight:600"></p>
   <button onclick="resetForm()" class="secondary">Place Another Order</button>
 </div>
 
+<!-- Feature: Refer a Friend — reuses the existing ?source= marketing-source
+     tracking (already read on page load and saved on every order) so
+     referrals need no new backend logic, and show up automatically in
+     Admin → Marketing Sources, labeled as a referral. -->
+<div id="referralCard" class="card hidden" style="border-color:rgba(198,255,61,0.35)">
+  <span class="eyebrow" style="background:var(--volt);color:#0D0D10">Spread The Word</span><h2>📣 Refer a Friend</h2>
+  <p style="color:#ccc;font-size:0.9rem;line-height:1.6;margin-bottom:10px">Know someone who'd want custom work too? Share your link — when they order through it, we know it came from you.</p>
+  <a id="referralWaBtn" href="#" target="_blank" style="display:block;text-align:center;padding:12px;border-radius:8px;background:#25D366;color:#000;font-weight:bold;text-decoration:none">💬 Share on WhatsApp</a>
+</div>
+
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="shared.js"></script>
 
 <script>
+// Bug fix: this used to poke a #log element directly, but no such element
+// existed on this page — any real error threw a second error inside the
+// handler itself, so the log line never appeared. Routed through log()
+// instead, which safely no-ops if the panel isn't in the DOM yet.
 window.onerror = function(msg, url, line) {
-  document.getElementById('log').textContent += '[ERROR] ' + msg + ' (line ' + line + ')\n';
+  log('[ERROR] ' + msg + ' (line ' + line + ')');
 };
 
-var firebaseConfig = {
-  apiKey: "AIzaSyDTsJvTWgYdHb9wLF-MSXGbxvZf5LPA_jA",
-  authDomain: "elite-customs-os.firebaseapp.com",
-  projectId: "elite-customs-os",
-  storageBucket: "elite-customs-os.firebasestorage.app",
-  messagingSenderId: "628800846035",
-  appId: "1:628800846035:web:8d3f8f3f1935909876bc26",
-  measurementId: "G-H082LD7630"
-};
-firebase.initializeApp(firebaseConfig);
-var db = firebase.firestore();
+// firebaseConfig / firebase.initializeApp / db now come from shared.js
 
 // Artwork upload — customer attaches their design directly to the order,
 // instead of it living only in a WhatsApp thread disconnected from the system.
@@ -415,7 +426,41 @@ function log(msg) {
 log('Customer page loaded');
 loadCatalog();
 loadCustomerGallery();
+loadPublicReviews();
 renderFeaturedServices();
+
+// Feature: Customer Reviews — public display. Only ever reads reviews with
+// approved:true (set by the owner in Admin); hides itself completely if
+// there are none yet or the reviews collection isn't readable.
+async function loadPublicReviews() {
+  var card = document.getElementById('reviewsWidgetCard');
+  try {
+    var snap = await db.collection('reviews').where('approved', '==', true).orderBy('createdAt', 'desc').limit(6).get();
+    var reviews = [];
+    snap.forEach(function (doc) { reviews.push(doc.data()); });
+    if (reviews.length === 0) { card.classList.add('hidden'); return; }
+
+    var avg = reviews.reduce(function (sum, r) { return sum + (r.rating || 0); }, 0) / reviews.length;
+    var summary = document.getElementById('reviewsSummaryPublic');
+    summary.innerHTML = '<span style="color:var(--gold);font-family:\'Bebas Neue\',sans-serif;font-size:1.8rem">⭐ ' + avg.toFixed(1) + '</span> <span style="color:var(--muted);font-size:0.85rem">from ' + reviews.length + ' happy customer' + (reviews.length === 1 ? '' : 's') + '</span>';
+
+    var listBox = document.getElementById('reviewsWidgetList');
+    var html = '';
+    reviews.forEach(function (r) {
+      var stars = '★★★★★☆☆☆☆☆'.slice(5 - (r.rating || 0), 10 - (r.rating || 0));
+      html += '<div style="padding:10px 0;border-top:1px solid var(--line)">';
+      html += '<div style="color:var(--gold);letter-spacing:1px;font-size:0.9rem">' + stars + '</div>';
+      if (r.comment) html += '<div style="color:#ddd;font-size:0.85rem;margin-top:4px">"' + text(r.comment) + '"</div>';
+      html += '<div style="color:var(--muted);font-size:0.75rem;margin-top:4px">— ' + text(r.customerName, 'Happy customer') + '</div>';
+      html += '</div>';
+    });
+    listBox.innerHTML = html;
+    card.classList.remove('hidden');
+  } catch (e) {
+    log('Public reviews load error: ' + (e.code || '') + ' — ' + e.message);
+    card.classList.add('hidden');
+  }
+}
 
 function renderFeaturedServices() {
   var accents = ['var(--hot)', 'var(--sky)', 'var(--volt)', 'var(--gold)'];
@@ -699,13 +744,9 @@ function setTip(amount, fromCustomInput) {
   updateMiniCartBar(cartTotal);
 }
 
-// Strips formatting so 0722 912 595 / +254722912595 / 254722912595 all resolve to the same key
-function escapeHtml(s) { return String(s).replace(/[&<>"']/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[c]; }); }
-function text(v, fallback) { var out = (v === undefined || v === null || v === '') ? (fallback || '—') : v; return escapeHtml(out); }
-function normalizePhone(raw) {
-  var digits = (raw || '').replace(/\D/g, '');
-  return digits.slice(-9);
-}
+// escapeHtml / text / normalizePhone now come from shared.js
+// (normalizePhone strips formatting so 0722 912 595 / +254722912595 /
+// 254722912595 all resolve to the same key)
 
 async function getNextReceiptNumber() {
   var counterRef = db.collection('counters').doc('orderCounter');
@@ -781,6 +822,7 @@ async function submitOrder(){
     document.getElementById('orderForm').classList.add('hidden');
     document.getElementById('successView').classList.remove('hidden');
     document.getElementById('miniCartBar').classList.remove('visible');
+    showReferralCard(normalizePhone(phone));
   } catch(e){
     log('FAIL: ' + e.code + ' — ' + e.message);
     msg.className = 'error';
@@ -792,6 +834,18 @@ async function submitOrder(){
     btn.disabled = false;
     btn.textContent = 'Place Order';
   }
+}
+
+// Feature: Refer a Friend — builds a personal link tagged with the
+// customer's own phone key as the marketing source, so any order placed
+// through it is automatically attributed back to them in Admin.
+function showReferralCard(phoneKey) {
+  var card = document.getElementById('referralCard');
+  if (!phoneKey || phoneKey.length < 5) { card.classList.add('hidden'); return; }
+  var link = 'https://pixel-vault-ke.vercel.app/customer.html?source=' + encodeURIComponent('ref-' + phoneKey);
+  var waText = 'Hey! I just ordered custom work from Elite Customs (RNG Plaza, Nairobi) and thought you\'d like them too 🔥 Order here: ' + link;
+  document.getElementById('referralWaBtn').href = 'https://wa.me/?text=' + encodeURIComponent(waText);
+  card.classList.remove('hidden');
 }
 
 function resetForm(){
@@ -817,6 +871,7 @@ function resetForm(){
   document.getElementById('artworkStatus').textContent = '';
   document.getElementById('orderForm').classList.remove('hidden');
   document.getElementById('successView').classList.add('hidden');
+  document.getElementById('referralCard').classList.add('hidden');
 }
 </script>
 <div id="miniCartBar">
@@ -828,6 +883,15 @@ function resetForm(){
 </div>
 
 <a href="https://wa.me/254722912595?text=Hi%20Elite%20Customs%2C%20I%27m%20having%20trouble%20on%20the%20website" class="floatingWa" title="Message us on WhatsApp">💬</a>
+
+<!-- Bug fix: toggleLog()/log() already existed in the script but had no
+     matching panel on this page, so there was no way to see what went wrong
+     if the site broke for a customer. Collapsed by default so it stays out
+     of the way; opens the same way as Admin's Debug Log. -->
+<div class="card" style="margin-top:0">
+  <h2 id="logToggle" onclick="toggleLog()" style="cursor:pointer;user-select:none;font-size:0.85rem;color:var(--muted)">Debug Log <span id="logArrow">▸</span></h2>
+  <div id="log" class="hidden">Ready...\n</div>
+</div>
 
 </body>
 </html>
