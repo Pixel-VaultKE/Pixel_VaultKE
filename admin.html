@@ -959,6 +959,34 @@ function realOrders() {
   return rawOrders.filter(function (r) { return !r.data.isTestData; });
 }
 
+// Order payments (via receivePayment()) live in each order's paymentHistory
+// array — a completely separate place from the "sales" collection (walk-in
+// POS transactions). Every "today's money" figure below used to read only
+// from sales, meaning a paid online order was invisible to Revenue, Cash,
+// M-PESA, Profit, and Collected Today. This sums real order payments for a
+// date range so those figures include them too.
+//
+// Payments recorded before the "method" field existed (or entered before
+// this fix) have no cash/mpesa tag — those land in "unspecified" rather
+// than being guessed into either bucket, so nothing gets silently
+// mis-categorized. Unspecified still counts toward revenue/profit (it's
+// real money either way), it just can't be split by payment method.
+function sumOrderPaymentsInRange(startDate, endDateExclusive) {
+  var totals = { cash: 0, mpesa: 0, unspecified: 0, total: 0 };
+  realOrders().forEach(function (r) {
+    (r.data.paymentHistory || []).forEach(function (entry) {
+      var when = entry.recordedAt ? new Date(entry.recordedAt) : null;
+      if (!when || when < startDate || (endDateExclusive && when >= endDateExclusive)) return;
+      var amt = entry.amount || 0;
+      totals.total += amt;
+      if (entry.method === 'mpesa') totals.mpesa += amt;
+      else if (entry.method === 'cash') totals.cash += amt;
+      else totals.unspecified += amt;
+    });
+  });
+  return totals;
+}
+
 // Hides destructive, owner-only controls from an admin-role login so they never
 // hit a confusing permission-denied — the Firestore rules are the real enforcement,
 // this just keeps the UI honest about what this account can actually do.
@@ -1412,11 +1440,14 @@ async function closeBusinessDay() {
     var d = r.data.createdAt ? r.data.createdAt.toDate() : null;
     if (d && d >= today) expensesToday += (r.data.amount || 0);
   });
-  var revenue = cashToday + mpesaToday;
+  var orderPaymentsToday = sumOrderPaymentsInRange(today, null);
+  cashToday += orderPaymentsToday.cash;
+  mpesaToday += orderPaymentsToday.mpesa;
+  var revenue = cashToday + mpesaToday + orderPaymentsToday.unspecified;
   var cogsToday = estimateCOGS(salesToday);
   var profit = revenue - cogsToday - expensesToday;
 
-  if (!confirm('Close today\'s business day?\n\nRevenue: KSH ' + revenue.toLocaleString() + '\nMaterials/COGS: KSH ' + cogsToday.toLocaleString() + '\nExpenses: KSH ' + expensesToday.toLocaleString() + '\nProfit: KSH ' + profit.toLocaleString() + '\n\nThis saves a permanent snapshot.')) return;
+  if (!confirm('Close today\'s business day?\n\nRevenue: KSH ' + revenue.toLocaleString() + (orderPaymentsToday.unspecified > 0 ? ' (includes KSH ' + orderPaymentsToday.unspecified.toLocaleString() + ' in order payments with no cash/mpesa tag)' : '') + '\nMaterials/COGS: KSH ' + cogsToday.toLocaleString() + '\nExpenses: KSH ' + expensesToday.toLocaleString() + '\nProfit: KSH ' + profit.toLocaleString() + '\n\nThis saves a permanent snapshot.')) return;
 
   try {
     await db.collection('dailyReports').doc(dateKey).set({
@@ -1424,6 +1455,7 @@ async function closeBusinessDay() {
       revenue: revenue,
       cash: cashToday,
       mpesa: mpesaToday,
+      orderPaymentsUnspecified: orderPaymentsToday.unspecified,
       cogs: cogsToday,
       expenses: expensesToday,
       profit: profit,
@@ -1478,11 +1510,14 @@ async function closePastDay() {
     var d = r.data.createdAt ? r.data.createdAt.toDate() : null;
     if (d && d >= dayStart && d < dayEnd) expensesD += (r.data.amount || 0);
   });
-  var revenue = cashD + mpesaD;
+  var orderPaymentsD = sumOrderPaymentsInRange(dayStart, dayEnd);
+  cashD += orderPaymentsD.cash;
+  mpesaD += orderPaymentsD.mpesa;
+  var revenue = cashD + mpesaD + orderPaymentsD.unspecified;
   var cogsD = estimateCOGS(salesD);
   var profit = revenue - cogsD - expensesD;
 
-  if (!confirm('Close ' + dateKey + '?\n\nRevenue: KSH ' + revenue.toLocaleString() + '\nMaterials/COGS: KSH ' + cogsD.toLocaleString() + '\nExpenses: KSH ' + expensesD.toLocaleString() + '\nProfit: KSH ' + profit.toLocaleString() + '\n\nNote: this is calculated from currently loaded data (most recent sales/expenses) — if that day had heavy volume beyond what\'s cached, double-check against "Show All Days" in Sales first.')) return;
+  if (!confirm('Close ' + dateKey + '?\n\nRevenue: KSH ' + revenue.toLocaleString() + (orderPaymentsD.unspecified > 0 ? ' (includes KSH ' + orderPaymentsD.unspecified.toLocaleString() + ' in order payments with no cash/mpesa tag)' : '') + '\nMaterials/COGS: KSH ' + cogsD.toLocaleString() + '\nExpenses: KSH ' + expensesD.toLocaleString() + '\nProfit: KSH ' + profit.toLocaleString() + '\n\nNote: this is calculated from currently loaded data (most recent sales/expenses/orders) — if that day had heavy volume beyond what\'s cached, double-check against "Show All Days" first.')) return;
 
   try {
     await db.collection('dailyReports').doc(dateKey).set({
@@ -1490,6 +1525,7 @@ async function closePastDay() {
       revenue: revenue,
       cash: cashD,
       mpesa: mpesaD,
+      orderPaymentsUnspecified: orderPaymentsD.unspecified,
       cogs: cogsD,
       expenses: expensesD,
       profit: profit,
@@ -2057,7 +2093,8 @@ function computePriorityActions() {
     var received = typeof s.amountPaid === 'number' ? s.amountPaid : (s.amount || 0);
     if (s.paymentMethod === 'mpesa') mpesaD += received; else cashD += received;
   });
-  var revenueD = cashD + mpesaD;
+  var goalOrderPayments = sumOrderPaymentsInRange(today, null);
+  var revenueD = cashD + mpesaD + goalOrderPayments.cash + goalOrderPayments.mpesa + goalOrderPayments.unspecified;
   if (revenueD < dailyGoal) {
     yellow.push({ text: '🟡 Today\'s goal not yet reached (KSH ' + revenueD.toLocaleString() + ' / ' + dailyGoal.toLocaleString() + ')' });
   }
@@ -2157,12 +2194,13 @@ function renderCommandCenter() {
   };
 
   // --- Today: money ---
-  var cashD = 0, mpesaD = 0, expensesD = 0;
+  var cashD = 0, mpesaD = 0, expensesD = 0, salesTodayForCogs = [];
   rawSales.forEach(function (r) {
     var s = r.data;
     if (s.archived) return;
     var d = s.createdAt ? s.createdAt.toDate() : null;
     if (!d || d < today) return;
+    salesTodayForCogs.push(r);
     var received = typeof s.amountPaid === 'number' ? s.amountPaid : (s.amount || 0);
     if (s.paymentMethod === 'mpesa') mpesaD += received; else cashD += received;
   });
@@ -2171,8 +2209,12 @@ function renderCommandCenter() {
     var d = r.data.createdAt ? r.data.createdAt.toDate() : null;
     if (d && d >= today) expensesD += (r.data.amount || 0);
   });
-  var revenueD = cashD + mpesaD;
-  var profitD = revenueD - expensesD;
+  var summaryOrderPayments = sumOrderPaymentsInRange(today, null);
+  cashD += summaryOrderPayments.cash;
+  mpesaD += summaryOrderPayments.mpesa;
+  var revenueD = cashD + mpesaD + summaryOrderPayments.unspecified;
+  var cogsD = estimateCOGS(salesTodayForCogs);
+  var profitD = revenueD - cogsD - expensesD;
   var todayHtml = row('Revenue', 'KSH ' + revenueD.toLocaleString()) +
     row('Profit', 'KSH ' + profitD.toLocaleString(), profitD < 0 ? '#f87171' : '#4ade80') +
     row('Cash', 'KSH ' + cashD.toLocaleString()) +
@@ -2186,7 +2228,7 @@ function renderCommandCenter() {
 
   // --- Money: debt ---
   var recv = computeReceivablesData();
-  var collectedToday = cashD + mpesaD;
+  var collectedToday = cashD + mpesaD + summaryOrderPayments.unspecified;
   var largestDebtor = recv.owing.length ? recv.owing[0] : null;
   var moneyHtml = row('Outstanding Debt', 'KSH ' + recv.totalOutstanding.toLocaleString(), '#f87171') +
     row('Collected Today', 'KSH ' + collectedToday.toLocaleString(), '#4ade80') +
@@ -2324,6 +2366,9 @@ function computeExtraStats() {
     var d = o.createdAt ? o.createdAt.toDate() : null;
     if (d && d >= today) tipsToday += (o.tipAmount || 0);
   });
+  var extraStatsOrderPayments = sumOrderPaymentsInRange(today, null);
+  cashToday += extraStatsOrderPayments.cash;
+  mpesaToday += extraStatsOrderPayments.mpesa;
   document.getElementById('stCash').textContent = cashToday.toLocaleString();
   document.getElementById('stMpesa').textContent = mpesaToday.toLocaleString();
   var tipsEl = document.getElementById('stTips');
@@ -2338,6 +2383,9 @@ function computeExtraStats() {
       breakdownHtml += '<div><span style="color:#888;font-size:0.75rem">RETAIL</span><br><strong style="color:#38bdf8">KSH ' + retailToday.toLocaleString() + '</strong></div>' +
         '<div><span style="color:#888;font-size:0.75rem">WHOLESALE</span><br><strong style="color:#38bdf8">KSH ' + wholesaleToday.toLocaleString() + '</strong></div>';
     }
+    if (extraStatsOrderPayments.unspecified > 0) {
+      breakdownHtml += '<div><span style="color:#888;font-size:0.75rem">ORDER PAYMENTS (method not recorded)</span><br><strong style="color:#f87171">KSH ' + extraStatsOrderPayments.unspecified.toLocaleString() + '</strong></div>';
+    }
     breakdownHtml += '</div>';
     breakdown.innerHTML = breakdownHtml;
   }
@@ -2351,7 +2399,7 @@ function computeExtraStats() {
   });
   document.getElementById('stJobs').textContent = jobsDone;
 
-  var revenueToday = cashToday + mpesaToday;
+  var revenueToday = cashToday + mpesaToday + extraStatsOrderPayments.unspecified;
   renderGoalProgress(revenueToday);
 
   var expensesToday = 0;
@@ -3243,6 +3291,7 @@ function renderOrders() {
     }
     html += '<label style="color:#888;font-size:0.72rem">Record a payment (KSH)</label>';
     html += '<input type="number" id="paymentInput-' + r.id + '" min="0" style="margin-bottom:6px">';
+    html += '<select id="paymentMethod-' + r.id + '" style="margin-bottom:6px"><option value="cash">Cash</option><option value="mpesa">M-Pesa</option></select>';
     html += '<button class="small" onclick="receivePayment(\'' + r.id + '\')">Receive Payment</button>';
     if (currentUserRole === 'owner') {
       html += '<hr style="border:none;border-top:1px solid #333;margin:8px 0">';
@@ -3349,6 +3398,12 @@ async function loadProducts() {
     rawProducts = [];
     snap.forEach(function (doc) { rawProducts.push({ id: doc.id, data: doc.data() }); });
     if (rawProducts.length === 0) { box.innerHTML = '<p style="color:#888">No products yet — add your first below</p>'; return; }
+    // One shared list of existing categories for every row's picker — this is
+    // the "one source of truth" piece: renaming a product's category now
+    // means picking from what already exists (or deliberately adding a new
+    // one), instead of retyping free text that can drift into a near-dupe
+    // like "Cartoon" vs "CARTOON" all over again.
+    var existingCategories = Array.from(new Set(rawProducts.map(function (r) { return (r.data.category || '').trim(); }).filter(Boolean))).sort();
     var html = '<table><tr><th>Product</th><th>Retail</th><th>Wholesale</th><th>Value</th><th></th></tr>';
     rawProducts.forEach(function (r) {
       var p = r.data;
@@ -3368,9 +3423,24 @@ async function loadProducts() {
         html += '<td style="color:#666;font-size:0.75rem">—</td>';
       }
       html += '<td class="row-actions">';
+      html += '<button class="small secondary" onclick="toggleDetailsPanel(\'' + r.id + '\')">Edit Details</button>';
       html += '<button class="small secondary" onclick="toggleLinkPanel(\'' + r.id + '\')">Link Stock</button>';
       html += '<button class="small secondary" onclick="togglePricePanel(\'' + r.id + '\')">Edit Price</button>';
       html += '<button class="small danger" onclick="deleteProduct(\'' + r.id + '\')">Del</button>';
+      html += '</td></tr>';
+
+      html += '<tr id="detailsRow-' + r.id + '" class="hidden"><td colspan="5" style="padding:8px;background:#151515">';
+      html += '<label style="color:#888;font-size:0.72rem">Product name</label>';
+      html += '<input type="text" id="editName-' + r.id + '" value="' + text(p.name) + '" style="margin-bottom:6px">';
+      html += '<label style="color:#888;font-size:0.72rem">Category</label>';
+      html += '<select id="editCategorySelect-' + r.id + '" onchange="onEditCategoryChange(\'' + r.id + '\')" style="margin-bottom:6px">';
+      existingCategories.forEach(function (cat) {
+        html += '<option value="' + text(cat) + '"' + (cat === (p.category || '').trim() ? ' selected' : '') + '>' + text(cat) + '</option>';
+      });
+      html += '<option value="__new__">+ Add new category...</option>';
+      html += '</select>';
+      html += '<input type="text" id="editCategoryNew-' + r.id + '" placeholder="Type the new category name" class="hidden" style="margin-bottom:6px">';
+      html += '<button class="small" onclick="saveProductDetails(\'' + r.id + '\')">Save Details</button>';
       html += '</td></tr>';
 
       html += '<tr id="linkRow-' + r.id + '" class="hidden"><td colspan="5" style="padding:8px;background:#151515">';
@@ -3454,6 +3524,44 @@ async function deleteProduct(id) {
   }
 }
 
+function toggleDetailsPanel(productId) {
+  var row = document.getElementById('detailsRow-' + productId);
+  if (row) row.classList.toggle('hidden');
+}
+
+function onEditCategoryChange(productId) {
+  var select = document.getElementById('editCategorySelect-' + productId);
+  var newInput = document.getElementById('editCategoryNew-' + productId);
+  var isNew = select.value === '__new__';
+  newInput.classList.toggle('hidden', !isNew);
+  if (isNew) newInput.focus();
+}
+
+async function saveProductDetails(productId) {
+  var name = document.getElementById('editName-' + productId).value.trim();
+  var select = document.getElementById('editCategorySelect-' + productId);
+  var category = select.value === '__new__'
+    ? document.getElementById('editCategoryNew-' + productId).value.trim()
+    : select.value;
+
+  if (!name) { toast('Enter a product name', true); return; }
+  if (!category) { toast('Enter or pick a category', true); return; }
+  var duplicate = rawProducts.some(function (p) {
+    return p.id !== productId && (p.data.name || '').trim().toLowerCase() === name.toLowerCase();
+  });
+  if (duplicate && !confirm('Another product is already named "' + name + '" — save anyway?')) return;
+
+  try {
+    await db.collection('products').doc(productId).update({ name: name, category: category });
+    log('Updated details for product ' + productId + ': "' + name + '" / ' + category);
+    toast('Product details saved');
+    loadProducts();
+  } catch (e) {
+    log('Save details error: ' + e.code + ' — ' + e.message);
+    toast('Could not save details', true);
+  }
+}
+
 function toggleLinkPanel(productId) {
   var row = document.getElementById('linkRow-' + productId);
   if (row) row.classList.toggle('hidden');
@@ -3502,6 +3610,8 @@ async function saveItemPrices(orderId) {
 async function receivePayment(orderId) {
   var val = parseFloat(document.getElementById('paymentInput-' + orderId).value) || 0;
   if (val <= 0) { toast('Enter a valid payment amount', true); return; }
+  var methodEl = document.getElementById('paymentMethod-' + orderId);
+  var method = methodEl ? methodEl.value : 'cash';
   var found = rawOrders.find(function (r) { return r.id === orderId; });
   if (!found) return;
   var o = found.data;
@@ -3511,6 +3621,7 @@ async function receivePayment(orderId) {
   var newOverallStatus = (o.productionStatus === 'delivered' && newPaymentStatus === 'paid') ? 'completed_settled' : 'open';
   var historyEntry = {
     amount: val,
+    method: method,
     recordedBy: currentUserName || currentUserRole || 'Unknown',
     recordedAt: new Date().toISOString() // plain timestamp — arrayUnion can't take serverTimestamp()
   };
