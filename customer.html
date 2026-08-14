@@ -632,6 +632,13 @@ function onProductPick() {
 function addToCartQuick(idx) {
   var p = catalogProducts[idx];
   if (!p) return;
+  // Advisory only, not a hard reservation — stock is checked for real at
+  // payment time, not order time (see submitOrder). This just stops someone
+  // from adding something the catalog already shows as unavailable.
+  if (typeof p.stockQty === 'number' && p.stockQty <= 0) {
+    alert('This design is currently out of stock.');
+    return;
+  }
   cart.push({
     productId: p.id,
     name: p.name,
@@ -839,63 +846,6 @@ async function getNextReceiptNumber() {
   });
 }
 
-// Reserves stock for any cart items linked to a tracked inventory item, the
-// moment an order is placed — not later when staff process the job. Runs as
-// one Firestore transaction so two customers can't both "win" the last copy
-// of a one-off design. Custom/typed-in items have no linked stock and are
-// skipped. Throws a SOLD_OUT error (with the item name) if something in the
-// cart just ran out — submitOrder() below catches that and stops before an
-// order is even created.
-async function reserveStockForCart(cartItems) {
-  var neededByInv = {};   // invId -> total inventory units needed across the cart
-  var nameByInv = {};     // invId -> a display name, for the error message and log
-  var deductionLog = [];  // mirrors admin.html's inventoryDeductedLog format
-  cartItems.forEach(function (item) {
-    var product = catalogProducts.find(function (p) { return p.id === item.productId; });
-    if (!product || !product.linkedInventoryItemId) return; // custom item, nothing to reserve
-    var invId = product.linkedInventoryItemId;
-    // Matches admin.html's staff-side deduction: some products consume more
-    // than one physical inventory unit per sale (unitsPerSale).
-    var unitsPerSale = product.unitsPerSale || 1;
-    var deductQty = item.qty * unitsPerSale;
-    neededByInv[invId] = (neededByInv[invId] || 0) + deductQty;
-    nameByInv[invId] = item.name;
-    deductionLog.push(deductQty + '× ' + item.name);
-  });
-  var invIds = Object.keys(neededByInv);
-  if (invIds.length === 0) return [];
-
-  await db.runTransaction(async function (transaction) {
-    var refs = invIds.map(function (id) { return db.collection('inventory').doc(id); });
-    var docs = await Promise.all(refs.map(function (ref) { return transaction.get(ref); }));
-
-    docs.forEach(function (doc, i) {
-      if (!doc.exists) return; // untracked item — nothing to reserve against
-      var currentQty = typeof doc.data().qty === 'number' ? doc.data().qty : 0;
-      if (currentQty < neededByInv[invIds[i]]) {
-        throw new Error('SOLD_OUT:' + nameByInv[invIds[i]]);
-      }
-    });
-    docs.forEach(function (doc, i) {
-      if (!doc.exists) return;
-      var currentQty = typeof doc.data().qty === 'number' ? doc.data().qty : 0;
-      transaction.update(refs[i], { qty: Math.max(0, currentQty - neededByInv[invIds[i]]) });
-    });
-  });
-
-  // Reflect the reservation immediately in this tab's own view, so the item
-  // disappears/greys out without needing a reload. Other open tabs still
-  // won't see it until they refresh — that's a separate, already-known gap.
-  cartItems.forEach(function (item) {
-    var product = catalogProducts.find(function (p) { return p.id === item.productId; });
-    if (product && typeof product.stockQty === 'number') {
-      product.stockQty = Math.max(0, product.stockQty - item.qty);
-    }
-  });
-  renderCatalogGrid(document.getElementById('catalogSearch') ? document.getElementById('catalogSearch').value : '');
-  return deductionLog;
-}
-
 async function submitOrder(){
   var btn = document.getElementById('placeOrderBtn');
   if (btn.disabled) return; // guard against double-tap while already submitting
@@ -937,22 +887,12 @@ async function submitOrder(){
     var discountedSubtotal = cartTotal - loyaltyDiscountAmount;
     var total = discountedSubtotal + tipAmount;
 
-    var reservedLog;
-    try {
-      reservedLog = await reserveStockForCart(cart);
-    } catch (stockErr) {
-      var m = String(stockErr.message || '');
-      if (m.indexOf('SOLD_OUT:') === 0) {
-        msg.className = 'error';
-        msg.textContent = '"' + m.slice(9) + '" just sold out while you were ordering — remove it from your cart and try again.';
-        btn.disabled = false;
-        btn.innerHTML = 'Place Order';
-        log('Order blocked — sold out: ' + m.slice(9));
-        return;
-      }
-      throw stockErr; // some other (network/permissions) failure — fall through to the general error handler below
-    }
-
+    // Stock is NOT reserved here anymore — placing an order no longer holds
+    // an item hostage before any money changes hands. It's reserved when
+    // staff record the first payment (deposit or full) on this order, in
+    // admin.html. That means the same design could theoretically be sold to
+    // two different customers before either pays — accepted tradeoff, this
+    // was a deliberate choice to not lock stock on an unpaid order.
     var receiptNumber = await getNextReceiptNumber();
     var doc = await db.collection('orders').add({
       customerName: name,
@@ -967,13 +907,9 @@ async function submitOrder(){
       total: total,
       tipAmount: tipAmount,
       tipAssigned: false,
-      // Marks stock as already handled by reserveStockForCart() above — this
-      // is the SAME flag admin.html's deductInventoryForOrder() checks before
-      // it deducts stock a second time when staff move the order into
-      // production. Without this, every online order would get its inventory
-      // deducted twice: once here at order time, once again by staff later.
-      inventoryDeducted: true,
-      inventoryDeductedLog: reservedLog || [],
+      // Stock reservation now happens at payment time (admin.html), not
+      // here — see deductInventoryForOrder()'s trigger in receivePayment().
+      inventoryDeducted: false,
       amountPaid: 0,
       balance: total,
       paymentStatus: 'unpaid',

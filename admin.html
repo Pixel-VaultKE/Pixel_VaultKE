@@ -3619,6 +3619,7 @@ async function receivePayment(orderId) {
   var newBalance = o.total - newPaid;
   var newPaymentStatus = newBalance <= 0 ? 'paid' : (newPaid > 0 ? 'partial' : 'unpaid');
   var newOverallStatus = (o.productionStatus === 'delivered' && newPaymentStatus === 'paid') ? 'completed_settled' : 'open';
+  var isFirstPayment = (o.amountPaid || 0) === 0 && !o.inventoryDeducted;
   var historyEntry = {
     amount: val,
     method: method,
@@ -3636,6 +3637,15 @@ async function receivePayment(orderId) {
     o.amountPaid = newPaid; o.balance = newBalance; o.paymentStatus = newPaymentStatus; o.overallStatus = newOverallStatus;
     o.paymentHistory = (o.paymentHistory || []).concat([historyEntry]);
     document.getElementById('paymentInput-' + orderId).value = '';
+    // Stock is now reserved on the FIRST payment (deposit or full) rather
+    // than at order time — a customer browsing and ordering no longer holds
+    // stock hostage before paying anything. deductInventoryForOrder() already
+    // guards against running twice (checks order.inventoryDeducted), so if
+    // this order somehow starts production before ever being paid, that
+    // existing trigger still catches it as a fallback.
+    if (isFirstPayment) {
+      await deductInventoryForOrder(orderId, o);
+    }
     renderOrders();
   } catch (e) {
     log('Receive payment error: ' + e.code + ' — ' + e.message);
