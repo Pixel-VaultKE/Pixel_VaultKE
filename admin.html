@@ -3444,13 +3444,26 @@ async function loadProducts() {
       html += '</td></tr>';
 
       html += '<tr id="linkRow-' + r.id + '" class="hidden"><td colspan="5" style="padding:8px;background:#151515">';
+      if (p.linkedInventoryItemId) {
+        var linkedInv = rawInventory.find(function (inv) { return inv.id === p.linkedInventoryItemId; });
+        var sharedWithCount = rawProducts.filter(function (rp) { return rp.id !== r.id && rp.data.linkedInventoryItemId === p.linkedInventoryItemId; }).length;
+        if (linkedInv && sharedWithCount > 0) {
+          html += '<p style="color:#f87171;font-size:0.78rem;margin:0 0 8px">Currently sharing "' + text(linkedInv.data.name) + '" (' + (linkedInv.data.qty || 0) + ' left) with ' + sharedWithCount + ' other design' + (sharedWithCount === 1 ? '' : 's') + ' — this design can\'t sell out on its own until the whole shared bucket does.</p>';
+        } else if (linkedInv) {
+          html += '<p style="color:#4ade80;font-size:0.78rem;margin:0 0 8px">Has its own dedicated stock: ' + (linkedInv.data.qty || 0) + ' left.</p>';
+        }
+      } else {
+        html += '<p style="color:#888;font-size:0.78rem;margin:0 0 8px">Not linked to any stock — always shows as available.</p>';
+      }
+      html += '<button class="small" onclick="createDedicatedStock(\'' + r.id + '\', ' + JSON.stringify(p.name) + ')">Give this design its own stock count</button>';
+      html += '<p style="color:#888;font-size:0.7rem;margin:6px 0 2px">Or link to an existing stock item instead:</p>';
       html += '<select id="linkSelect-' + r.id + '" style="margin-bottom:6px">';
       html += '<option value="">No stock link</option>';
       rawInventory.forEach(function (inv) {
-        html += '<option value="' + inv.id + '"' + (inv.id === p.linkedInventoryItemId ? ' selected' : '') + '>' + text(inv.data.name) + '</option>';
+        html += '<option value="' + inv.id + '"' + (inv.id === p.linkedInventoryItemId ? ' selected' : '') + '>' + text(inv.data.name) + ' (' + (inv.data.qty || 0) + ')</option>';
       });
       html += '</select>';
-      html += '<button class="small" onclick="saveProductLink(\'' + r.id + '\')">Save Link</button>';
+      html += '<button class="small secondary" onclick="saveProductLink(\'' + r.id + '\')">Save Link</button>';
       html += '</td></tr>';
 
       html += '<tr id="priceRow-' + r.id + '" class="hidden"><td colspan="5" style="padding:8px;background:#151515">';
@@ -3491,7 +3504,7 @@ async function addProduct() {
   if (retailPrice <= 0) { msg.className = 'error'; msg.textContent = 'Enter a retail price above 0'; return; }
   var duplicate = rawProducts.some(function (p) { return (p.data.name || '').trim().toLowerCase() === name.toLowerCase(); });
   if (duplicate) { msg.className = 'error'; msg.textContent = '⚠️ A product with this name already exists'; return; }
-  if (!linkedInventoryItemId && !confirm('No inventory item linked — selling this product won\'t auto-deduct stock. Continue anyway?')) return;
+  if (!linkedInventoryItemId && !confirm('No stock linked yet — after adding this product, open "Edit Details" and tap "Give this design its own stock count" to track it individually (recommended for every design). Add without stock tracking for now?')) return;
 
   try {
     await db.collection('products').add({
@@ -3775,6 +3788,35 @@ async function saveProductPrices(productId) {
   } catch (e) {
     log('Save prices error: ' + e.code + ' — ' + e.message);
     toast('Could not save prices', true);
+  }
+}
+
+// Creates a brand-new inventory item dedicated to exactly one design, and
+// points that product at it. There's no way to know how many of THIS
+// specific design are left when it's currently pooled into a shared
+// category bucket with other designs — that number was never tracked
+// separately — so this has to ask, once, rather than guess or split the
+// shared count automatically.
+async function createDedicatedStock(productId, productName) {
+  var input = prompt('How many "' + productName + '" do you actually have in stock right now? (Count the physical copies — this becomes its own separate count, no longer shared with other designs.)', '');
+  if (input === null) return; // cancelled
+  var qty = parseInt(input, 10);
+  if (isNaN(qty) || qty < 0) { toast('Enter a valid number (0 or more)', true); return; }
+  try {
+    var invDoc = await db.collection('inventory').add({
+      name: productName,
+      qty: qty,
+      minQty: 1,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    await db.collection('products').doc(productId).update({ linkedInventoryItemId: invDoc.id });
+    log('Created dedicated stock for "' + productName + '": ' + qty + ' units');
+    toast('"' + productName + '" now has its own stock count');
+    await loadInventory();
+    loadProducts();
+  } catch (e) {
+    log('Create dedicated stock error: ' + e.code + ' — ' + e.message);
+    toast('Could not create dedicated stock', true);
   }
 }
 
