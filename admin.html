@@ -195,6 +195,26 @@ tr:hover td{background:rgba(255,255,255,0.02)}
     <div id="recentClosings" style="margin-top:12px"></div>
   </div>
 
+  <div class="card collapsible collapsed" id="categoryCleanupCard">
+    <span class="eyebrow" style="background:#29D3F5;color:#0D0D10">Catalog</span><h2 onclick="toggleCard('categoryCleanupCard'); loadCategoryCleanup()">🧹 Category Cleanup</h2>
+    <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Categories are typed freely when a product is added, so duplicates like "Cartoon" and "CARTOON" can pile up as separate categories over time. Pick the ones that are really the same thing and merge them into one.</p>
+    <div id="categoryCleanupList"><p style="color:#888;font-size:0.85rem">Tap this card to load current categories...</p></div>
+  </div>
+
+  <div class="card collapsible collapsed" id="loyaltyCard">
+    <span class="eyebrow" style="background:#C6FF3D;color:#0D0D10">Customers</span><h2 onclick="toggleCard('loyaltyCard')">🎁 Loyalty Discount</h2>
+    <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Reward repeat customers automatically at checkout on the ordering page. Only counts online orders — in-store sales aren't visible to the ordering page for privacy/security reasons, so a walk-in regular won't trigger this unless they've also ordered online.</p>
+    <label style="display:flex;align-items:center;gap:8px;margin-bottom:10px;color:#ccc;font-size:0.85rem">
+      <input type="checkbox" id="loyaltyEnabled" style="width:auto"> Enable loyalty discount on the ordering page
+    </label>
+    <label style="color:#888;font-size:0.75rem;display:block;margin-bottom:2px">Unlock after this many past orders</label>
+    <input type="number" id="loyaltyThreshold" min="1" value="5" style="margin-bottom:10px">
+    <label style="color:#888;font-size:0.75rem;display:block;margin-bottom:2px">Discount percent off the order subtotal (not the tip)</label>
+    <input type="number" id="loyaltyPercent" min="1" max="100" value="10" style="margin-bottom:10px">
+    <button class="full" onclick="saveLoyaltyConfig()">Save Loyalty Settings</button>
+    <div id="loyaltyConfigMsg"></div>
+  </div>
+
   <div class="card collapsible collapsed" id="backupCard">
     <span class="eyebrow" style="background:#8A8A93;color:#0D0D10">Safety</span><h2 onclick="toggleCard('backupCard')">💾 Backup</h2>
     <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Download everything as a JSON file you can save to your phone or Google Drive.</p>
@@ -766,7 +786,9 @@ async function loadTasks() {
       html += '<div style="display:flex;justify-content:space-between"><strong>' + text(t.assignedToName) + '</strong><span style="color:' + statusColor + ';font-size:0.75rem;font-weight:700">' + statusLabel + '</span></div>';
       html += '<div style="color:#ccc;font-size:0.85rem;margin:4px 0">' + text(t.description) + (t.when ? ' <span style="color:#666">(' + text(t.when) + ')</span>' : '') + '</div>';
       if (t.workerNote) html += '<div style="color:#29D3F5;font-size:0.8rem;margin-top:4px">💬 "' + text(t.workerNote) + '"</div>';
-      if (!isDone && !isDismissed) html += '<button class="small danger" onclick="deleteTask(\'' + doc.id + '\')">Cancel Task</button>';
+      html += (!isDone && !isDismissed)
+        ? '<button class="small danger" onclick="deleteTask(\'' + doc.id + '\')">Cancel Task</button>'
+        : '<button class="small secondary" onclick="deleteTask(\'' + doc.id + '\')">Clear from list</button>';
       html += '</div>';
     });
     box.innerHTML = html;
@@ -1742,6 +1764,114 @@ async function commitRestore() {
   pendingRestoreBackup = null;
 }
 
+async function loadLoyaltyConfigForm() {
+  try {
+    var doc = await db.collection('settings').doc('loyaltyConfig').get();
+    var d = doc.exists ? doc.data() : {};
+    document.getElementById('loyaltyEnabled').checked = !!d.enabled;
+    document.getElementById('loyaltyThreshold').value = d.visitThreshold || 5;
+    document.getElementById('loyaltyPercent').value = d.discountPercent || 10;
+  } catch (e) {
+    log('Loyalty config load error: ' + e.message);
+  }
+}
+
+var categoryCleanupProducts = []; // [{id, category}] — refetched each time the card is opened, so it's always current
+
+async function loadCategoryCleanup() {
+  var box = document.getElementById('categoryCleanupList');
+  box.innerHTML = '<p style="color:#888;font-size:0.85rem">Loading current categories...</p>';
+  try {
+    var snap = await db.collection('products').get();
+    categoryCleanupProducts = [];
+    var counts = {};
+    snap.forEach(function (doc) {
+      var raw = (doc.data().category || '(no category set)');
+      var cat = raw.trim(); // trims stray whitespace, but keeps case as-is so case-only dupes ("Cartoon" vs "CARTOON") are still visible
+      categoryCleanupProducts.push({ id: doc.id, category: cat });
+      counts[cat] = (counts[cat] || 0) + 1;
+    });
+    var cats = Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; });
+    if (cats.length === 0) { box.innerHTML = '<p style="color:#888">No products yet.</p>'; return; }
+
+    var html = '<div id="catCleanupCheckboxes">';
+    cats.forEach(function (cat, i) {
+      html += '<label style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #262626;font-size:0.85rem">'
+        + '<input type="checkbox" class="catCleanupBox" value="' + i + '" style="width:auto">'
+        + '<span style="flex:1">' + text(cat) + '</span>'
+        + '<span style="color:#666">' + counts[cat] + ' product' + (counts[cat] === 1 ? '' : 's') + '</span>'
+        + '</label>';
+    });
+    html += '</div>';
+    html += '<div style="margin-top:12px">'
+      + '<label style="color:#888;font-size:0.75rem;display:block;margin-bottom:2px">Rename checked categories to (type the one true name):</label>'
+      + '<input type="text" id="catCleanupTarget" placeholder="e.g. Cartoons &amp; Comics" style="margin-bottom:8px">'
+      + '<button class="full" onclick="mergeCategoriesCleanup()">Merge Checked Categories</button>'
+      + '<div id="catCleanupMsg"></div>'
+      + '</div>';
+    box.innerHTML = html;
+    box.dataset.cats = JSON.stringify(cats); // stash the index->name mapping used by the checkboxes above
+  } catch (e) {
+    box.innerHTML = '<p style="color:#f87171">Failed to load categories: ' + text(e.message) + '</p>';
+  }
+}
+
+async function mergeCategoriesCleanup() {
+  var box = document.getElementById('categoryCleanupList');
+  var cats = JSON.parse(box.dataset.cats || '[]');
+  var checked = Array.from(document.querySelectorAll('.catCleanupBox:checked')).map(function (el) { return cats[parseInt(el.value, 10)]; });
+  var target = document.getElementById('catCleanupTarget').value.trim();
+  var msg = document.getElementById('catCleanupMsg');
+
+  if (checked.length < 2) { msg.className = 'error'; msg.textContent = 'Check at least 2 categories to merge — one alone has nothing to merge into.'; return; }
+  if (!target) { msg.className = 'error'; msg.textContent = 'Type the category name to merge them into.'; return; }
+
+  var toUpdate = categoryCleanupProducts.filter(function (p) { return checked.indexOf(p.category) !== -1; });
+  if (!confirm('Merge ' + checked.length + ' categories (' + toUpdate.length + ' products total) into "' + target + '"?\n\nThis renames the category on all ' + toUpdate.length + ' products — can\'t be undone automatically.')) return;
+
+  try {
+    // Firestore batches cap at 500 writes — chunk just in case a category
+    // cleanup spans a very large catalog.
+    for (var i = 0; i < toUpdate.length; i += 450) {
+      var batch = db.batch();
+      toUpdate.slice(i, i + 450).forEach(function (p) {
+        batch.update(db.collection('products').doc(p.id), { category: target });
+      });
+      await batch.commit();
+    }
+    msg.className = 'ok';
+    msg.textContent = 'Merged ' + toUpdate.length + ' products into "' + target + '".';
+    toast('Categories merged');
+    loadCategoryCleanup();
+    loadProducts(); // refresh the main catalog view too, since categories changed
+  } catch (e) {
+    msg.className = 'error';
+    msg.textContent = 'Merge failed: ' + e.message;
+  }
+}
+
+async function saveLoyaltyConfig() {
+  var msg = document.getElementById('loyaltyConfigMsg');
+  var threshold = parseInt(document.getElementById('loyaltyThreshold').value, 10);
+  var percent = parseInt(document.getElementById('loyaltyPercent').value, 10);
+  if (!threshold || threshold < 1) { msg.className = 'error'; msg.textContent = 'Enter a valid visit threshold (1 or more).'; return; }
+  if (!percent || percent < 1 || percent > 100) { msg.className = 'error'; msg.textContent = 'Enter a discount percent between 1 and 100.'; return; }
+  try {
+    await db.collection('settings').doc('loyaltyConfig').set({
+      enabled: document.getElementById('loyaltyEnabled').checked,
+      visitThreshold: threshold,
+      discountPercent: percent,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    msg.className = 'ok';
+    msg.textContent = 'Saved — live on the ordering page now.';
+    toast('Loyalty settings saved');
+  } catch (e) {
+    msg.className = 'error';
+    msg.textContent = 'Save failed: ' + e.message;
+  }
+}
+
 async function downloadBackup() {
   var msg = document.getElementById('backupMsg');
   msg.className = 'ok'; msg.textContent = 'Preparing backup...';
@@ -1789,7 +1919,7 @@ async function downloadBackup() {
 }
 
 async function loadDashboard() {
-  await Promise.all([loadWorkers(), loadInventory(), loadSales(), loadOrders(), loadProducts(), loadExpenses(), loadGoal(), loadRecentClosings(), loadQuotes(), loadGallery(), loadMarketingSources(), loadPendingNotes(), loadTasks(), loadRecentTips(), loadReviews()]);
+  await Promise.all([loadWorkers(), loadInventory(), loadSales(), loadOrders(), loadProducts(), loadExpenses(), loadGoal(), loadRecentClosings(), loadQuotes(), loadGallery(), loadMarketingSources(), loadPendingNotes(), loadTasks(), loadRecentTips(), loadReviews(), loadLoyaltyConfigForm()]);
   populateTaskAssignDropdown();
   populateTipSendDropdown();
   loadUnassignedTips();

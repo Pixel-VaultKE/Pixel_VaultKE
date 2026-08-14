@@ -176,7 +176,7 @@ button.small{width:auto;padding:8px 14px;font-size:0.85rem}
 <div id="orderForm" class="card">
   <span class="eyebrow" style="background:var(--hot)">Almost There</span><h2>Order Details</h2>
   <input type="text" id="cName" placeholder="Your full name *" required>
-  <input type="tel" id="cPhone" placeholder="Phone number *" required>
+  <input type="tel" id="cPhone" placeholder="Phone number *" required onblur="checkLoyaltyStatus()">
   <p class="hint">Save this number — you'll use it to track your order later.</p>
   <input type="email" id="cEmail" placeholder="Email address (optional)">
 
@@ -204,6 +204,8 @@ button.small{width:auto;padding:8px 14px;font-size:0.85rem}
 
   <h2 id="cartCard" style="margin-top:16px">Your Order</h2>
   <div id="cartList"><p class="empty">No items added yet</p></div>
+  <div id="loyaltyBanner" class="hidden" style="background:rgba(198,255,61,0.12);border:1px solid rgba(198,255,61,0.35);border-radius:8px;padding:8px 10px;margin-top:8px;font-size:0.8rem;color:var(--volt)"></div>
+  <div class="totalRow" id="loyaltyDiscountRow" style="display:none;color:var(--volt)"><span>Loyalty discount</span><strong id="loyaltyDiscountAmount">-KSH 0</strong></div>
   <div class="totalRow"><span>Total</span><strong id="cartTotal">KSH 0</strong></div>
 
   <div style="margin-top:14px">
@@ -428,6 +430,7 @@ loadCatalog();
 loadCustomerGallery();
 loadPublicReviews();
 renderFeaturedServices();
+loadLoyaltyConfig();
 
 // Feature: Customer Reviews — public display. Only ever reads reviews with
 // approved:true (set by the owner in Admin); hides itself completely if
@@ -512,34 +515,54 @@ function filterCatalog(searchTerm) {
   renderCatalogGrid(searchTerm);
 }
 
+var rawCatalogProductDocs = []; // fetched once — products rarely change mid-session
+var inventoryUnsubscribe = null;
+
 async function loadCatalog() {
   var box = document.getElementById('catalogList');
   var select = document.getElementById('cProduct');
   try {
-    var [productSnap, inventorySnap] = await Promise.all([
-      db.collection('products').orderBy('name').get(),
-      db.collection('inventory').get()
-    ]);
-    var inventoryById = {};
-    inventorySnap.forEach(function (doc) { inventoryById[doc.id] = doc.data(); });
-
+    var productSnap = await db.collection('products').orderBy('name').get();
     if (productSnap.empty) { box.innerHTML = '<p style="color:#888">Catalog coming soon — contact us directly for pricing.</p>'; return; }
+    rawCatalogProductDocs = [];
+    productSnap.forEach(function (doc) { rawCatalogProductDocs.push({ id: doc.id, data: doc.data() }); });
 
-    var byCategory = {};
-    var categoryOrder = [];
-    catalogProducts = [];
+    // Live inventory listener — stock changes (someone else buying the last
+    // copy, staff restocking, another browser tab placing an order) now
+    // reflect here automatically, without needing a page reload.
+    if (inventoryUnsubscribe) inventoryUnsubscribe();
+    inventoryUnsubscribe = db.collection('inventory').onSnapshot(function (inventorySnap) {
+      var inventoryById = {};
+      inventorySnap.forEach(function (doc) { inventoryById[doc.id] = doc.data(); });
+      renderCatalogFromProductsAndInventory(inventoryById);
+    }, function (e) {
+      log('Inventory live-sync error: ' + e.code + ' — ' + e.message);
+    });
+  } catch (e) {
+    log('Catalog load error: ' + e.code + ' — ' + e.message);
+    box.innerHTML = '<p style="color:#888">Catalog unavailable right now — contact us directly for pricing.</p>';
+    select.innerHTML = '<option value="">Catalog unavailable — use custom item below</option>';
+  }
+}
 
-    productSnap.forEach(function (doc) {
-      var p = doc.data();
-      var inv = p.linkedInventoryItemId ? inventoryById[p.linkedInventoryItemId] : null;
-      var stockQty = (inv && typeof inv.qty === 'number') ? inv.qty : null;
-      var stockLabel = '';
-      if (stockQty !== null) {
-        stockLabel = stockQty > 0
-          ? '<span style="color:#4ade80;font-size:0.75rem">In stock (' + stockQty + ')</span>'
-          : '<span style="color:#f87171;font-size:0.75rem">Out of stock</span>';
-      }
-      var isLamination = /lamination/i.test(p.name || '');
+function renderCatalogFromProductsAndInventory(inventoryById) {
+  var box = document.getElementById('catalogList');
+  var select = document.getElementById('cProduct');
+  var byCategory = {};
+  var categoryOrder = [];
+  catalogProducts = [];
+
+  rawCatalogProductDocs.forEach(function (entry) {
+    var p = entry.data;
+    var inv = p.linkedInventoryItemId ? inventoryById[p.linkedInventoryItemId] : null;
+    var stockQty = (inv && typeof inv.qty === 'number') ? inv.qty : null;
+    var stockLabel = '';
+    if (stockQty !== null) {
+      stockLabel = stockQty > 0
+        ? '<span style="color:#4ade80;font-size:0.75rem">In stock (' + stockQty + ')</span>'
+        : '<span style="color:#f87171;font-size:0.75rem">Out of stock</span>';
+    }
+    var isLamination = /lamination/i.test(p.name || '');
       var thisIdx = catalogProducts.length;
       var stockBadge = stockQty === 0
         ? '<span style="position:absolute;top:4px;left:4px;background:#f87171;color:#000;font-size:0.6rem;font-weight:700;padding:2px 6px;border-radius:4px">OUT</span>'
@@ -565,12 +588,13 @@ async function loadCatalog() {
       byCategory[cat].push({ name: p.name || '', html: tileHtml });
 
       catalogProducts.push({
-        id: doc.id,
+        id: entry.id,
         name: p.name || '',
         category: p.category || '',
         retailPrice: p.retailPrice || 0,
         wholesalePrice: p.wholesalePrice || 0,
         wholesaleMinQty: p.wholesaleMinQty || 0,
+        unitsPerSale: p.unitsPerSale || 1,
         linkedInventoryItemId: p.linkedInventoryItemId || null,
         stockQty: stockQty
       });
@@ -579,7 +603,7 @@ async function loadCatalog() {
     categoryOrder.sort();
     catalogByCategory = byCategory;
     catalogCategoryOrder = categoryOrder;
-    renderCatalogGrid('');
+    renderCatalogGrid(document.getElementById('catalogSearch') ? document.getElementById('catalogSearch').value : '');
 
     var optHtml = '<option value="">Select a product...</option>';
     catalogProducts.forEach(function (p, i) {
@@ -587,12 +611,7 @@ async function loadCatalog() {
     });
     select.innerHTML = optHtml;
 
-    log('Catalog loaded: ' + productSnap.size + ' products');
-  } catch (e) {
-    log('Catalog load error: ' + e.code + ' — ' + e.message);
-    box.innerHTML = '<p style="color:#888">Catalog unavailable right now — contact us directly for pricing.</p>';
-    select.innerHTML = '<option value="">Catalog unavailable — use custom item below</option>';
-  }
+    log('Catalog refreshed: ' + catalogProducts.length + ' products');
 }
 
 function onProductPick() {
@@ -696,6 +715,64 @@ function removeCartItem(i) {
   renderCart();
 }
 
+// ---- Loyalty discount ----
+// Config lives in settings/loyaltyConfig (publicly readable — see rules).
+// Detection only counts past *online orders* for this phone number, since
+// customer.html has no read access to the in-store POS "sales" collection
+// by design (that stays staff-only). A regular who's mostly a walk-in
+// customer won't trigger this online, even if admin.html's CRM view shows
+// them as a repeat customer there — that's a known, deliberate gap given
+// the access-control boundary already in place, not a bug.
+var loyaltyConfig = null;
+var loyaltyDiscountPercent = 0;
+var loyaltyEligible = false;
+var loyaltyVisitCount = 0;
+
+async function loadLoyaltyConfig() {
+  try {
+    var doc = await db.collection('settings').doc('loyaltyConfig').get();
+    loyaltyConfig = doc.exists ? doc.data() : null;
+  } catch (e) {
+    loyaltyConfig = null; // fails safe — no discount, checkout still works normally
+  }
+}
+
+async function checkLoyaltyStatus() {
+  var phone = document.getElementById('cPhone').value.trim();
+  var banner = document.getElementById('loyaltyBanner');
+  loyaltyEligible = false;
+  loyaltyDiscountPercent = 0;
+
+  if (!loyaltyConfig || !loyaltyConfig.enabled || normalizePhone(phone).length < 9) {
+    banner.classList.add('hidden');
+    renderCart();
+    return;
+  }
+
+  var phoneKey = normalizePhone(phone);
+  var threshold = loyaltyConfig.visitThreshold || 5;
+  try {
+    var snap = await db.collection('orders').where('phoneKey', '==', phoneKey).get();
+    loyaltyVisitCount = snap.size;
+    if (loyaltyVisitCount >= threshold) {
+      loyaltyEligible = true;
+      loyaltyDiscountPercent = loyaltyConfig.discountPercent || 0;
+      banner.textContent = '🎉 Welcome back! ' + loyaltyDiscountPercent + '% loyalty discount applied — this is order #' + (loyaltyVisitCount + 1) + '.';
+      banner.classList.remove('hidden');
+    } else {
+      var remaining = threshold - loyaltyVisitCount;
+      banner.textContent = remaining <= 2
+        ? '⭐ ' + remaining + ' more order' + (remaining === 1 ? '' : 's') + ' until you unlock a ' + (loyaltyConfig.discountPercent || 0) + '% loyalty discount!'
+        : '';
+      banner.classList.toggle('hidden', remaining > 2);
+    }
+  } catch (e) {
+    log('Loyalty check error: ' + (e.code || '') + ' — ' + e.message);
+    banner.classList.add('hidden');
+  }
+  renderCart();
+}
+
 function renderCart() {
   var box = document.getElementById('cartList');
   if (cart.length === 0) {
@@ -711,7 +788,18 @@ function renderCart() {
     });
     box.innerHTML = html;
   }
-  var total = cart.reduce(function (sum, item) { return sum + item.lineTotal; }, 0);
+  var subtotal = cart.reduce(function (sum, item) { return sum + item.lineTotal; }, 0);
+  // Loyalty discount applies to the product subtotal only — never to the tip,
+  // which is the customer's own gesture, not something to discount.
+  var discountRow = document.getElementById('loyaltyDiscountRow');
+  var discountAmount = loyaltyEligible ? Math.round(subtotal * (loyaltyDiscountPercent / 100)) : 0;
+  if (discountAmount > 0) {
+    discountRow.style.display = 'flex';
+    document.getElementById('loyaltyDiscountAmount').textContent = '-KSH ' + discountAmount.toLocaleString();
+  } else {
+    discountRow.style.display = 'none';
+  }
+  var total = subtotal - discountAmount;
   document.getElementById('cartTotal').textContent = 'KSH ' + total.toLocaleString();
   updateMiniCartBar(total);
   var grandRow = document.getElementById('grandTotalRow');
@@ -733,15 +821,7 @@ function setTip(amount, fromCustomInput) {
   tipAmount = Math.max(0, parseInt(amount, 10) || 0);
   if (!fromCustomInput) document.getElementById('tipCustom').value = tipAmount > 0 ? tipAmount : '';
   document.querySelectorAll('#tipPresets button').forEach(function (b) { b.style.borderColor = ''; b.style.color = ''; });
-  var cartTotal = cart.reduce(function (sum, item) { return sum + item.lineTotal; }, 0);
-  var grandRow = document.getElementById('grandTotalRow');
-  if (tipAmount > 0) {
-    grandRow.style.display = 'flex';
-    document.getElementById('grandTotal').textContent = 'KSH ' + (cartTotal + tipAmount).toLocaleString();
-  } else {
-    grandRow.style.display = 'none';
-  }
-  updateMiniCartBar(cartTotal);
+  renderCart(); // recomputes subtotal, loyalty discount, and grand total together — avoids duplicating (and drifting from) that math here
 }
 
 // escapeHtml / text / normalizePhone now come from shared.js
@@ -767,17 +847,23 @@ async function getNextReceiptNumber() {
 // cart just ran out — submitOrder() below catches that and stops before an
 // order is even created.
 async function reserveStockForCart(cartItems) {
-  var neededByInv = {};   // invId -> total qty needed across the cart
-  var nameByInv = {};     // invId -> a display name, for the error message
+  var neededByInv = {};   // invId -> total inventory units needed across the cart
+  var nameByInv = {};     // invId -> a display name, for the error message and log
+  var deductionLog = [];  // mirrors admin.html's inventoryDeductedLog format
   cartItems.forEach(function (item) {
     var product = catalogProducts.find(function (p) { return p.id === item.productId; });
     if (!product || !product.linkedInventoryItemId) return; // custom item, nothing to reserve
     var invId = product.linkedInventoryItemId;
-    neededByInv[invId] = (neededByInv[invId] || 0) + item.qty;
+    // Matches admin.html's staff-side deduction: some products consume more
+    // than one physical inventory unit per sale (unitsPerSale).
+    var unitsPerSale = product.unitsPerSale || 1;
+    var deductQty = item.qty * unitsPerSale;
+    neededByInv[invId] = (neededByInv[invId] || 0) + deductQty;
     nameByInv[invId] = item.name;
+    deductionLog.push(deductQty + '× ' + item.name);
   });
   var invIds = Object.keys(neededByInv);
-  if (invIds.length === 0) return;
+  if (invIds.length === 0) return [];
 
   await db.runTransaction(async function (transaction) {
     var refs = invIds.map(function (id) { return db.collection('inventory').doc(id); });
@@ -807,6 +893,7 @@ async function reserveStockForCart(cartItems) {
     }
   });
   renderCatalogGrid(document.getElementById('catalogSearch') ? document.getElementById('catalogSearch').value : '');
+  return deductionLog;
 }
 
 async function submitOrder(){
@@ -835,16 +922,24 @@ async function submitOrder(){
     return;
   }
 
-  var cartTotal = cart.reduce(function (sum, item) { return sum + item.lineTotal; }, 0);
-  var total = cartTotal + tipAmount;
-
   msg.textContent = '';
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>Placing your order...';
   log('Submitting order...');
   try {
+    // Re-check loyalty status right before locking in the total — guards
+    // against the phone field never firing its blur event (e.g. autofill,
+    // or the customer tabbing straight to Submit) and the discount silently
+    // not applying even though they qualify.
+    await checkLoyaltyStatus();
+    var cartTotal = cart.reduce(function (sum, item) { return sum + item.lineTotal; }, 0);
+    var loyaltyDiscountAmount = loyaltyEligible ? Math.round(cartTotal * (loyaltyDiscountPercent / 100)) : 0;
+    var discountedSubtotal = cartTotal - loyaltyDiscountAmount;
+    var total = discountedSubtotal + tipAmount;
+
+    var reservedLog;
     try {
-      await reserveStockForCart(cart);
+      reservedLog = await reserveStockForCart(cart);
     } catch (stockErr) {
       var m = String(stockErr.message || '');
       if (m.indexOf('SOLD_OUT:') === 0) {
@@ -865,9 +960,20 @@ async function submitOrder(){
       phoneKey: normalizePhone(phone),
       email: email || null,
       items: cart,
+      subtotalBeforeDiscount: cartTotal,
+      loyaltyDiscountApplied: loyaltyEligible,
+      loyaltyDiscountPercent: loyaltyEligible ? loyaltyDiscountPercent : 0,
+      loyaltyDiscountAmount: loyaltyDiscountAmount,
       total: total,
       tipAmount: tipAmount,
       tipAssigned: false,
+      // Marks stock as already handled by reserveStockForCart() above — this
+      // is the SAME flag admin.html's deductInventoryForOrder() checks before
+      // it deducts stock a second time when staff move the order into
+      // production. Without this, every online order would get its inventory
+      // deducted twice: once here at order time, once again by staff later.
+      inventoryDeducted: true,
+      inventoryDeductedLog: reservedLog || [],
       amountPaid: 0,
       balance: total,
       paymentStatus: 'unpaid',
