@@ -5,4 +5,4 @@ Allow: /track.html
 Disallow: /admin.html
 Disallow: /worker.html
 
-Sitemap: https://pixel-vault-ke.vercel.app/sitemap.xml
+Sitemap: https://elite-customs-web.vercel.app/sitemap.xml

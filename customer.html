@@ -238,7 +238,7 @@ button.small{width:auto;padding:8px 14px;font-size:0.85rem}
     <span style="color:#888;font-size:0.75rem;display:block">PAY 60% DEPOSIT OR FULL AMOUNT — TILL NUMBER</span>
     <strong style="color:var(--gold);font-size:1.4rem;letter-spacing:1px">4090756</strong>
   </p>
-  <p style="color:#ccc;line-height:1.6">You can check your order status anytime at <strong>pixel-vault-ke.vercel.app/track.html</strong> using your phone number or the order ID below.</p>
+  <p style="color:#ccc;line-height:1.6">You can check your order status anytime at <strong>elite-customs-web.vercel.app/track.html</strong> using your phone number or the order ID below.</p>
   <p id="lastOrderId" style="color:var(--volt);font-weight:600"></p>
   <button onclick="resetForm()" class="secondary">Place Another Order</button>
 </div>
@@ -949,7 +949,7 @@ async function submitOrder(){
 function showReferralCard(phoneKey) {
   var card = document.getElementById('referralCard');
   if (!phoneKey || phoneKey.length < 5) { card.classList.add('hidden'); return; }
-  var link = 'https://pixel-vault-ke.vercel.app/customer.html?source=' + encodeURIComponent('ref-' + phoneKey);
+  var link = 'https://elite-customs-web.vercel.app/customer.html?source=' + encodeURIComponent('ref-' + phoneKey);
   var waText = 'Hey! I just ordered custom work from Elite Customs (RNG Plaza, Nairobi) and thought you\'d like them too 🔥 Order here: ' + link;
   document.getElementById('referralWaBtn').href = 'https://wa.me/?text=' + encodeURIComponent(waText);
   card.classList.remove('hidden');
@@ -978,6 +978,7 @@ function resetForm(){
   document.getElementById('artworkStatus').textContent = '';
   document.getElementById('orderForm').classList.remove('hidden');
   document.getElementById('successView').classList.add('hidden');
+  loadCatalog();
   document.getElementById('referralCard').classList.add('hidden');
 }
 </script>
