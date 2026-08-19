@@ -303,6 +303,12 @@ tr:hover td{background:rgba(255,255,255,0.02)}
     <div id="invMsg"></div>
   </div>
 
+  <div class="card collapsible collapsed" id="movementsCard">
+    <span class="eyebrow" style="background:#29D3F5;color:#0D0D10">Audit</span><h2 onclick="toggleCard('movementsCard')">📦 Recent Stock Movements</h2>
+    <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Every stock change — who, what, and why. Restocks, sales, orders, cancellations.</p>
+    <div id="movementsList"><p style="color:#888">Loading...</p></div>
+  </div>
+
   <div class="card collapsible collapsed" id="productsCard">
     <span class="eyebrow" style="background:#D4AF37;color:#0D0D10">Catalog</span><h2 onclick="toggleCard('productsCard')">Products & Pricing</h2>
     <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Each product links to an inventory item. Selling it auto-deducts stock.</p>
@@ -928,6 +934,36 @@ async function loadRecentTips() {
   }
 }
 
+var MOVEMENT_LABELS = {
+  restock: '📥 Restock', manual_adjust: '✋ Manual adjust', bulk_import: '📤 Bulk import',
+  order_deduction: '🧾 Order deduction', sale_deduction: '💵 Sale deduction',
+  order_cancelled_restore: '↩️ Order cancelled — restored', stock_override: '⚠️ Owner override'
+};
+
+async function loadMovements() {
+  var box = document.getElementById('movementsList');
+  if (!box) return;
+  try {
+    var snap = await db.collection('movements').orderBy('createdAt', 'desc').limit(30).get();
+    if (snap.empty) { box.innerHTML = '<p style="color:#888">No stock changes logged yet.</p>'; return; }
+    var html = '';
+    snap.forEach(function (doc) {
+      var m = doc.data();
+      var isNegative = m.delta < 0;
+      var label = MOVEMENT_LABELS[m.reason] || m.reason;
+      var when = m.createdAt ? m.createdAt.toDate().toLocaleString() : 'Just now';
+      html += '<div style="padding:6px 0;border-bottom:1px solid #2a2a30;font-size:0.8rem">';
+      html += '<div style="display:flex;justify-content:space-between"><span>' + text(m.itemName) + '</span><strong style="color:' + (isNegative ? '#f87171' : '#4ade80') + '">' + (isNegative ? '' : '+') + m.delta + ' → ' + m.qtyAfter + '</strong></div>';
+      html += '<div style="color:#666;font-size:0.72rem;margin-top:2px">' + label + ' · ' + text(m.workerName) + ' · ' + when + '</div>';
+      html += '</div>';
+    });
+    box.innerHTML = html;
+  } catch (e) {
+    log('Load movements error: ' + e.code + ' — ' + e.message);
+    box.innerHTML = '<p style="color:#ff4444">Could not load stock history</p>';
+  }
+}
+
 async function deleteGalleryPhoto(id) {
   if (!confirm('Delete this photo? This cannot be undone.')) return;
   try {
@@ -1099,6 +1135,28 @@ function logEvent(type, payload) {
   }, payload || {});
   return db.collection('events').add(data).catch(function (e) {
     log('Event log failed (' + type + '): ' + e.code + ' — ' + e.message);
+  });
+}
+
+// Stock audit trail — one record per inventory qty change. reason is a
+// short machine tag ('restock', 'manual_adjust', 'bulk_import',
+// 'order_deduction', 'sale_deduction', 'order_cancelled_restore',
+// 'stock_override'); orderId is optional context when the change is tied
+// to a specific order.
+function logMovement(itemId, itemName, delta, qtyAfter, reason, orderId) {
+  var data = {
+    itemId: itemId,
+    itemName: itemName || '',
+    delta: delta,
+    qtyAfter: qtyAfter,
+    reason: reason,
+    orderId: orderId || null,
+    workerId: (firebase.auth().currentUser && firebase.auth().currentUser.uid) || null,
+    workerName: currentUserName || currentUserRole || 'Unknown',
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+  return db.collection('movements').add(data).catch(function (e) {
+    log('Movement log failed (' + itemName + '): ' + e.code + ' — ' + e.message);
   });
 }
 
@@ -1957,7 +2015,7 @@ async function downloadBackup() {
 }
 
 async function loadDashboard() {
-  await Promise.all([loadWorkers(), loadInventory(), loadSales(), loadOrders(), loadProducts(), loadExpenses(), loadGoal(), loadRecentClosings(), loadQuotes(), loadGallery(), loadMarketingSources(), loadPendingNotes(), loadTasks(), loadRecentTips(), loadReviews(), loadLoyaltyConfigForm()]);
+  await Promise.all([loadWorkers(), loadInventory(), loadSales(), loadOrders(), loadProducts(), loadExpenses(), loadGoal(), loadRecentClosings(), loadQuotes(), loadGallery(), loadMarketingSources(), loadPendingNotes(), loadTasks(), loadRecentTips(), loadReviews(), loadLoyaltyConfigForm(), loadMovements()]);
   populateTaskAssignDropdown();
   populateTipSendDropdown();
   loadUnassignedTips();
@@ -2799,7 +2857,8 @@ async function addInventoryItem() {
   var duplicate = rawInventory.some(function (inv) { return (inv.data.name || '').trim().toLowerCase() === name.toLowerCase(); });
   if (duplicate) { msg.className = 'error'; msg.textContent = '⚠️ An inventory item with this name already exists'; return; }
   try {
-    await db.collection('inventory').add({ name: name, qty: qty, minQty: minQty, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+    var newDoc = await db.collection('inventory').add({ name: name, qty: qty, minQty: minQty, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+    logMovement(newDoc.id, name, qty, qty, 'restock');
     log('Inventory item added: ' + name);
     document.getElementById('invName').value = '';
     document.getElementById('invQty').value = '';
@@ -2926,10 +2985,12 @@ async function runBulkImport() {
       if (existingInv) {
         await db.collection('inventory').doc(existingInv.id).update({ qty: firebase.firestore.FieldValue.increment(row.qty) });
         invId = existingInv.id;
+        logMovement(invId, row.name, row.qty, (existingInv.data.qty || 0) + row.qty, 'bulk_import');
         results.restocked++;
       } else {
         var invDoc = await db.collection('inventory').add({ name: row.name, qty: row.qty, minQty: row.minQty, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
         invId = invDoc.id;
+        logMovement(invId, row.name, row.qty, row.qty, 'bulk_import');
         results.created++;
       }
       // Product: only create if one with this name doesn't already exist — bulk import
@@ -2960,6 +3021,9 @@ async function runBulkImport() {
 async function adjustInventory(id, delta) {
   try {
     await db.collection('inventory').doc(id).update({ qty: firebase.firestore.FieldValue.increment(delta) });
+    var invRecord = rawInventory.find(function (inv) { return inv.id === id; });
+    var qtyAfter = (invRecord ? (invRecord.data.qty || 0) : 0) + delta;
+    logMovement(id, invRecord ? invRecord.data.name : '', delta, qtyAfter, 'manual_adjust');
     loadInventory();
     computeExtraStats();
   } catch (e) {
@@ -3367,22 +3431,31 @@ async function cancelOrder(orderId) {
   if (!order) return;
   if (!confirm('Cancel this order? Any stock reserved for it will be restored to inventory.')) return;
   try {
-    var items = order.data.items || [];
     var restored = [];
-    for (var i = 0; i < items.length; i++) {
-      var item = items[i];
-      if (!item.productId) continue;
-      var product = rawProducts.find(function (p) { return p.id === item.productId; });
-      var invId = product ? product.data.linkedInventoryItemId : null;
-      if (!invId) continue;
-      var restoreQty = item.qty * (product.data.unitsPerSale || 1);
-      await db.collection('inventory').doc(invId).update({ qty: firebase.firestore.FieldValue.increment(restoreQty) });
-      restored.push(restoreQty + ' × ' + item.name);
+    // Stock is only deducted once the order's first payment is recorded
+    // (deductInventoryForOrder). An order that was never paid never
+    // touched inventory, so restoring "reserved" stock for it would add
+    // phantom stock that was never actually removed.
+    if (order.data.inventoryDeducted) {
+      var items = order.data.items || [];
+      for (var i = 0; i < items.length; i++) {
+        var item = items[i];
+        if (!item.productId) continue;
+        var product = rawProducts.find(function (p) { return p.id === item.productId; });
+        var invId = product ? product.data.linkedInventoryItemId : null;
+        if (!invId) continue;
+        var restoreQty = item.qty * (product.data.unitsPerSale || 1);
+        await db.collection('inventory').doc(invId).update({ qty: firebase.firestore.FieldValue.increment(restoreQty) });
+        var invRecord = rawInventory.find(function (inv) { return inv.id === invId; });
+        var qtyAfter = (invRecord ? (invRecord.data.qty || 0) : 0) + restoreQty;
+        logMovement(invId, item.name, restoreQty, qtyAfter, 'order_cancelled_restore', orderId);
+        restored.push(restoreQty + ' × ' + item.name);
+      }
     }
     await db.collection('orders').doc(orderId).update({ overallStatus: 'cancelled', productionStatus: 'cancelled' });
-    logEvent('OrderCancelled', { orderId: orderId, restored: restored });
-    log('Order ' + orderId + ' cancelled. Restored: ' + (restored.join(', ') || 'nothing linked to inventory'));
-    toast('Order cancelled, stock restored');
+    logEvent('OrderCancelled', { orderId: orderId, restored: restored, hadDeductedStock: !!order.data.inventoryDeducted });
+    log('Order ' + orderId + ' cancelled. ' + (order.data.inventoryDeducted ? 'Restored: ' + (restored.join(', ') || 'nothing linked to inventory') : 'No stock was deducted yet (unpaid), nothing to restore.'));
+    toast('Order cancelled' + (order.data.inventoryDeducted ? ', stock restored' : ''));
     await Promise.all([loadOrders(), loadInventory(), loadProducts()]);
   } catch (e) {
     log('Cancel order error: ' + e.code + ' — ' + e.message);
@@ -4014,7 +4087,7 @@ async function deductInventoryForOrder(orderId, order) {
         continue;
       }
     }
-    toDeduct.push({ invId: invId, qty: it.qty, name: it.name });
+    toDeduct.push({ invId: invId, qty: deductQty, name: it.name });
   }
 
   try {
@@ -4029,10 +4102,17 @@ async function deductInventoryForOrder(orderId, order) {
         if (freshQty - line.qty < 0 && !ownerOverrideConfirmed) {
           throw new Error('STOCK_RACE:' + line.name + ':' + freshQty);
         }
-        lineDeductions.push({ ref: invRef, qty: line.qty, name: line.name });
+        lineDeductions.push({ ref: invRef, invId: line.invId, qty: line.qty, name: line.name, qtyAfter: freshQty - line.qty });
       }
       lineDeductions.forEach(function (d) {
         transaction.update(d.ref, { qty: firebase.firestore.FieldValue.increment(-d.qty) });
+        transaction.set(db.collection('movements').doc(), {
+          itemId: d.invId, itemName: d.name, delta: -d.qty, qtyAfter: d.qtyAfter,
+          reason: 'order_deduction', orderId: orderId,
+          workerId: firebase.auth().currentUser.uid,
+          workerName: currentUserName || currentUserRole || 'Unknown',
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
         deducted.push(d.qty + '× ' + d.name);
       });
       transaction.update(db.collection('orders').doc(orderId), { inventoryDeducted: true, inventoryDeductedLog: deducted, inventoryDeductedSkipped: skipped });

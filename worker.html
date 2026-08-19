@@ -269,7 +269,8 @@ async function wAddInventoryItem() {
   var duplicate = rawInventory.some(function (inv) { return (inv.data.name || '').trim().toLowerCase() === name.toLowerCase(); });
   if (duplicate) { msg.className = 'error'; msg.textContent = '⚠️ Already exists — use Bulk Import or the qty buttons to restock it instead'; return; }
   try {
-    await db.collection('inventory').add({ name: name, qty: qty, minQty: minQty, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+    var newDoc = await db.collection('inventory').add({ name: name, qty: qty, minQty: minQty, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+    logMovement(newDoc.id, name, qty, qty, 'restock');
     log('Inventory item added: ' + name);
     document.getElementById('wInvName').value = '';
     document.getElementById('wInvQty').value = '';
@@ -498,6 +499,25 @@ function logEvent(type, payload) {
   }, payload || {});
   return db.collection('events').add(data).catch(function (e) {
     log('Event log failed (' + type + '): ' + e.code + ' — ' + e.message);
+  });
+}
+
+// Stock audit trail — same shape as admin.html's logMovement, so both
+// pages feed one consistent history regardless of who made the change.
+function logMovement(itemId, itemName, delta, qtyAfter, reason, orderId) {
+  var data = {
+    itemId: itemId,
+    itemName: itemName || '',
+    delta: delta,
+    qtyAfter: qtyAfter,
+    reason: reason,
+    orderId: orderId || null,
+    workerId: (firebase.auth().currentUser && firebase.auth().currentUser.uid) || null,
+    workerName: currentWorker ? currentWorker.name : 'Unknown',
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+  return db.collection('movements').add(data).catch(function (e) {
+    log('Movement log failed (' + itemName + '): ' + e.code + ' — ' + e.message);
   });
 }
 
@@ -988,10 +1008,12 @@ async function runBulkImport() {
       if (existingInv) {
         await db.collection('inventory').doc(existingInv.id).update({ qty: firebase.firestore.FieldValue.increment(row.qty) });
         invId = existingInv.id;
+        logMovement(invId, row.name, row.qty, (existingInv.data.qty || 0) + row.qty, 'bulk_import');
         results.restocked++;
       } else {
         var invDoc = await db.collection('inventory').add({ name: row.name, qty: row.qty, minQty: row.minQty, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
         invId = invDoc.id;
+        logMovement(invId, row.name, row.qty, row.qty, 'bulk_import');
         results.created++;
       }
       // Products: workers can only CREATE (matches Firestore rules — editing
@@ -1127,6 +1149,9 @@ async function recordSale() {
       var deductQty = item.qty * (product.data.unitsPerSale || 1);
       try {
         await db.collection('inventory').doc(invId).update({ qty: firebase.firestore.FieldValue.increment(-deductQty) });
+        var invRecordForSale = rawInventory.find(function (inv) { return inv.id === invId; });
+        var qtyAfterSale = (invRecordForSale ? (invRecordForSale.data.qty || 0) : 0) - deductQty;
+        logMovement(invId, item.name, -deductQty, qtyAfterSale, 'sale_deduction');
         deductedNames.push(deductQty + ' units of ' + item.name);
       } catch (invErr) {
         log('Inventory auto-deduct failed for ' + item.name + ': ' + invErr.code + ' — ' + invErr.message);
