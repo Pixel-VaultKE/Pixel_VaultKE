@@ -213,6 +213,8 @@ tr:hover td{background:rgba(255,255,255,0.02)}
     <input type="number" id="loyaltyPercent" min="1" max="100" value="10" style="margin-bottom:10px">
     <button class="full" onclick="saveLoyaltyConfig()">Save Loyalty Settings</button>
     <div id="loyaltyConfigMsg"></div>
+    <hr style="border:none;border-top:1px solid #333;margin:12px 0">
+    <div id="loyaltySummary" style="font-size:0.8rem;color:#888">Loading discount totals...</div>
   </div>
 
   <div class="card collapsible collapsed" id="backupCard">
@@ -326,7 +328,7 @@ tr:hover td{background:rgba(255,255,255,0.02)}
     <span class="eyebrow" style="background:#29D3F5;color:#0D0D10">Where Orders Come From</span><h2 onclick="toggleCard('marketingSourcesCard')">📍 Marketing Sources</h2>
     <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Which QR code, flyer, or location is actually driving orders. Tag each printed QR with a different link (see below), then check back here.</p>
     <div id="sourcesList"><p style="color:#888">Loading...</p></div>
-    <p style="color:#666;font-size:0.72rem;margin-top:10px">To tag a QR code: point it at <code style="color:#29D3F5">elite-customs-web.vercel.app/customer.html?source=NAME</code> — replace NAME with something like <code style="color:#29D3F5">matatu1</code>, <code style="color:#29D3F5">friendshop</code>, or <code style="color:#29D3F5">rngplaza</code>. Untagged scans show as "direct".</p>
+    <p style="color:#666;font-size:0.72rem;margin-top:10px">To tag a QR code: point it at <code style="color:#29D3F5">pixel-vault-ke.vercel.app/customer.html?source=NAME</code> — replace NAME with something like <code style="color:#29D3F5">matatu1</code>, <code style="color:#29D3F5">friendshop</code>, or <code style="color:#29D3F5">rngplaza</code>. Untagged scans show as "direct".</p>
   </div>
 
   <div class="card collapsible collapsed" id="reviewsCard">
@@ -1126,7 +1128,7 @@ auth.onAuthStateChanged(async function (user) {
     if (!snap.exists) { log('ERROR: No profile for this account'); toast('No profile found for this account', true); await auth.signOut(); return; }
     var data = snap.data();
     if (data.role !== 'owner' && data.role !== 'admin') { log('ERROR: Not an owner/admin role'); toast('This account is not an owner or admin account', true); await auth.signOut(); return; }
-    if (data.active === false) { log('ERROR: Account marked inactive'); toast('This account has been deactivated. Contact the owner.', true); await auth.signOut(); return; }
+    if (data.active === false || data.archived === true) { log('ERROR: Account marked inactive'); toast('This account has been deactivated. Contact the owner.', true); await auth.signOut(); return; }
     currentUserRole = data.role;
     currentUserName = data.name || (data.role === 'owner' ? 'Owner' : 'Admin');
     document.getElementById('ownerName').textContent = (data.name || 'Owner') + ' — ' + (data.role === 'owner' ? 'Owner' : 'Admin');
@@ -2655,7 +2657,14 @@ async function loadWorkers() {
       var w = r.data;
       var status = w.active !== false ? '<span class="badge paid">Active</span>' : '<span class="badge">Inactive</span>';
       var dupeBadge = seen[r.key] > 1 ? '<span class="badge dupe">duplicate</span>' : '';
-      html += '<tr><td>' + text(w.name) + ' ' + dupeBadge + '</td><td>' + text(w.role) + '</td><td>' + status + '</td>';
+      var roleCell = w.role === 'owner'
+        ? text(w.role) // never let the owner demote themself via this table — do that from Firebase console directly, deliberately not a one-click UI action
+        : (currentUserRole === 'owner'
+            ? '<select id="roleSelect-' + r.id + '" style="width:auto;padding:4px 6px;font-size:0.78rem">' +
+                ['worker', 'admin'].map(function (role) { return '<option value="' + role + '"' + (role === w.role ? ' selected' : '') + '>' + role + '</option>'; }).join('') +
+              '</select> <button class="small secondary" onclick="changeWorkerRole(\'' + r.id + '\', ' + JSON.stringify(w.name || '') + ')">Save</button>'
+            : text(w.role));
+      html += '<tr><td>' + text(w.name) + ' ' + dupeBadge + '</td><td>' + roleCell + '</td><td>' + status + '</td>';
       html += '<td>' + (currentUserRole === 'owner' ? '<button class="small danger" onclick="archiveWorker(\'' + r.id + '\',\'' + (w.name || '').replace(/'/g, "\\'") + '\')">Archive</button> <button class="small danger" onclick="deleteWorker(\'' + r.id + '\',\'' + (w.name || '').replace(/'/g, "\\'") + '\')">Delete</button>' : '') + '</td></tr>';
     });
     html += '</table>';
@@ -2679,6 +2688,23 @@ function toggleArchivedWorkers() {
     box.innerHTML = html;
   } else {
     box.innerHTML = '';
+  }
+}
+
+async function changeWorkerRole(id, name) {
+  var select = document.getElementById('roleSelect-' + id);
+  var newRole = select.value;
+  if (!confirm('Change ' + name + '\'s role to "' + newRole + '"?\n\n' + (newRole === 'admin'
+    ? 'They\'ll get full access to the owner dashboard — money, profit, inventory, everyone\'s sales, worker management. Everything except deleting records, bulk-deleting test data, or changing anyone\'s role.'
+    : 'They\'ll lose admin dashboard access and go back to the worker portal only.'))) return;
+  try {
+    await db.collection('workers').doc(id).update({ role: newRole });
+    log('Changed ' + name + '\'s role to ' + newRole);
+    toast(name + ' is now ' + newRole);
+    loadWorkers();
+  } catch (e) {
+    log('Change role error: ' + e.code + ' — ' + e.message);
+    toast('Could not change role', true);
   }
 }
 
@@ -3116,10 +3142,21 @@ async function loadOrders() {
     rawOrders = [];
     snap.forEach(function (doc) { rawOrders.push({ id: doc.id, data: doc.data() }); });
     renderOrders();
+    renderLoyaltySummary();
   } catch (e) {
     log('Orders error: ' + e.code + ' — ' + e.message);
     document.getElementById('allOrders').innerHTML = '<p style="color:#ff4444">Could not load orders</p>';
   }
+}
+
+function renderLoyaltySummary() {
+  var el = document.getElementById('loyaltySummary');
+  if (!el) return;
+  var discounted = realOrders().filter(function (r) { return r.data.loyaltyDiscountApplied && r.data.loyaltyDiscountAmount > 0; });
+  var totalGiven = discounted.reduce(function (sum, r) { return sum + (r.data.loyaltyDiscountAmount || 0); }, 0);
+  el.textContent = discounted.length === 0
+    ? 'No loyalty discounts given yet.'
+    : discounted.length + ' order' + (discounted.length === 1 ? '' : 's') + ' used the discount — KSH ' + totalGiven.toLocaleString() + ' given away total (last 500 orders loaded).';
 }
 
 var PRODUCTION_STAGES = ['new', 'designing', 'printing', 'finishing', 'ready', 'delivered'];
@@ -3267,6 +3304,9 @@ function renderOrders() {
 
     var payBadgeColor = o.paymentStatus === 'paid' ? '#4ade80' : o.paymentStatus === 'partial' ? '#fbbf24' : '#f87171';
     html += '<div style="font-size:0.75rem">Total: KSH ' + o.total.toLocaleString() + '</div>';
+    if (o.loyaltyDiscountApplied && o.loyaltyDiscountAmount > 0) {
+      html += '<div style="font-size:0.7rem;color:#C6FF3D">🎁 Loyalty discount: -KSH ' + o.loyaltyDiscountAmount.toLocaleString() + ' (' + o.loyaltyDiscountPercent + '%, was KSH ' + (o.subtotalBeforeDiscount || 0).toLocaleString() + ')</div>';
+    }
     html += '<div style="font-size:0.75rem;color:#4ade80">Paid: KSH ' + o.amountPaid.toLocaleString() + '</div>';
     html += '<div style="font-size:0.75rem;font-weight:700;color:' + payBadgeColor + '">' + PAYMENT_LABELS[o.paymentStatus] + (o.balance > 0 ? ' (KSH ' + o.balance.toLocaleString() + ' owed)' : '') + '</div>';
     if (o.paymentHistory && o.paymentHistory.length) {

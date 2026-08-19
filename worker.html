@@ -852,7 +852,7 @@ async function loadWorkerProfile(uid) {
       await auth.signOut();
       return;
     }
-    if (data.active === false) {
+    if (data.active === false || data.archived === true) {
       log('ERROR: Account marked inactive');
       toast('This account has been deactivated. Contact the owner.', true);
       await auth.signOut();
