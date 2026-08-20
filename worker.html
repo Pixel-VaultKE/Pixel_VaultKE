@@ -548,6 +548,28 @@ function toast(msg, isError) {
   setTimeout(function () { t.remove(); }, 3500);
 }
 
+// Same quick-capture as admin.html — one tap, one line, no form. Any staff
+// member noticing something off can flag it without stopping what they're
+// doing or needing to remember to mention it later.
+async function flagIssue() {
+  var text = prompt('What\'s wrong? One line is fine — just get it down before it slips.');
+  if (!text || !text.trim()) return;
+  try {
+    await db.collection('issueReports').add({
+      text: text.trim(),
+      reportedBy: currentWorker ? currentWorker.name : 'Unknown',
+      reportedByRole: currentWorker ? currentWorker.role : null,
+      page: 'worker',
+      status: 'open',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    toast('Flagged — it\'s in the list now.');
+  } catch (e) {
+    log('Flag issue error: ' + e.code + ' — ' + e.message);
+    toast('Could not save that — try again?', true);
+  }
+}
+
 function setBusy(btn, busy, idleText) {
   btn.disabled = busy;
   btn.innerHTML = busy ? '<span class="spinner"></span>Working...' : idleText;
@@ -1277,5 +1299,6 @@ async function loadMySales(uid) {
   }
 }
 </script>
+<button id="flagIssueBtn" onclick="flagIssue()" title="Flag something that's wrong or off — takes 5 seconds" style="position:fixed;bottom:18px;right:18px;z-index:999;width:52px;height:52px;border-radius:50%;background:#FF2E63;color:#fff;border:none;font-size:1.3rem;box-shadow:0 4px 16px rgba(0,0,0,0.4);cursor:pointer">🐛</button>
 </body>
 </html>

@@ -195,6 +195,12 @@ tr:hover td{background:rgba(255,255,255,0.02)}
     <div id="recentClosings" style="margin-top:12px"></div>
   </div>
 
+  <div class="card" id="issueReportsCard">
+    <span class="eyebrow" style="background:#FF2E63;color:#fff">Flagged</span><h2 onclick="loadIssueReports()">🐛 Flagged Issues</h2>
+    <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Anything anyone flagged with the 🐛 button, from anywhere in the app — resolve it here once it's actually fixed, or it stays on this list.</p>
+    <div id="issueReportsList"><p style="color:#888;font-size:0.85rem">Loading...</p></div>
+  </div>
+
   <div class="card collapsible collapsed" id="categoryCleanupCard">
     <span class="eyebrow" style="background:#29D3F5;color:#0D0D10">Catalog</span><h2 onclick="toggleCard('categoryCleanupCard'); loadCategoryCleanup()">🧹 Category Cleanup</h2>
     <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Categories are typed freely when a product is added, so duplicates like "Cartoon" and "CARTOON" can pile up as separate categories over time. Pick the ones that are really the same thing and merge them into one.</p>
@@ -1169,6 +1175,69 @@ function toast(msg, isError) {
   setTimeout(function () { t.remove(); }, 3500);
 }
 
+async function loadIssueReports() {
+  var box = document.getElementById('issueReportsList');
+  try {
+    var snap = await db.collection('issueReports').where('status', '==', 'open').get();
+    if (snap.empty) { box.innerHTML = '<p style="color:#4ade80;font-size:0.85rem">✓ Nothing flagged right now.</p>'; return; }
+    var items = [];
+    snap.forEach(function (doc) { items.push({ id: doc.id, data: doc.data() }); });
+    items.sort(function (a, b) {
+      var ta = a.data.createdAt ? a.data.createdAt.toMillis() : 0;
+      var tb = b.data.createdAt ? b.data.createdAt.toMillis() : 0;
+      return tb - ta;
+    });
+    var html = '';
+    items.forEach(function (r) {
+      var d = r.data;
+      var when = d.createdAt ? d.createdAt.toDate().toLocaleString() : '';
+      html += '<div style="border-bottom:1px solid #262626;padding:8px 0">'
+        + '<div style="font-size:0.85rem">' + text(d.text) + '</div>'
+        + '<div style="font-size:0.7rem;color:#666;margin-top:2px">' + text(d.reportedBy) + ' · ' + (d.page === 'worker' ? 'Worker Portal' : 'Admin Dashboard') + ' · ' + when + '</div>'
+        + '<button class="small secondary" style="margin-top:4px" onclick="resolveIssue(\'' + r.id + '\')">✓ Mark Resolved</button>'
+        + '</div>';
+    });
+    box.innerHTML = html;
+  } catch (e) {
+    log('Load issues error: ' + e.code + ' — ' + e.message);
+    box.innerHTML = '<p style="color:#f87171">Could not load flagged issues</p>';
+  }
+}
+
+async function resolveIssue(id) {
+  try {
+    await db.collection('issueReports').doc(id).update({ status: 'resolved', resolvedBy: currentUserName || currentUserRole, resolvedAt: firebase.firestore.FieldValue.serverTimestamp() });
+    toast('Marked resolved');
+    loadIssueReports();
+  } catch (e) {
+    log('Resolve issue error: ' + e.code + ' — ' + e.message);
+    toast('Could not mark resolved', true);
+  }
+}
+
+// One tap, one line, done. Whatever's currently on screen when it's noticed
+// is captured as context automatically — nobody has to remember to write
+// anything down or stop what they're doing to file a report.
+async function flagIssue() {
+  var text = prompt('What\'s wrong? One line is fine — just get it down before it slips.');
+  if (!text || !text.trim()) return;
+  try {
+    await db.collection('issueReports').add({
+      text: text.trim(),
+      reportedBy: currentUserName || currentUserRole || 'Unknown',
+      reportedByRole: currentUserRole,
+      page: 'admin',
+      status: 'open',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    toast('Flagged — it\'s in the list now.');
+    if (typeof loadIssueReports === 'function') loadIssueReports();
+  } catch (e) {
+    log('Flag issue error: ' + e.code + ' — ' + e.message);
+    toast('Could not save that — try again?', true);
+  }
+}
+
 // escapeHtml / text now come from shared.js
 
 log('Admin page loaded — build v6 (Link Stock feature)');
@@ -1854,10 +1923,24 @@ async function commitRestore() {
   }
   summary += '</div>';
   previewBox.innerHTML = summary;
-  msg.className = 'ok'; msg.textContent = 'Done — reload the page to see restored data';
+  msg.className = 'ok'; msg.textContent = 'Restore complete — refreshing dashboard with restored data...';
   toast('Restore complete');
   log('Restore complete: ' + done + ' documents processed, ' + errors.length + ' error(s)');
   pendingRestoreBackup = null;
+
+  // Previously this just told the owner to reload the page manually — after
+  // something as significant as a data restore, "trust me, it worked" isn't
+  // good enough. Re-fetch everything the dashboard depends on, the same
+  // functions used on initial page load, so the restored data is actually
+  // visible immediately instead of requiring a manual reload and a leap of
+  // faith that it landed correctly.
+  try {
+    await Promise.all([loadWorkers(), loadInventory(), loadSales(), loadOrders(), loadProducts(), loadExpenses(), loadGoal(), loadRecentClosings(), loadQuotes(), loadGallery(), loadMarketingSources(), loadPendingNotes(), loadTasks(), loadRecentTips(), loadReviews(), loadLoyaltyConfigForm(), loadMovements(), loadIssueReports()]);
+    msg.textContent = 'Restore complete — dashboard is showing the restored data now.';
+  } catch (e) {
+    log('Post-restore refresh error: ' + e.code + ' — ' + e.message);
+    msg.textContent = 'Restore complete, but the dashboard couldn\'t auto-refresh — reload the page to see it.';
+  }
 }
 
 async function loadLoyaltyConfigForm() {
@@ -1962,6 +2045,7 @@ async function saveLoyaltyConfig() {
     msg.className = 'ok';
     msg.textContent = 'Saved — live on the ordering page now.';
     toast('Loyalty settings saved');
+    if (typeof renderLoyaltySummary === 'function') renderLoyaltySummary();
   } catch (e) {
     msg.className = 'error';
     msg.textContent = 'Save failed: ' + e.message;
@@ -2015,7 +2099,7 @@ async function downloadBackup() {
 }
 
 async function loadDashboard() {
-  await Promise.all([loadWorkers(), loadInventory(), loadSales(), loadOrders(), loadProducts(), loadExpenses(), loadGoal(), loadRecentClosings(), loadQuotes(), loadGallery(), loadMarketingSources(), loadPendingNotes(), loadTasks(), loadRecentTips(), loadReviews(), loadLoyaltyConfigForm(), loadMovements()]);
+  await Promise.all([loadWorkers(), loadInventory(), loadSales(), loadOrders(), loadProducts(), loadExpenses(), loadGoal(), loadRecentClosings(), loadQuotes(), loadGallery(), loadMarketingSources(), loadPendingNotes(), loadTasks(), loadRecentTips(), loadReviews(), loadLoyaltyConfigForm(), loadMovements(), loadIssueReports()]);
   populateTaskAssignDropdown();
   populateTipSendDropdown();
   loadUnassignedTips();
@@ -2702,10 +2786,17 @@ async function loadWorkers() {
     document.getElementById('stWorkers').textContent = active.length;
     if (active.length === 0) { box.innerHTML = '<p style="color:#888">No workers</p>'; return; }
 
-    // detect duplicates by name+role (same person, separate doc IDs)
+    // Detect duplicates by NAME ONLY, not name+role. Grouping by name+role
+    // meant two docs for the same real person with DIFFERENT roles — e.g.
+    // one stray leftover doc still saying "admin" after the real one got
+    // demoted to "worker" — never got flagged as duplicates at all, since
+    // the roles differed. That's exactly the shape of bug where an owner
+    // demotes someone in the UI, the visible row updates, but a second
+    // undetected document for the same name keeps granting the old access
+    // to whichever UID it's actually keyed under.
     var seen = {};
     active.forEach(function (r) {
-      var key = (r.data.name || '') + '|' + (r.data.role || '');
+      var key = (r.data.name || '').trim().toLowerCase();
       seen[key] = (seen[key] || 0) + 1;
       r.key = key;
     });
@@ -2714,7 +2805,13 @@ async function loadWorkers() {
     active.forEach(function (r) {
       var w = r.data;
       var status = w.active !== false ? '<span class="badge paid">Active</span>' : '<span class="badge">Inactive</span>';
-      var dupeBadge = seen[r.key] > 1 ? '<span class="badge dupe">duplicate</span>' : '';
+      // Shows the doc ID whenever a duplicate is found — the name alone
+      // can't tell two entries apart, and this is what actually needs
+      // comparing against the person's real UID in Firebase Authentication
+      // to know which document is the one their login actually reads.
+      var dupeBadge = seen[r.key] > 1
+        ? '<span class="badge dupe" title="Doc ID: ' + r.id + '">duplicate — doc: ' + r.id.slice(0, 8) + '…</span>'
+        : '';
       var roleCell = w.role === 'owner'
         ? text(w.role) // never let the owner demote themself via this table — do that from Firebase console directly, deliberately not a one-click UI action
         : (currentUserRole === 'owner'
@@ -3269,7 +3366,7 @@ function renderChecklistPanel(orderId, o) {
   steps.forEach(function (label, i) {
     var checked = saved[i] && saved[i].done;
     html += '<label style="display:flex;align-items:flex-start;gap:6px;font-size:0.75rem;color:' + (checked ? '#4ade80' : '#ccc') + ';margin-bottom:6px;cursor:pointer">';
-    html += '<input type="checkbox" style="width:auto;margin:2px 0 0" ' + (checked ? 'checked' : '') + ' onchange="toggleChecklistStep(\'' + orderId + '\', ' + i + ', this.checked)">';
+    html += '<input type="checkbox" style="width:auto;margin:2px 0 0" ' + (checked ? 'checked' : '') + ' onchange="toggleChecklistStep(\'' + orderId + '\', ' + i + ', this.checked); this.parentElement.style.color = this.checked ? \'#4ade80\' : \'#ccc\';">';
     html += '<span>' + label + '</span></label>';
   });
   html += '</div>';
@@ -4183,5 +4280,6 @@ async function updateProductionStatus(id, newStatus) {
   }
 }
 </script>
+<button id="flagIssueBtn" onclick="flagIssue()" title="Flag something that's wrong or off — takes 5 seconds" style="position:fixed;bottom:18px;right:18px;z-index:999;width:52px;height:52px;border-radius:50%;background:#FF2E63;color:#fff;border:none;font-size:1.3rem;box-shadow:0 4px 16px rgba(0,0,0,0.4);cursor:pointer">🐛</button>
 </body>
 </html>
