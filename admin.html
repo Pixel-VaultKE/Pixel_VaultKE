@@ -1175,6 +1175,36 @@ function toast(msg, isError) {
   setTimeout(function () { t.remove(); }, 3500);
 }
 
+// Replaces window.prompt()/window.confirm() for anything that matters —
+// native browser dialogs are unreliable on some mobile browsers/WebViews
+// (some silently return null/false instead of actually showing anything,
+// with zero error and zero way to detect it happened). This is a real
+// in-DOM element instead, so it always renders the same way everywhere,
+// and a failure here is an actual catchable error rather than a silent
+// no-op.
+var inlineDialogCallback = null;
+function showInlineDialog(message, hasInput, onConfirm) {
+  inlineDialogCallback = onConfirm;
+  document.getElementById('inlineDialogMessage').textContent = message;
+  var input = document.getElementById('inlineDialogInput');
+  input.value = '';
+  input.classList.toggle('hidden', !hasInput);
+  document.getElementById('inlineDialogOverlay').classList.remove('hidden');
+  if (hasInput) input.focus();
+}
+function inlineDialogConfirm() {
+  var input = document.getElementById('inlineDialogInput');
+  var value = input.classList.contains('hidden') ? true : input.value;
+  document.getElementById('inlineDialogOverlay').classList.add('hidden');
+  var cb = inlineDialogCallback;
+  inlineDialogCallback = null;
+  if (cb) cb(value);
+}
+function inlineDialogCancel() {
+  document.getElementById('inlineDialogOverlay').classList.add('hidden');
+  inlineDialogCallback = null;
+}
+
 async function loadIssueReports() {
   var box = document.getElementById('issueReportsList');
   try {
@@ -1218,24 +1248,25 @@ async function resolveIssue(id) {
 // One tap, one line, done. Whatever's currently on screen when it's noticed
 // is captured as context automatically — nobody has to remember to write
 // anything down or stop what they're doing to file a report.
-async function flagIssue() {
-  var text = prompt('What\'s wrong? One line is fine — just get it down before it slips.');
-  if (!text || !text.trim()) return;
-  try {
-    await db.collection('issueReports').add({
-      text: text.trim(),
-      reportedBy: currentUserName || currentUserRole || 'Unknown',
-      reportedByRole: currentUserRole,
-      page: 'admin',
-      status: 'open',
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
-    toast('Flagged — it\'s in the list now.');
-    if (typeof loadIssueReports === 'function') loadIssueReports();
-  } catch (e) {
-    log('Flag issue error: ' + e.code + ' — ' + e.message);
-    toast('Could not save that — try again?', true);
-  }
+function flagIssue() {
+  showInlineDialog('What\'s wrong? One line is fine — just get it down before it slips.', true, async function (text) {
+    if (!text || !text.trim()) return;
+    try {
+      await db.collection('issueReports').add({
+        text: text.trim(),
+        reportedBy: currentUserName || currentUserRole || 'Unknown',
+        reportedByRole: currentUserRole || null,
+        page: 'admin',
+        status: 'open',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      toast('Flagged — it\'s in the list now.');
+      if (typeof loadIssueReports === 'function') loadIssueReports();
+    } catch (e) {
+      log('Flag issue error: ' + (e.code || 'no-code') + ' — ' + e.message);
+      toast('Could not save that: ' + (e.code || e.message), true);
+    }
+  });
 }
 
 // escapeHtml / text now come from shared.js
@@ -2846,21 +2877,28 @@ function toggleArchivedWorkers() {
   }
 }
 
-async function changeWorkerRole(id, name) {
+function changeWorkerRole(id, name) {
   var select = document.getElementById('roleSelect-' + id);
-  var newRole = select.value;
-  if (!confirm('Change ' + name + '\'s role to "' + newRole + '"?\n\n' + (newRole === 'admin'
-    ? 'They\'ll get full access to the owner dashboard — money, profit, inventory, everyone\'s sales, worker management. Everything except deleting records, bulk-deleting test data, or changing anyone\'s role.'
-    : 'They\'ll lose admin dashboard access and go back to the worker portal only.'))) return;
-  try {
-    await db.collection('workers').doc(id).update({ role: newRole });
-    log('Changed ' + name + '\'s role to ' + newRole);
-    toast(name + ' is now ' + newRole);
-    loadWorkers();
-  } catch (e) {
-    log('Change role error: ' + e.code + ' — ' + e.message);
-    toast('Could not change role', true);
+  if (!select) {
+    log('Change role error: roleSelect-' + id + ' not found in the page');
+    toast('Something\'s off with that row — try reopening the Team list', true);
+    return;
   }
+  var newRole = select.value;
+  var message = 'Change ' + name + '\'s role to "' + newRole + '"?\n\n' + (newRole === 'admin'
+    ? 'They\'ll get full access to the owner dashboard — money, profit, inventory, everyone\'s sales, worker management. Everything except deleting records, bulk-deleting test data, or changing anyone\'s role.'
+    : 'They\'ll lose admin dashboard access and go back to the worker portal only.');
+  showInlineDialog(message, false, async function () {
+    try {
+      await db.collection('workers').doc(id).update({ role: newRole });
+      log('Changed ' + name + '\'s role to ' + newRole);
+      toast(name + ' is now ' + newRole);
+      loadWorkers();
+    } catch (e) {
+      log('Change role error: ' + (e.code || 'no-code') + ' — ' + e.message);
+      toast('Could not change role: ' + (e.code || e.message), true);
+    }
+  });
 }
 
 async function archiveWorker(id, name) {
@@ -4280,6 +4318,17 @@ async function updateProductionStatus(id, newStatus) {
   }
 }
 </script>
+<button id="flagIssueBtn" onclick="flagIssue()" title="Flag something that's wrong or off — takes 5 seconds" style="position:fixed;bottom:18px;right:18px;z-index:999;width:52px;height:52px;border-radius:50%;background:#FF2E63;color:#fff;border:none;font-size:1.3rem;box-shadow:0 4px 16px rgba(0,0,0,0.4);cursor:pointer">🐛</button>
+<div id="inlineDialogOverlay" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:2000;display:flex;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#1C1C21;border:1px solid #333;border-radius:12px;padding:18px;max-width:380px;width:100%">
+    <div id="inlineDialogMessage" style="font-size:0.9rem;margin-bottom:12px;white-space:pre-line"></div>
+    <textarea id="inlineDialogInput" class="hidden" rows="3" style="width:100%;margin-bottom:12px;background:#151515;border:1px solid #333;border-radius:8px;color:#fff;padding:8px"></textarea>
+    <div style="display:flex;gap:8px">
+      <button class="secondary" style="flex:1" onclick="inlineDialogCancel()">Cancel</button>
+      <button style="flex:1" onclick="inlineDialogConfirm()">OK</button>
+    </div>
+  </div>
+</div>
 <button id="flagIssueBtn" onclick="flagIssue()" title="Flag something that's wrong or off — takes 5 seconds" style="position:fixed;bottom:18px;right:18px;z-index:999;width:52px;height:52px;border-radius:50%;background:#FF2E63;color:#fff;border:none;font-size:1.3rem;box-shadow:0 4px 16px rgba(0,0,0,0.4);cursor:pointer">🐛</button>
 </body>
 </html>
