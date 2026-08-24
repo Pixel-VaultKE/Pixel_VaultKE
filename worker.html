@@ -70,73 +70,54 @@ button.secondary{background:transparent;color:#29D3F5;border:1.5px solid #29D3F5
     <div>
       <span class="eyebrow" style="background:#C6FF3D;color:#0D0D10">You're In</span>
       <h2 id="workerName" style="margin-bottom:0">Worker</h2>
+      <div id="workerDate" style="color:#888;font-size:0.75rem;margin-top:2px"></div>
     </div>
     <button onclick="doLogout()" class="secondary" style="width:auto;padding:8px 16px;font-size:0.85rem">Logout</button>
   </div>
 
-  <div class="card">
-    <span class="eyebrow" style="background:#29D3F5;color:#0D0D10">From The Boss</span><h2>📋 My Tasks</h2>
-    <div id="myTasksList"><p style="color:#888">Loading...</p></div>
+  <div class="card" style="padding:14px 16px">
+    <div style="color:#888;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:8px">Today</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center">
+      <div><div id="statSalesToday" style="color:#D4AF37;font-family:'Bebas Neue',sans-serif;font-size:1.3rem">KSH 0</div><div style="color:#888;font-size:0.62rem;text-transform:uppercase">Sales</div></div>
+      <div><div id="statItemsToday" style="color:#C6FF3D;font-family:'Bebas Neue',sans-serif;font-size:1.3rem">0</div><div style="color:#888;font-size:0.62rem;text-transform:uppercase">Items sold</div></div>
+      <div><div id="statCountToday" style="color:#29D3F5;font-family:'Bebas Neue',sans-serif;font-size:1.3rem">0</div><div style="color:#888;font-size:0.62rem;text-transform:uppercase">Sales made</div></div>
+      <div><div id="statTipsToday" style="color:#FF2E63;font-family:'Bebas Neue',sans-serif;font-size:1.3rem">KSH 0</div><div style="color:#888;font-size:0.62rem;text-transform:uppercase">Tips</div></div>
+    </div>
   </div>
 
-  <div class="card">
-    <span class="eyebrow" style="background:#FF2E63;color:#fff">Track Spend</span><h2>Log Business Expense</h2>
-    <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Transport, airtime, restock, etc. Logged expenses can't be edited or removed by workers — the owner reviews them.</p>
-    <select id="wExpCategory">
-      <option value="Transport">Transport</option>
-      <option value="Airtime">Airtime</option>
-      <option value="Restock">Restock</option>
-      <option value="Delivery">Delivery</option>
-      <option value="Utilities">Utilities</option>
-      <option value="Other">Other</option>
-    </select>
-    <input type="number" id="wExpAmount" placeholder="Amount KSH" min="0">
-    <input type="text" id="wExpNote" placeholder="Note (optional)">
-    <button onclick="logWorkerExpense()">Log Expense</button>
-    <div id="wExpMsg"></div>
-  </div>
-
-  <div class="card">
-    <span class="eyebrow" style="background:#29D3F5;color:#0D0D10">Check Status</span><h2>Look Up Customer Order</h2>
-    <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Customer walked in? Search by phone number or order ID to check status.</p>
-    <input type="text" id="lookupInput" placeholder="Phone number or Order ID">
-    <button id="lookupBtn" onclick="lookupOrder()">Search</button>
-    <div id="lookupMsg"></div>
-    <div id="lookupResults"></div>
-  </div>
-
-  <div class="card">
-    <span class="eyebrow" style="background:#C6FF3D;color:#0D0D10">New Sale</span><h2>Record Sale</h2>
+  <div class="card" style="border-left:3px solid #C6FF3D">
+    <span class="eyebrow" style="background:#C6FF3D;color:#0D0D10">Sell</span><h2>⚡ Record a Sale</h2>
+    <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Tell Pixel Vault what happened — it matches your real catalog and asks when it's not sure.</p>
     <input type="text" id="sCustomer" placeholder="Customer name (optional)">
     <input type="tel" id="sPhone" placeholder="Customer phone (optional, links their history)">
 
-    <h2 style="font-size:0.9rem;margin-top:6px">⚡ Quick Entry</h2>
-    <p style="color:#888;font-size:0.75rem;margin:-6px 0 8px">Type it naturally — "Sold 2 Naruto stickers and 1 canvas for KSh 700". Only adds items it's actually sure about; anything unclear gets shown to you first, never guessed.</p>
     <textarea id="quickSaleInput" placeholder="Sold 2 Naruto stickers and 1 iPhone case for KSh 700" style="min-height:60px"></textarea>
-    <button type="button" class="secondary" onclick="parseQuickSale()" style="margin-bottom:14px">Parse</button>
-    <div id="quickSaleReview" style="margin-bottom:14px"></div>
+    <button type="button" onclick="parseQuickSale()" style="margin-bottom:14px">Understand Sale</button>
+    <div id="quickSaleReview" style="margin-bottom:10px"></div>
 
-    <h2 style="font-size:0.9rem;margin-top:6px">Add Items</h2>
-    <select id="sProduct" onchange="onSaleItemInputChange()">
-      <option value="">Select product...</option>
-    </select>
-    <div style="display:flex;gap:8px">
-      <select id="sTier" onchange="onSaleItemInputChange()" style="flex:1">
-        <option value="retail">Retail price</option>
-        <option value="wholesale">Wholesale price</option>
+    <div class="card collapsible collapsed" id="manualAddCard" style="background:#18181c;border-color:#2a2a30;padding:12px;margin-bottom:12px">
+      <h2 onclick="toggleCard('manualAddCard')" style="font-size:0.85rem;margin-bottom:8px">+ Add item manually instead</h2>
+      <select id="sProduct" onchange="onSaleItemInputChange()">
+        <option value="">Select product...</option>
       </select>
-      <input type="number" id="sQty" placeholder="Qty" min="1" value="1" style="max-width:80px;flex:none" oninput="onSaleItemInputChange()">
-    </div>
-    <div id="sCalcPrice" style="color:#666;font-size:0.75rem;margin:-6px 0 10px"></div>
-    <button type="button" class="secondary" onclick="addSaleItem()" style="margin-bottom:14px">+ Add Item</button>
+      <div style="display:flex;gap:8px">
+        <select id="sTier" onchange="onSaleItemInputChange()" style="flex:1">
+          <option value="retail">Retail price</option>
+          <option value="wholesale">Wholesale price</option>
+        </select>
+        <input type="number" id="sQty" placeholder="Qty" min="1" value="1" style="max-width:80px;flex:none" oninput="onSaleItemInputChange()">
+      </div>
+      <div id="sCalcPrice" style="color:#666;font-size:0.75rem;margin:-6px 0 10px"></div>
+      <button type="button" class="secondary" onclick="addSaleItem()" style="margin-bottom:14px">+ Add Item</button>
 
-    <p style="color:#888;font-size:0.75rem;margin:-8px 0 8px">Don't see it, or it's a custom job? Add it directly:</p>
-    <input type="text" id="sCustomName" placeholder="Custom item description">
-    <div style="display:flex;gap:8px">
-      <input type="number" id="sCustomQty" placeholder="Qty" min="1" value="1" style="max-width:80px">
-      <input type="number" id="sCustomPrice" placeholder="Total price KSH" min="0" style="flex:1">
+      <p style="color:#888;font-size:0.75rem;margin:-8px 0 8px">Don't see it, or it's a custom job? Add it directly:</p>
+      <input type="text" id="sCustomName" placeholder="Custom item description">
+      <div style="display:flex;gap:8px">
+        <input type="number" id="sCustomQty" placeholder="Qty" min="1" value="1" style="max-width:80px">
+        <input type="number" id="sCustomPrice" placeholder="Total price KSH" min="0" style="flex:1">
+      </div>
+      <button type="button" class="secondary" onclick="addCustomSaleItem()">+ Add Custom Item</button>
     </div>
-    <button type="button" class="secondary" onclick="addCustomSaleItem()" style="margin-bottom:14px">+ Add Custom Item</button>
 
     <h2 style="font-size:0.9rem">Items in This Sale</h2>
     <div id="saleCartList"><p style="color:#666;font-size:0.85rem">No items added yet</p></div>
@@ -163,47 +144,80 @@ button.secondary{background:transparent;color:#29D3F5;border:1.5px solid #29D3F5
   </div>
 
   <div class="card">
-    <span class="eyebrow" style="background:#FF2E63;color:#fff">Fast Restock</span><h2>📤 Bulk Import</h2>
-    <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">New stock came in? Upload a spreadsheet and shelve it all at once. New designs go straight up — if you need to change a price on something that already exists, ask the boss.</p>
-    <button type="button" class="secondary" onclick="downloadImportTemplate()">⬇️ Download CSV Template</button>
-    <input type="file" id="bulkImportFile" accept=".csv" onchange="handleImportFile(this)" style="margin-top:10px">
-    <div id="bulkImportPreview" style="margin-top:10px"></div>
+    <span class="eyebrow" style="background:#29D3F5;color:#0D0D10">From The Boss</span><h2>📋 My Tasks</h2>
+    <div id="myTasksList"><p style="color:#888">Loading...</p></div>
   </div>
 
-  <div class="card collapsible collapsed" id="wInvCard">
-    <span class="eyebrow" style="background:#C6FF3D;color:#0D0D10">Single Item</span><h2 onclick="toggleCard('wInvCard')">Add One Inventory Item</h2>
-    <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Just one thing to add? No need for a spreadsheet.</p>
-    <input type="text" id="wInvName" placeholder="Item name">
-    <input type="number" id="wInvQty" placeholder="Qty" min="0">
-    <input type="number" id="wInvMin" placeholder="Low stock at (optional)" min="0">
-    <button onclick="wAddInventoryItem()">Add Item</button>
-    <div id="wInvMsg"></div>
+  <div class="card collapsible collapsed" id="expenseCard">
+    <span class="eyebrow" style="background:#FF2E63;color:#fff">Expense</span><h2 onclick="toggleCard('expenseCard')">💸 Log Business Expense</h2>
+    <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Transport, airtime, restock, etc. Logged expenses can't be edited or removed by workers — the owner reviews them.</p>
+    <select id="wExpCategory">
+      <option value="Transport">Transport</option>
+      <option value="Airtime">Airtime</option>
+      <option value="Restock">Restock</option>
+      <option value="Delivery">Delivery</option>
+      <option value="Utilities">Utilities</option>
+      <option value="Other">Other</option>
+    </select>
+    <input type="number" id="wExpAmount" placeholder="Amount KSH" min="0">
+    <input type="text" id="wExpNote" placeholder="Note (optional)">
+    <button onclick="logWorkerExpense()">Log Expense</button>
+    <div id="wExpMsg"></div>
   </div>
 
-  <div class="card collapsible collapsed" id="wProdCard">
-    <span class="eyebrow" style="background:#D4AF37;color:#0D0D10">Single Item</span><h2 onclick="toggleCard('wProdCard')">Add One Product / Design</h2>
-    <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Shelve a new design with its own price and photo. Once it exists, only the boss can change its price.</p>
-    <input type="text" id="wProdName" placeholder="Product name (e.g. Naruto Sticker)">
-    <input type="text" id="wProdCategory" placeholder="Category (e.g. Anime)">
-    <input type="number" id="wProdRetail" placeholder="Retail price (KSH)" min="0">
-    <input type="number" id="wProdWholesale" placeholder="Wholesale price (KSH, optional)" min="0">
-    <label style="color:#888;font-size:0.8rem;display:block;margin-bottom:4px">Product photo (optional)</label>
-    <input type="file" id="wProdImageFile" accept="image/*" onchange="uploadProductPhoto(this, 'wProdImageUrl')" style="margin-bottom:2px">
-    <p id="wProdImageUrlStatus" style="font-size:0.75rem;color:#888;margin:0 0 8px"></p>
-    <input type="text" id="wProdImageUrl" placeholder="Photo URL (auto-fills after upload)">
-    <select id="wProdInventoryLink"><option value="">Link to inventory item (optional)...</option></select>
-    <button onclick="wAddProduct()">Add Product</button>
-    <div id="wProdMsg"></div>
+  <div class="card collapsible collapsed" id="checkOrderCard">
+    <span class="eyebrow" style="background:#29D3F5;color:#0D0D10">Check</span><h2 onclick="toggleCard('checkOrderCard')">🔎 Look Up Customer Order</h2>
+    <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Customer walked in? Search by phone number or order ID to check status.</p>
+    <input type="text" id="lookupInput" placeholder="Phone number or Order ID">
+    <button id="lookupBtn" onclick="lookupOrder()">Search</button>
+    <div id="lookupMsg"></div>
+    <div id="lookupResults"></div>
+  </div>
+
+
+  <div class="card collapsible collapsed" id="stockCard">
+    <span class="eyebrow" style="background:#FF2E63;color:#fff">Stock</span><h2 onclick="toggleCard('stockCard')">📦 Restock</h2>
+    <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">How are you adding stock? New designs go straight up — if you need to change a price on something that already exists, ask the boss.</p>
+    <div style="display:flex;gap:8px;margin-bottom:4px">
+      <button type="button" class="secondary" style="flex:1" onclick="showStockMode('single')">+ Add one item</button>
+      <button type="button" class="secondary" style="flex:1" onclick="showStockMode('bulk')">+ Import many</button>
+    </div>
+
+    <div id="stockModeSingle" class="hidden" style="margin-top:12px">
+      <h2 style="font-size:0.85rem">Add One Inventory Item</h2>
+      <input type="text" id="wInvName" placeholder="Item name">
+      <input type="number" id="wInvQty" placeholder="Qty" min="0">
+      <input type="number" id="wInvMin" placeholder="Low stock at (optional)" min="0">
+      <button onclick="wAddInventoryItem()">Add Item</button>
+      <div id="wInvMsg"></div>
+
+      <h2 style="font-size:0.85rem;margin-top:14px">Add One Product / Design</h2>
+      <p style="color:#888;font-size:0.75rem;margin:-6px 0 8px">Shelve a new design with its own price and photo. Once it exists, only the boss can change its price.</p>
+      <input type="text" id="wProdName" placeholder="Product name (e.g. Naruto Sticker)">
+      <input type="text" id="wProdCategory" placeholder="Category (e.g. Anime)">
+      <input type="number" id="wProdRetail" placeholder="Retail price (KSH)" min="0">
+      <input type="number" id="wProdWholesale" placeholder="Wholesale price (KSH, optional)" min="0">
+      <label style="color:#888;font-size:0.8rem;display:block;margin-bottom:4px">Product photo (optional)</label>
+      <input type="file" id="wProdImageFile" accept="image/*" onchange="uploadProductPhoto(this, 'wProdImageUrl')" style="margin-bottom:2px">
+      <p id="wProdImageUrlStatus" style="font-size:0.75rem;color:#888;margin:0 0 8px"></p>
+      <input type="text" id="wProdImageUrl" placeholder="Photo URL (auto-fills after upload)">
+      <select id="wProdInventoryLink"><option value="">Link to inventory item (optional)...</option></select>
+      <button onclick="wAddProduct()">Add Product</button>
+      <div id="wProdMsg"></div>
+    </div>
+
+    <div id="stockModeBulk" class="hidden" style="margin-top:12px">
+      <button type="button" class="secondary" onclick="downloadImportTemplate()">⬇️ Download CSV Template</button>
+      <input type="file" id="bulkImportFile" accept=".csv" onchange="handleImportFile(this)" style="margin-top:10px">
+      <div id="bulkImportPreview" style="margin-top:10px"></div>
+    </div>
   </div>
 
   <div class="card">
-    <span class="eyebrow" style="background:#D4AF37;color:#0D0D10">Your Wins</span><h2>My Recent Sales</h2>
+    <span class="eyebrow" style="background:#D4AF37;color:#0D0D10">Your Wins</span><h2>🏆 Today</h2>
     <div id="mySales"><p style="color:#888">Loading...</p></div>
-  </div>
-
-  <div class="card">
-    <span class="eyebrow" style="background:#FF2E63;color:#fff">Recognition</span><h2>🎉 My Tips</h2>
-    <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Bonuses from the boss and tips customers left — separate from your sales.</p>
+    <h2 style="font-size:0.85rem;margin-top:12px">🎉 Tips</h2>
+    <p style="color:#888;font-size:0.78rem;margin:-6px 0 8px">Bonuses from the boss and tips customers left — separate from your sales.</p>
     <div id="myTipsTotal" style="color:#D4AF37;font-family:'Bebas Neue',sans-serif;font-size:1.6rem;margin-bottom:8px">KSH 0</div>
     <div id="myTipsList"><p style="color:#888">Loading...</p></div>
   </div>
@@ -236,6 +250,11 @@ var rawInventory = [];
 
 function toggleCard(id) {
   document.getElementById(id).classList.toggle('collapsed');
+}
+
+function showStockMode(mode) {
+  document.getElementById('stockModeSingle').classList.toggle('hidden', mode !== 'single');
+  document.getElementById('stockModeBulk').classList.toggle('hidden', mode !== 'bulk');
 }
 
 var CLOUDINARY_CLOUD_NAME = 'ffksanlm';
@@ -820,7 +839,7 @@ async function loadMyTasks() {
       tasks.push({ id: doc.id, data: t, ts: t.createdAt ? t.createdAt.toMillis() : 0 });
     });
     tasks.sort(function (a, b) { return b.ts - a.ts; });
-    if (tasks.length === 0) { box.innerHTML = '<p style="color:#888">Nothing assigned right now.</p>'; return; }
+    if (tasks.length === 0) { box.innerHTML = '<p style="color:#4ade80">🔥 You\'re clear — no tasks from the boss right now.</p>'; return; }
     var html = '';
     tasks.forEach(function (item) {
       var t = item.data;
@@ -1064,6 +1083,8 @@ async function loadWorkerProfile(uid) {
     var hr = new Date().getHours();
     var greeting = hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening';
     document.getElementById('workerName').textContent = greeting + ', ' + currentWorker.name + (data.role !== 'worker' ? ' (' + (data.role === 'owner' ? 'Owner' : 'Admin') + ')' : '');
+    var dateEl = document.getElementById('workerDate');
+    if (dateEl) dateEl.textContent = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
     document.getElementById('loginSection').classList.add('hidden');
     document.getElementById('workerSection').classList.remove('hidden');
     log('Welcome ' + currentWorker.name);
@@ -1344,10 +1365,6 @@ async function recordSale() {
     if (skippedNames.length) log('Not linked to inventory, skipped: ' + skippedNames.join(', '));
     if (skippedNames.length) toast('Sale saved — some items have no inventory link, check stock manually', true);
 
-    msg.className = 'ok';
-    msg.textContent = 'Saved — KSH ' + amount.toLocaleString() + ' from ' + customer + ' (' + itemsSummaryStr + ')' + (balance > 0 ? ' — KSH ' + balance.toLocaleString() + ' still owed' : ' — paid in full');
-    toast('Sale recorded: KSH ' + amount.toLocaleString());
-
     document.getElementById('sCustomer').value = '';
     document.getElementById('sPhone').value = '';
     document.getElementById('sFinalTotal').value = '';
@@ -1360,6 +1377,14 @@ async function recordSale() {
     renderSaleCart();
 
     await loadMySales(currentWorker.id);
+    // Stats bar is now updated from the fresh fetch — pull it back out for
+    // the confirmation message so this feels like "the system registered
+    // it," not just "the form cleared."
+    var todayTotalNow = document.getElementById('statSalesToday').textContent;
+    var todayCountNow = document.getElementById('statCountToday').textContent;
+    msg.className = 'ok';
+    msg.textContent = '✅ Saved — KSH ' + amount.toLocaleString() + ' from ' + customer + ' (' + itemsSummaryStr + ')' + (balance > 0 ? ' — KSH ' + balance.toLocaleString() + ' still owed' : ' — paid in full') + '. Today: ' + todayTotalNow + ' across ' + todayCountNow + ' sale' + (todayCountNow === '1' ? '' : 's') + '.';
+    toast('Sale recorded 🔥 Today: ' + todayTotalNow);
   } catch (e) {
     log('Sale error: ' + e.code + ' — ' + e.message);
     msg.className = 'error';
@@ -1375,6 +1400,7 @@ async function recordSale() {
 async function loadMyTips(uid) {
   var box = document.getElementById('myTipsList');
   var totalEl = document.getElementById('myTipsTotal');
+  var statTips = document.getElementById('statTipsToday');
   try {
     var snap = await db.collection('tips')
       .where('recipientWorkerId', '==', uid)
@@ -1387,6 +1413,11 @@ async function loadMyTips(uid) {
       var bt = b.createdAt ? b.createdAt.toMillis() : 0;
       return bt - at;
     });
+    var todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+    var tipsToday = docs.filter(function (t) { return t.createdAt && t.createdAt.toDate() >= todayStart; })
+      .reduce(function (sum, t) { return sum + (t.amount || 0); }, 0);
+    if (statTips) statTips.textContent = 'KSH ' + tipsToday.toLocaleString();
+
     if (docs.length === 0) { box.innerHTML = '<p style="color:#888">No tips yet — keep up the good work!</p>'; totalEl.textContent = 'KSH 0'; return; }
     var total = docs.reduce(function (sum, t) { return sum + (t.amount || 0); }, 0);
     var visible = docs.slice(0, 20);
@@ -1424,7 +1455,23 @@ async function loadMySales(uid) {
       var s = doc.data();
       if (!s.archived) visible.push(s);
     });
-    if (visible.length === 0) { box.innerHTML = '<p style="color:#888">No sales yet today</p>'; return; }
+
+    // Stats bar — derived from this same fetch, so it never disagrees with
+    // the list of sales shown right below it.
+    var totalToday = 0, itemsToday = 0;
+    visible.forEach(function (s) {
+      totalToday += typeof s.totalAmount === 'number' ? s.totalAmount : (s.amount || 0);
+      if (s.items && s.items.length) itemsToday += s.items.reduce(function (sum, it) { return sum + (it.qty || 0); }, 0);
+      else itemsToday += s.quantitySold || 1;
+    });
+    var statSales = document.getElementById('statSalesToday');
+    var statItems = document.getElementById('statItemsToday');
+    var statCount = document.getElementById('statCountToday');
+    if (statSales) statSales.textContent = 'KSH ' + totalToday.toLocaleString();
+    if (statItems) statItems.textContent = itemsToday;
+    if (statCount) statCount.textContent = visible.length;
+
+    if (visible.length === 0) { box.innerHTML = '<p style="color:#888">No sales yet today — your first one will show up here.</p>'; return; }
     var html = '';
     visible.forEach(function (s) {
       var d = s.createdAt ? s.createdAt.toDate().toLocaleString() : 'Just now';
