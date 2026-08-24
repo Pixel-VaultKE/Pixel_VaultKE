@@ -315,6 +315,14 @@ tr:hover td{background:rgba(255,255,255,0.02)}
     <div id="movementsList"><p style="color:#888">Loading...</p></div>
   </div>
 
+  <div class="card collapsible collapsed" id="reconcileCard">
+    <span class="eyebrow" style="background:#FF2E63;color:#fff">Audit</span><h2 onclick="toggleCard('reconcileCard')">🔍 M-PESA Reconciliation</h2>
+    <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Paste today's M-PESA messages or statement below. This checks each amount against what's actually recorded as M-PESA in sales and order payments — it never changes any record, it only shows you where they disagree.</p>
+    <textarea id="reconcileInput" placeholder="Paste M-PESA SMS confirmations or a list of amounts, one per line. E.g.:&#10;Confirmed. You have received Ksh500.00 from JOHN DOE...&#10;or just:&#10;500&#10;150" style="min-height:100px"></textarea>
+    <button onclick="runReconciliation()">Check Against Records</button>
+    <div id="reconcileResult" style="margin-top:12px"></div>
+  </div>
+
   <div class="card collapsible collapsed" id="productsCard">
     <span class="eyebrow" style="background:#D4AF37;color:#0D0D10">Catalog</span><h2 onclick="toggleCard('productsCard')">Products & Pricing</h2>
     <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Each product links to an inventory item. Selling it auto-deducts stock.</p>
@@ -945,6 +953,89 @@ var MOVEMENT_LABELS = {
   order_deduction: '🧾 Order deduction', sale_deduction: '💵 Sale deduction',
   order_cancelled_restore: '↩️ Order cancelled — restored', stock_override: '⚠️ Owner override'
 };
+
+// ---------- M-PESA RECONCILIATION ----------
+// Extracts payment amounts from pasted M-PESA SMS confirmations or a plain
+// list of numbers. Deliberately narrow: only matches "received"-style
+// language so money the shop SENT out (restock payments, refunds) never
+// gets mistaken for a customer payment coming in.
+function extractMpesaAmounts(rawText) {
+  var amounts = [];
+  var lines = rawText.split('\n');
+  lines.forEach(function (line) {
+    line = line.trim();
+    if (!line) return;
+    var smsMatch = line.match(/received\s+ksh\.?\s?([\d,]+(?:\.\d{1,2})?)/i);
+    if (smsMatch) { amounts.push(parseFloat(smsMatch[1].replace(/,/g, ''))); return; }
+    var bareNumber = line.match(/^[\d,]+(?:\.\d{1,2})?$/);
+    if (bareNumber) { amounts.push(parseFloat(line.replace(/,/g, ''))); return; }
+  });
+  return amounts.filter(function (n) { return !isNaN(n) && n > 0; });
+}
+
+function runReconciliation() {
+  var raw = document.getElementById('reconcileInput').value;
+  var box = document.getElementById('reconcileResult');
+  var statementAmounts = extractMpesaAmounts(raw);
+  if (statementAmounts.length === 0) {
+    box.innerHTML = '<p class="error">Couldn\'t find any amounts in that text — paste the M-PESA messages as-is, or a plain list of amounts.</p>';
+    return;
+  }
+
+  // Pool of everything recorded as M-PESA today, from BOTH sales and order
+  // payments — same two sources sumOrderPaymentsInRange/loadDashboard use,
+  // so this always agrees with what the dashboard is already showing.
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  var recordedPool = [];
+  rawSales.forEach(function (r) {
+    var s = r.data;
+    if (s.archived) return;
+    var d = s.createdAt ? s.createdAt.toDate() : null;
+    if (!d || d < today) return;
+    if (s.paymentMethod === 'mpesa') {
+      recordedPool.push({ amount: (typeof s.amountPaid === 'number' ? s.amountPaid : (s.amount || 0)), source: 'sale', label: text(s.customerName || s.workerName, 'Sale') });
+    }
+  });
+  realOrders().forEach(function (r) {
+    (r.data.paymentHistory || []).forEach(function (entry) {
+      var when = entry.recordedAt ? new Date(entry.recordedAt) : null;
+      if (!when || when < today) return;
+      if (entry.method === 'mpesa') {
+        recordedPool.push({ amount: entry.amount || 0, source: 'order', label: text(r.data.customerName, 'Order ' + r.id) });
+      }
+    });
+  });
+
+  // Match each statement amount against one unused pool entry (exact amount).
+  var matched = [];
+  var unmatchedStatement = [];
+  statementAmounts.forEach(function (amt) {
+    var idx = recordedPool.findIndex(function (p) { return !p.used && p.amount === amt; });
+    if (idx > -1) { recordedPool[idx].used = true; matched.push(amt); }
+    else { unmatchedStatement.push(amt); }
+  });
+  var unmatchedRecorded = recordedPool.filter(function (p) { return !p.used; });
+
+  var html = '';
+  html += '<div class="stat-grid" style="margin-bottom:10px">';
+  html += '<div class="stat-box"><div class="num" style="color:var(--volt)">' + matched.length + '</div><div class="lbl">Matched</div></div>';
+  html += '<div class="stat-box"><div class="num" style="color:#f87171">' + unmatchedStatement.length + '</div><div class="lbl">In M-PESA, not recorded</div></div>';
+  html += '<div class="stat-box"><div class="num" style="color:#facc15">' + unmatchedRecorded.length + '</div><div class="lbl">Recorded, not in M-PESA</div></div>';
+  html += '</div>';
+
+  if (unmatchedStatement.length) {
+    html += '<div style="color:#f87171;font-weight:700;font-size:0.85rem;margin-bottom:4px">🔴 M-PESA received this, but no matching sale or payment is recorded today:</div>';
+    html += '<div style="margin-bottom:10px">' + unmatchedStatement.map(function (a) { return 'KSH ' + a; }).join(', ') + '</div>';
+  }
+  if (unmatchedRecorded.length) {
+    html += '<div style="color:#facc15;font-weight:700;font-size:0.85rem;margin-bottom:4px">🟡 Recorded as M-PESA, but not found in what you pasted:</div>';
+    html += '<div>' + unmatchedRecorded.map(function (p) { return 'KSH ' + p.amount + ' (' + p.label + ')'; }).join(', ') + '</div>';
+  }
+  if (!unmatchedStatement.length && !unmatchedRecorded.length) {
+    html += '<p class="ok">Everything matches — no discrepancies found.</p>';
+  }
+  box.innerHTML = html;
+}
 
 async function loadMovements() {
   var box = document.getElementById('movementsList');

@@ -110,6 +110,12 @@ button.secondary{background:transparent;color:#29D3F5;border:1.5px solid #29D3F5
     <input type="text" id="sCustomer" placeholder="Customer name (optional)">
     <input type="tel" id="sPhone" placeholder="Customer phone (optional, links their history)">
 
+    <h2 style="font-size:0.9rem;margin-top:6px">⚡ Quick Entry</h2>
+    <p style="color:#888;font-size:0.75rem;margin:-6px 0 8px">Type it naturally — "Sold 2 Naruto stickers and 1 canvas for KSh 700". Only adds items it's actually sure about; anything unclear gets shown to you first, never guessed.</p>
+    <textarea id="quickSaleInput" placeholder="Sold 2 Naruto stickers and 1 iPhone case for KSh 700" style="min-height:60px"></textarea>
+    <button type="button" class="secondary" onclick="parseQuickSale()" style="margin-bottom:14px">Parse</button>
+    <div id="quickSaleReview" style="margin-bottom:14px"></div>
+
     <h2 style="font-size:0.9rem;margin-top:6px">Add Items</h2>
     <select id="sProduct" onchange="onSaleItemInputChange()">
       <option value="">Select product...</option>
@@ -368,6 +374,160 @@ function onSaleItemInputChange() {
   } else {
     calcBox.textContent = 'KSH ' + unitPrice.toLocaleString() + ' x ' + qty + ' = KSH ' + total.toLocaleString();
   }
+}
+
+// ---------- QUICK ENTRY (natural language → structured sale) ----------
+// Deliberately NOT calling any AI/LLM API from the browser — that would mean
+// shipping an API key in client-side code anyone can read, with no backend
+// to hide it behind on the free plan. This is a plain deterministic parser
+// matched against the REAL catalog. The principle it follows: confident
+// match → use it; multiple plausible matches → ask; no match → say so
+// plainly. It never invents a product or a price that isn't already real.
+
+var quickSalePending = []; // [{raw, qtyGuess, itemText, candidates:[{product,score}], resolvedProductId, status}]
+
+function scoreMatch(query, name) {
+  query = query.toLowerCase().trim();
+  name = name.toLowerCase().trim();
+  if (query === name) return 100;
+  if (name.indexOf(query) > -1 || query.indexOf(name) > -1) return 85;
+  var qWords = query.split(/\s+/).filter(function (w) { return w.length > 1; });
+  var nWords = name.split(/\s+/);
+  if (qWords.length === 0) return 0;
+  var hits = qWords.filter(function (w) { return nWords.some(function (nw) { return nw.indexOf(w) > -1 || w.indexOf(nw) > -1; }); }).length;
+  return Math.round((hits / qWords.length) * 70);
+}
+
+function parseQuickSaleClauses(rawText) {
+  // Pull a trailing stated total off the end, e.g. "...for KSh 700" — kept
+  // as a hint to reconcile against, never used to silently override the
+  // catalog-computed total.
+  var statedTotal = null;
+  var totalMatch = rawText.match(/(?:for|=)\s*ksh?\.?\s*([\d,]+(?:\.\d{1,2})?)\s*$/i);
+  var body = rawText;
+  if (totalMatch) {
+    statedTotal = parseFloat(totalMatch[1].replace(/,/g, ''));
+    body = rawText.slice(0, totalMatch.index);
+  }
+  body = body.replace(/^\s*(sold|sale of|i sold|we sold)\s*/i, '');
+  var clauses = body.split(/,| and /i).map(function (c) { return c.trim(); }).filter(Boolean);
+  var parsed = clauses.map(function (clause) {
+    var m = clause.match(/^(\d+)\s*(?:x|×)?\s*(.+)$/i);
+    var qty = m ? parseInt(m[1], 10) : 1;
+    var itemText = (m ? m[2] : clause).replace(/\s+(pcs?|pieces?|units?)$/i, '').trim();
+    return { raw: clause, qtyGuess: qty, itemText: itemText };
+  });
+  return { clauses: parsed, statedTotal: statedTotal };
+}
+
+function parseQuickSale() {
+  var raw = document.getElementById('quickSaleInput').value.trim();
+  var box = document.getElementById('quickSaleReview');
+  if (!raw) { box.innerHTML = ''; return; }
+  var result = parseQuickSaleClauses(raw);
+  quickSalePending = result.clauses.map(function (c) {
+    var candidates = rawProducts
+      .map(function (p) { return { product: p, score: scoreMatch(c.itemText, p.data.name) }; })
+      .filter(function (m) { return m.score > 30; })
+      .sort(function (a, b) { return b.score - a.score; });
+    var status;
+    if (candidates.length === 0) status = 'not_found';
+    else if (candidates.length === 1 || candidates[0].score - (candidates[1] ? candidates[1].score : 0) >= 20) status = 'confident';
+    else status = 'ambiguous';
+    return {
+      raw: c.raw, qtyGuess: c.qtyGuess, itemText: c.itemText,
+      candidates: candidates.slice(0, 4), status: status,
+      resolvedProductId: status === 'confident' ? candidates[0].product.id : null
+    };
+  });
+  renderQuickSaleReview(result.statedTotal);
+}
+
+function renderQuickSaleReview(statedTotal) {
+  var box = document.getElementById('quickSaleReview');
+  if (quickSalePending.length === 0) { box.innerHTML = '<p class="error">Couldn\'t find any items in that — try "2 Naruto stickers, 1 canvas".</p>'; return; }
+  var html = '';
+  var catalogTotal = 0;
+  var allResolved = quickSalePending.every(function (l) { return l.status === 'confident'; });
+
+  // Consolidated "what got understood" summary, with the inventory impact
+  // this WILL cause once the sale is actually recorded (not yet — this is
+  // still just the review, nothing has touched the database).
+  if (allResolved) {
+    var summaryHtml = '<div style="background:#1a2e1a;border:1px solid #2d5a2d;border-radius:8px;padding:10px;margin-bottom:10px">';
+    summaryHtml += '<div style="color:#4ade80;font-weight:700;font-size:0.85rem;margin-bottom:6px">✓ Understood:</div>';
+    quickSalePending.forEach(function (line) {
+      var product = rawProducts.find(function (p) { return p.id === line.resolvedProductId; });
+      catalogTotal += (product.data.retailPrice || 0) * line.qtyGuess;
+      summaryHtml += '<div style="font-size:0.82rem">• ' + text(product.data.name) + ' × ' + line.qtyGuess + '</div>';
+    });
+    summaryHtml += '<div style="font-weight:700;margin-top:6px;color:#D4AF37">Total: KSH ' + catalogTotal.toLocaleString() + '</div>';
+    summaryHtml += '<div style="color:#888;font-size:0.75rem;margin-top:8px">Inventory impact when this sale is recorded:</div>';
+    quickSalePending.forEach(function (line) {
+      var product = rawProducts.find(function (p) { return p.id === line.resolvedProductId; });
+      summaryHtml += '<div style="font-size:0.78rem;color:#f87171">−' + line.qtyGuess + ' × ' + text(product.data.name) + '</div>';
+    });
+    summaryHtml += '</div>';
+    html += summaryHtml;
+  }
+
+  quickSalePending.forEach(function (line, i) {
+    var product = line.resolvedProductId ? rawProducts.find(function (p) { return p.id === line.resolvedProductId; }) : null;
+    html += '<div style="background:#232329;border-radius:8px;padding:10px;margin-bottom:8px;border-left:3px solid ' +
+      (line.status === 'confident' ? '#22c55e' : line.status === 'ambiguous' ? '#facc15' : '#ff4444') + '">';
+    html += '<div style="font-size:0.8rem;color:#888">"' + text(line.raw) + '"</div>';
+    if (line.status === 'confident') {
+      html += '<div style="margin-top:4px">✓ ' + line.qtyGuess + ' × ' + text(product.data.name) + ' — KSH ' + ((product.data.retailPrice || 0) * line.qtyGuess).toLocaleString() + '</div>';
+      html += '<button type="button" class="small secondary" onclick="quickSaleShowAlternatives(' + i + ')" style="margin-top:4px">Not this one?</button>';
+    } else if (line.status === 'ambiguous') {
+      html += '<div style="margin-top:4px;color:#facc15">🤔 Not sure which one — pick it:</div>';
+      html += '<select id="quickResolve-' + i + '" onchange="quickSaleResolve(' + i + ', this.value)"><option value="">Choose...</option>';
+      line.candidates.forEach(function (c) { html += '<option value="' + c.product.id + '">' + text(c.product.data.name) + ' (KSH ' + c.product.data.retailPrice + ')</option>'; });
+      html += '</select>';
+    } else {
+      html += '<div style="margin-top:4px;color:#ff4444">✕ No match in the catalog for "' + text(line.itemText) + '" — add it as a custom item below, or check the spelling.</div>';
+    }
+    html += '</div>';
+  });
+  if (statedTotal !== null && allResolved && Math.abs(catalogTotal - statedTotal) > 0.5) {
+    html += '<div style="color:#facc15;font-size:0.8rem;margin-bottom:8px">⚠️ You said KSH ' + statedTotal + ', but matched items total KSH ' + catalogTotal + '. Could be a discount — the final price field on the sale form is still yours to adjust.</div>';
+  }
+  html += '<button type="button" onclick="commitQuickSale()"' + (allResolved ? '' : ' disabled') + '>' +
+    (allResolved ? 'Confirm — Add ' + quickSalePending.length + ' Item(s) to Sale' : 'Resolve the items above first') + '</button>';
+  box.innerHTML = html;
+}
+
+function quickSaleShowAlternatives(i) {
+  quickSalePending[i].status = 'ambiguous';
+  if (quickSalePending[i].candidates.length === 0) {
+    // was confident with only one candidate found — offer the full catalog instead
+    quickSalePending[i].candidates = rawProducts.slice(0, 8).map(function (p) { return { product: p, score: 0 }; });
+  }
+  renderQuickSaleReview(null);
+}
+
+function quickSaleResolve(i, productId) {
+  if (!productId) return;
+  quickSalePending[i].resolvedProductId = productId;
+  quickSalePending[i].status = 'confident';
+  renderQuickSaleReview(null);
+}
+
+function commitQuickSale() {
+  quickSalePending.forEach(function (line) {
+    var product = rawProducts.find(function (p) { return p.id === line.resolvedProductId; });
+    if (!product) return;
+    saleCart.push({
+      productId: product.id, name: product.data.name, qty: line.qtyGuess,
+      unitPrice: product.data.retailPrice || 0, lineTotal: (product.data.retailPrice || 0) * line.qtyGuess,
+      priceTier: 'retail', custom: false
+    });
+  });
+  log('Quick entry added ' + quickSalePending.length + ' item(s) to the sale');
+  quickSalePending = [];
+  document.getElementById('quickSaleInput').value = '';
+  document.getElementById('quickSaleReview').innerHTML = '';
+  renderSaleCart();
 }
 
 function addSaleItem() {
