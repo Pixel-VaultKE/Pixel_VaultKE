@@ -216,6 +216,10 @@ button.secondary{background:transparent;color:#29D3F5;border:1.5px solid #29D3F5
   <div class="card">
     <span class="eyebrow" style="background:#D4AF37;color:#0D0D10">Your Wins</span><h2>🏆 Today</h2>
     <div id="mySales"><p style="color:#888">Loading...</p></div>
+
+    <h2 style="font-size:0.85rem;margin-top:12px">📊 Last 7 Days</h2>
+    <div id="my7DayChart" style="margin-bottom:4px"><p style="color:#888;font-size:0.8rem">Loading...</p></div>
+
     <h2 style="font-size:0.85rem;margin-top:12px">🎉 Tips</h2>
     <p style="color:#888;font-size:0.78rem;margin:-6px 0 8px">Bonuses from the boss and tips customers left — separate from your sales.</p>
     <div id="myTipsTotal" style="color:#D4AF37;font-family:'Bebas Neue',sans-serif;font-size:1.6rem;margin-bottom:8px">KSH 0</div>
@@ -255,6 +259,18 @@ function toggleCard(id) {
 function showStockMode(mode) {
   document.getElementById('stockModeSingle').classList.toggle('hidden', mode !== 'single');
   document.getElementById('stockModeBulk').classList.toggle('hidden', mode !== 'bulk');
+}
+
+// Deterministic "personality" — same name always maps to the same emoji
+// and color. Purely derived from the name string, no new data stored
+// anywhere, so it can't ever drift out of sync with anything real.
+var PERSONA_EMOJIS = ['🦊', '🐯', '🦁', '🐨', '🐼', '🦉', '🐺', '🦅', '🐸', '🐙', '🦋', '🐝'];
+var PERSONA_COLORS = ['#FF2E63', '#C6FF3D', '#29D3F5', '#D4AF37', '#a78bfa', '#fb923c'];
+function personaFor(name) {
+  var s = (name || '?');
+  var hash = 0;
+  for (var i = 0; i < s.length; i++) { hash = (hash * 31 + s.charCodeAt(i)) >>> 0; }
+  return { emoji: PERSONA_EMOJIS[hash % PERSONA_EMOJIS.length], color: PERSONA_COLORS[hash % PERSONA_COLORS.length] };
 }
 
 var CLOUDINARY_CLOUD_NAME = 'ffksanlm';
@@ -446,16 +462,29 @@ function parseQuickSale() {
   var result = parseQuickSaleClauses(raw);
   quickSalePending = result.clauses.map(function (c) {
     var candidates = rawProducts
-      .map(function (p) { return { product: p, score: scoreMatch(c.itemText, p.data.name) }; })
+      .map(function (p) {
+        var nameScore = scoreMatch(c.itemText, p.data.name);
+        // Category match alone is weighted slightly below a direct name
+        // match, but still strong enough to surface — this is what lets
+        // "football" find every Sports-tagged design, not just one whose
+        // literal name contains the word "football".
+        var catScore = p.data.category ? scoreMatch(c.itemText, p.data.category) * 0.9 : 0;
+        return { product: p, score: Math.max(nameScore, catScore), viaCategory: catScore > nameScore };
+      })
       .filter(function (m) { return m.score > 30; })
       .sort(function (a, b) { return b.score - a.score; });
     var status;
     if (candidates.length === 0) status = 'not_found';
-    else if (candidates.length === 1 || candidates[0].score - (candidates[1] ? candidates[1].score : 0) >= 20) status = 'confident';
+    // A category match matching several products is exactly the case that
+    // should ask, not guess — even one strong hit isn't enough to auto-pick
+    // "the" football design when several exist. Only skip straight to
+    // 'confident' when the winning match came from the product's own name.
+    else if (candidates.length === 1 && !candidates[0].viaCategory) status = 'confident';
+    else if (!candidates[0].viaCategory && candidates[0].score - (candidates[1] ? candidates[1].score : 0) >= 20) status = 'confident';
     else status = 'ambiguous';
     return {
       raw: c.raw, qtyGuess: c.qtyGuess, itemText: c.itemText,
-      candidates: candidates.slice(0, 4), status: status,
+      candidates: candidates.slice(0, 8), status: status,
       resolvedProductId: status === 'confident' ? candidates[0].product.id : null
     };
   });
@@ -1082,7 +1111,9 @@ async function loadWorkerProfile(uid) {
     currentWorker = { id: uid, name: data.name || 'Worker', role: data.role };
     var hr = new Date().getHours();
     var greeting = hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening';
-    document.getElementById('workerName').textContent = greeting + ', ' + currentWorker.name + (data.role !== 'worker' ? ' (' + (data.role === 'owner' ? 'Owner' : 'Admin') + ')' : '');
+    var myPersona = personaFor(currentWorker.name);
+    document.getElementById('workerName').textContent = myPersona.emoji + ' ' + greeting + ', ' + currentWorker.name + (data.role !== 'worker' ? ' (' + (data.role === 'owner' ? 'Owner' : 'Admin') + ')' : '');
+    document.getElementById('workerName').style.color = myPersona.color;
     var dateEl = document.getElementById('workerDate');
     if (dateEl) dateEl.textContent = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
     document.getElementById('loginSection').classList.add('hidden');
@@ -1091,6 +1122,7 @@ async function loadWorkerProfile(uid) {
     loadProductCatalog();
     loadInventoryCache();
     loadMySales(uid);
+    loadMy7DayTrend(uid);
     loadMyTasks();
     loadMyTips(uid);
   } catch (e) {
@@ -1436,6 +1468,50 @@ async function loadMyTips(uid) {
   } catch (e) {
     log('Load tips error: ' + e.code + ' — ' + e.message);
     box.innerHTML = '<p style="color:#ff4444">Could not load tips</p>';
+  }
+}
+
+async function loadMy7DayTrend(uid) {
+  var box = document.getElementById('my7DayChart');
+  if (!box) return;
+  try {
+    var start = new Date(); start.setHours(0, 0, 0, 0); start.setDate(start.getDate() - 6);
+    var snap = await db.collection('sales')
+      .where('workerId', '==', uid)
+      .where('createdAt', '>=', start)
+      .get();
+    var byDay = {}; // 'YYYY-MM-DD' -> total
+    var dayKeys = [];
+    for (var i = 6; i >= 0; i--) {
+      var d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - i);
+      var key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      dayKeys.push(key);
+      byDay[key] = 0;
+    }
+    snap.forEach(function (doc) {
+      var s = doc.data();
+      if (s.archived || !s.createdAt) return;
+      var d = s.createdAt.toDate();
+      var key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      if (key in byDay) byDay[key] += (typeof s.totalAmount === 'number' ? s.totalAmount : (s.amount || 0));
+    });
+    var max = Math.max.apply(null, dayKeys.map(function (k) { return byDay[k]; }).concat([1]));
+    var html = '<div style="display:flex;align-items:flex-end;gap:6px;height:90px">';
+    dayKeys.forEach(function (key) {
+      var val = byDay[key];
+      var d = new Date(key + 'T00:00:00');
+      var pct = Math.max(3, Math.round((val / max) * 100));
+      var isToday = key === dayKeys[dayKeys.length - 1];
+      html += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%">';
+      html += '<div style="width:100%;height:' + pct + '%;background:' + (isToday ? 'linear-gradient(180deg,#C6FF3D,#8fd11f)' : '#3a3a42') + ';border-radius:4px 4px 0 0;min-height:3px" title="KSH ' + val.toLocaleString() + '"></div>';
+      html += '<div style="color:#666;font-size:0.62rem;margin-top:4px">' + d.toLocaleDateString(undefined, { weekday: 'narrow' }) + '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+    box.innerHTML = html;
+  } catch (e) {
+    log('Load 7-day trend error: ' + e.code + ' — ' + e.message);
+    box.innerHTML = '<p style="color:#ff4444;font-size:0.8rem">Could not load chart</p>';
   }
 }
 
