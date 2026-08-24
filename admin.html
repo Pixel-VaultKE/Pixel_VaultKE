@@ -121,8 +121,10 @@ tr:hover td{background:rgba(255,255,255,0.02)}
     <div id="notificationsBox"><p style="color:#888">Checking...</p></div>
   </div>
 
-  <div class="card">
-    <span class="eyebrow" style="background:#D4AF37;color:#0D0D10">Money Owed</span><h2>💳 Receivables</h2>
+  <div style="margin:20px 0 -6px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:0.5px">💰 MONEY & OPERATIONS</div>
+
+  <div class="card collapsible collapsed" id="receivablesCard">
+    <span class="eyebrow" style="background:#D4AF37;color:#0D0D10">Money Owed</span><h2 onclick="toggleCard('receivablesCard')">💳 Receivables</h2>
     <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Set a price on any order (Payment column) to start tracking what's owed.</p>
     <div id="receivablesBox"><p style="color:#888">Loading...</p></div>
   </div>
@@ -138,8 +140,8 @@ tr:hover td{background:rgba(255,255,255,0.02)}
     <div id="pendingNotesList" style="margin-top:12px"><p style="color:#888">Loading...</p></div>
   </div>
 
-  <div class="card">
-    <span class="eyebrow" style="background:#29D3F5;color:#0D0D10">Delegate</span><h2>📋 Assign Task</h2>
+  <div class="card collapsible collapsed" id="taskAssignCard">
+    <span class="eyebrow" style="background:#29D3F5;color:#0D0D10">Delegate</span><h2 onclick="toggleCard('taskAssignCard')">📋 Assign Task</h2>
     <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">"Print new stickers," "fetch delivery," "call Kamau" — type it, pick who, it shows up on their dashboard.</p>
     <select id="taskAssignTo"><option value="">Assign to...</option></select>
     <input type="text" id="taskDescription" placeholder="What needs doing">
@@ -148,8 +150,8 @@ tr:hover td{background:rgba(255,255,255,0.02)}
     <div id="tasksList" style="margin-top:12px"><p style="color:#888">Loading...</p></div>
   </div>
 
-  <div class="card">
-    <span class="eyebrow" style="background:#D4AF37;color:#0D0D10">Reward</span><h2>🎉 Send a Tip</h2>
+  <div class="card collapsible collapsed" id="tipSendCard">
+    <span class="eyebrow" style="background:#D4AF37;color:#0D0D10">Reward</span><h2 onclick="toggleCard('tipSendCard')">🎉 Send a Tip</h2>
     <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">A bonus straight to a worker's dashboard for good work — separate from the profit split, doesn't affect anyone else's cut.</p>
     <select id="tipSendTo"><option value="">Send to...</option></select>
     <input type="number" id="tipAmount" placeholder="Amount (KSH)" min="1">
@@ -195,8 +197,8 @@ tr:hover td{background:rgba(255,255,255,0.02)}
     <div id="recentClosings" style="margin-top:12px"></div>
   </div>
 
-  <div class="card" id="issueReportsCard">
-    <span class="eyebrow" style="background:#FF2E63;color:#fff">Flagged</span><h2 onclick="loadIssueReports()">🐛 Flagged Issues</h2>
+  <div class="card collapsible collapsed" id="issueReportsCard">
+    <span class="eyebrow" style="background:#FF2E63;color:#fff">Flagged</span><h2 onclick="toggleCard('issueReportsCard'); loadIssueReports()">🐛 Flagged Issues</h2>
     <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Anything anyone flagged with the 🐛 button, from anywhere in the app — resolve it here once it's actually fixed, or it stays on this list.</p>
     <div id="issueReportsList"><p style="color:#888;font-size:0.85rem">Loading...</p></div>
   </div>
@@ -258,6 +260,8 @@ tr:hover td{background:rgba(255,255,255,0.02)}
     <div id="quotesList"><p style="color:#888">Loading past quotes...</p></div>
   </div>
 
+  <div style="margin:20px 0 -6px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:0.5px">👥 TEAM</div>
+
   <div class="card collapsible collapsed" id="workersCard">
     <span class="eyebrow" style="background:#29D3F5;color:#0D0D10">Team</span><h2 onclick="toggleCard('workersCard')">Workers</h2>
     <div id="workersList"><p style="color:#888">Loading...</p></div>
@@ -284,21 +288,23 @@ tr:hover td{background:rgba(255,255,255,0.02)}
     <div id="customerHistoryBox"><p style="color:#888">Loading...</p></div>
   </div>
 
+  <div style="margin:20px 0 -6px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:0.5px">📦 STOCK & CATALOG</div>
+
   <div class="card" id="restockCard">
     <span class="eyebrow" style="background:#FF2E63;color:#fff">Low Stock</span><h2>⚠️ Restock Alerts</h2>
     <div id="restockList"><p style="color:#888">Checking stock levels...</p></div>
   </div>
 
-  <div class="card">
-    <span class="eyebrow" style="background:#FF2E63;color:#fff">Fast Restock</span><h2>📤 Bulk Import</h2>
+  <div class="card collapsible collapsed" id="bulkImportCard">
+    <span class="eyebrow" style="background:#FF2E63;color:#fff">Fast Restock</span><h2 onclick="toggleCard('bulkImportCard')">📤 Bulk Import</h2>
     <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Upload a spreadsheet and fill the shelves in one go — creates the product and its stock together. Manual add still works below if you just need one item.</p>
     <button type="button" class="secondary" onclick="downloadImportTemplate()">⬇️ Download CSV Template</button>
     <input type="file" id="bulkImportFile" accept=".csv" onchange="handleImportFile(this)" style="margin-top:10px">
     <div id="bulkImportPreview" style="margin-top:10px"></div>
   </div>
 
-  <div class="card">
-    <span class="eyebrow" style="background:#C6FF3D;color:#0D0D10">Stock</span><h2>Inventory</h2>
+  <div class="card collapsible collapsed" id="inventoryCard">
+    <span class="eyebrow" style="background:#C6FF3D;color:#0D0D10">Stock</span><h2 onclick="toggleCard('inventoryCard')">Inventory</h2>
     <div id="inventoryList"><p style="color:#888">Loading...</p></div>
     <div class="inv-row">
       <input type="text" id="invName" placeholder="Item name">
@@ -336,6 +342,8 @@ tr:hover td{background:rgba(255,255,255,0.02)}
     <div id="prodMsg"></div>
   </div>
 
+  <div style="margin:20px 0 -6px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:0.5px">🎯 CUSTOMERS & MARKETING</div>
+
   <div class="card collapsible collapsed" id="marketingSourcesCard">
     <span class="eyebrow" style="background:#29D3F5;color:#0D0D10">Where Orders Come From</span><h2 onclick="toggleCard('marketingSourcesCard')">📍 Marketing Sources</h2>
     <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Which QR code, flyer, or location is actually driving orders. Tag each printed QR with a different link (see below), then check back here.</p>
@@ -360,8 +368,8 @@ tr:hover td{background:rgba(255,255,255,0.02)}
     <div id="galleryList"><p style="color:#888">Loading...</p></div>
   </div>
 
-  <div class="card">
-    <span class="eyebrow" style="background:#D4AF37;color:#0D0D10">Money Out</span><h2>Expenses</h2>
+  <div class="card collapsible collapsed" id="expensesCard">
+    <span class="eyebrow" style="background:#D4AF37;color:#0D0D10">Money Out</span><h2 onclick="toggleCard('expensesCard')">Expenses</h2>
     <div id="expensesSummary" style="margin-bottom:12px"></div>
     <div id="expensesList"><p style="color:#888">Loading...</p></div>
     <select id="expCategory">
@@ -406,8 +414,8 @@ tr:hover td{background:rgba(255,255,255,0.02)}
     <div id="allOrders"><p style="color:#888">Loading...</p></div>
   </div>
 
-  <div class="card">
-    <span class="eyebrow" style="background:#C6FF3D;color:#0D0D10">Today</span><h2>Recent Sales</h2>
+  <div class="card collapsible collapsed" id="recentSalesCard">
+    <span class="eyebrow" style="background:#C6FF3D;color:#0D0D10">Today</span><h2 onclick="toggleCard('recentSalesCard')">Recent Sales</h2>
     <div id="paymentBreakdown" style="margin-bottom:12px"></div>
     <div class="toolbar">
       <input type="text" id="saleSearch" placeholder="Search customer or worker..." oninput="renderSales()">
@@ -4345,6 +4353,5 @@ async function updateProductionStatus(id, newStatus) {
     </div>
   </div>
 </div>
-<button id="flagIssueBtn" onclick="flagIssue()" title="Flag something that's wrong or off — takes 5 seconds" style="position:fixed;bottom:18px;right:18px;z-index:999;width:52px;height:52px;border-radius:50%;background:#FF2E63;color:#fff;border:none;font-size:1.3rem;box-shadow:0 4px 16px rgba(0,0,0,0.4);cursor:pointer">🐛</button>
 </body>
 </html>
