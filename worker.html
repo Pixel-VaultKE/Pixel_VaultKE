@@ -1112,7 +1112,8 @@ async function loadWorkerProfile(uid) {
     var hr = new Date().getHours();
     var greeting = hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening';
     var myPersona = personaFor(currentWorker.name);
-    document.getElementById('workerName').textContent = myPersona.emoji + ' ' + greeting + ', ' + currentWorker.name + (data.role !== 'worker' ? ' (' + (data.role === 'owner' ? 'Owner' : 'Admin') + ')' : '');
+    var showRoleLabel = data.role !== 'worker' && !(data.role === 'admin' && data.trialAdmin === true);
+    document.getElementById('workerName').textContent = myPersona.emoji + ' ' + greeting + ', ' + currentWorker.name + (showRoleLabel ? ' (' + (data.role === 'owner' ? 'Owner' : 'Admin') + ')' : '');
     document.getElementById('workerName').style.color = myPersona.color;
     var dateEl = document.getElementById('workerDate');
     if (dateEl) dateEl.textContent = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });

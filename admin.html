@@ -209,6 +209,12 @@ tr:hover td{background:rgba(255,255,255,0.02)}
     <div id="categoryCleanupList"><p style="color:#888;font-size:0.85rem">Tap this card to load current categories...</p></div>
   </div>
 
+  <div class="card collapsible collapsed" id="productCleanupCard">
+    <span class="eyebrow" style="background:#FF2E63;color:#fff">Catalog</span><h2 onclick="toggleCard('productCleanupCard'); loadProductCleanup()">🧹 Product Name Cleanup</h2>
+    <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Same design, typed slightly differently each time it was added — "Snoop Dog", "Snoopdog", "SnoopyDoggie" — ends up as three separate listings splitting the same stock and sales history. Flags anything that looks like the same product under different names so you can merge them into one.</p>
+    <div id="productCleanupList"><p style="color:#888;font-size:0.85rem">Tap this card to scan for duplicates...</p></div>
+  </div>
+
   <div class="card collapsible collapsed" id="loyaltyCard">
     <span class="eyebrow" style="background:#C6FF3D;color:#0D0D10">Customers</span><h2 onclick="toggleCard('loyaltyCard')">🎁 Loyalty Discount</h2>
     <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Reward repeat customers automatically at checkout on the ordering page. Only counts online orders — in-store sales aren't visible to the ordering page for privacy/security reasons, so a walk-in regular won't trigger this unless they've also ordered online.</p>
@@ -1014,6 +1020,7 @@ var ordersShowAll = false;
 var salesShowAll = false;
 var currentUserRole = null;
 var currentUserName = null;
+var leaderboardList = []; // last computed leaderboard, indexed the same as the rendered rows — lets toggleWorkerDrilldown() find a worker's transactions without recomputing
 
 // Every summary/aggregate function (Receivables, Command Center, Priority Actions,
 // Notifications, Customer History, daily totals) reads through this — never rawOrders
@@ -1307,6 +1314,11 @@ auth.onAuthStateChanged(async function (user) {
     var data = snap.data();
     if (data.role !== 'owner' && data.role !== 'admin') { log('ERROR: Not an owner/admin role'); toast('This account is not an owner or admin account', true); await auth.signOut(); return; }
     if (data.active === false || data.archived === true) { log('ERROR: Account marked inactive'); toast('This account has been deactivated. Contact the owner.', true); await auth.signOut(); return; }
+    // Trial admins are blocked the same clean way a plain worker account
+    // is — never shown a half-working dashboard where every fetch fails
+    // with a permission error, since the rules already refuse them the
+    // real data underneath this check either way.
+    if (data.role === 'admin' && data.trialAdmin === true) { log('Account not yet fully activated'); toast('This account is not an owner or admin account', true); await auth.signOut(); return; }
     currentUserRole = data.role;
     currentUserName = data.name || (data.role === 'owner' ? 'Owner' : 'Admin');
     document.getElementById('ownerName').textContent = (data.name || 'Owner') + ' — ' + (data.role === 'owner' ? 'Owner' : 'Admin');
@@ -1410,11 +1422,24 @@ function renderQuoteDraft() {
 }
 
 async function getNextQuoteNumber() {
-  var counterRef = db.collection('counters').doc('quoteCounter');
   var year = new Date().getFullYear();
+  var counterRef = db.collection('counters').doc('quoteCounter_' + year);
+  var legacyRef = db.collection('counters').doc('quoteCounter'); // pre-fix counter that never reset — read once for migration continuity, then ignored
   return db.runTransaction(async function (transaction) {
     var doc = await transaction.get(counterRef);
-    var next = (doc.exists ? (doc.data().count || 0) : 0) + 1;
+    if (doc.exists) {
+      var next = (doc.data().count || 0) + 1;
+      transaction.set(counterRef, { count: next }, { merge: true });
+      return 'Q-' + year + '-' + String(next).padStart(4, '0');
+    }
+    // Same one-time migration as getNextReceiptNumber() in customer.html —
+    // seed this year from the old combined counter once, then never again.
+    var legacyDoc = await transaction.get(legacyRef);
+    var next = 1;
+    if (legacyDoc.exists && !legacyDoc.data().migrated) {
+      next = (legacyDoc.data().count || 0) + 1;
+      transaction.set(legacyRef, { migrated: true }, { merge: true });
+    }
     transaction.set(counterRef, { count: next }, { merge: true });
     return 'Q-' + year + '-' + String(next).padStart(4, '0');
   });
@@ -2008,6 +2033,154 @@ async function loadLoyaltyConfigForm() {
 
 var categoryCleanupProducts = []; // [{id, category}] — refetched each time the card is opened, so it's always current
 
+// ---------- PRODUCT NAME CLEANUP ----------
+// Same-design-different-spelling detection ("Snoop Dog" / "Snoopdog" /
+// "SnoopyDoggie"). Unlike categories, merging products isn't just a rename
+// — each duplicate can have its OWN separate stock count, so this asks
+// which one to KEEP and consolidates stock into it rather than silently
+// picking for you. Flags candidates; a human always confirms the merge.
+var productCleanupGroups = [];
+
+function normalizeProductName(name) {
+  return (name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function levenshtein(a, b) {
+  var m = a.length, n = b.length;
+  var dp = [];
+  for (var i = 0; i <= m; i++) { dp.push([i]); }
+  for (var j = 0; j <= n; j++) { dp[0][j] = j; }
+  for (i = 1; i <= m; i++) {
+    for (j = 1; j <= n; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    }
+  }
+  return dp[m][n];
+}
+
+function nameSimilarity(a, b) {
+  var maxLen = Math.max(a.length, b.length);
+  if (maxLen === 0) return 1;
+  return 1 - (levenshtein(a, b) / maxLen);
+}
+
+async function loadProductCleanup() {
+  var box = document.getElementById('productCleanupList');
+  box.innerHTML = '<p style="color:#888;font-size:0.85rem">Scanning catalog...</p>';
+  try {
+    var snap = await db.collection('products').get();
+    var products = [];
+    snap.forEach(function (doc) {
+      var p = doc.data();
+      products.push({ id: doc.id, name: p.name || '', category: p.category || '', retailPrice: p.retailPrice || 0, linkedInventoryItemId: p.linkedInventoryItemId || null });
+    });
+
+    // Exact-after-normalizing groups first (catches "Snoop Dog" == "Snoopdog").
+    var exactGroups = {};
+    products.forEach(function (p) {
+      var key = normalizeProductName(p.name);
+      if (!key) return;
+      if (!exactGroups[key]) exactGroups[key] = [];
+      exactGroups[key].push(p);
+    });
+
+    var groups = [];
+    var grouped = {};
+    Object.keys(exactGroups).forEach(function (key) {
+      if (exactGroups[key].length > 1) {
+        groups.push(exactGroups[key]);
+        exactGroups[key].forEach(function (p) { grouped[p.id] = true; });
+      }
+    });
+
+    // Remaining singletons — fuzzy-cluster anything above a similarity
+    // threshold. Deliberately conservative (0.72) since a false-positive
+    // group is more annoying than a missed one — you can still spot a
+    // near-miss yourself, but a bad auto-suggestion erodes trust in this tool.
+    var singles = products.filter(function (p) { return !grouped[p.id] && p.name; });
+    var used = {};
+    for (var i = 0; i < singles.length; i++) {
+      if (used[singles[i].id]) continue;
+      var cluster = [singles[i]];
+      var normA = normalizeProductName(singles[i].name);
+      for (var j = i + 1; j < singles.length; j++) {
+        if (used[singles[j].id]) continue;
+        var normB = normalizeProductName(singles[j].name);
+        if (nameSimilarity(normA, normB) >= 0.72) { cluster.push(singles[j]); used[singles[j].id] = true; }
+      }
+      if (cluster.length > 1) { groups.push(cluster); used[singles[i].id] = true; }
+    }
+
+    if (groups.length === 0) { box.innerHTML = '<p class="ok">No likely duplicate product names found.</p>'; return; }
+
+    productCleanupGroups = groups;
+    var invById = {};
+    rawInventory.forEach(function (inv) { invById[inv.id] = inv.data; });
+
+    var html = '<p style="color:#888;font-size:0.8rem;margin-bottom:10px">' + groups.length + ' possible duplicate group(s) — pick which one to keep in each, the rest get merged into it.</p>';
+    groups.forEach(function (group, gi) {
+      html += '<div style="background:#232329;border-radius:8px;padding:12px;margin-bottom:10px">';
+      group.forEach(function (p, pi) {
+        var qty = p.linkedInventoryItemId && invById[p.linkedInventoryItemId] ? invById[p.linkedInventoryItemId].qty : null;
+        html += '<label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:0.85rem;cursor:pointer">';
+        html += '<input type="radio" name="cleanupKeep-' + gi + '" value="' + pi + '"' + (pi === 0 ? ' checked' : '') + ' style="width:auto">';
+        html += '<span style="flex:1">' + text(p.name) + ' <span style="color:#666">(' + text(p.category || 'no category') + ')</span></span>';
+        html += '<span style="color:#888">KSH ' + p.retailPrice + (qty !== null ? ' · qty ' + qty : ' · no stock link') + '</span>';
+        html += '</label>';
+      });
+      html += '<button class="small" style="margin-top:8px" onclick="mergeProductCleanup(' + gi + ')">Merge This Group</button>';
+      html += '<div id="productCleanupMsg-' + gi + '"></div>';
+      html += '</div>';
+    });
+    box.innerHTML = html;
+  } catch (e) {
+    box.innerHTML = '<p style="color:#f87171">Failed to scan catalog: ' + text(e.message) + '</p>';
+  }
+}
+
+async function mergeProductCleanup(gi) {
+  var group = productCleanupGroups[gi];
+  var msg = document.getElementById('productCleanupMsg-' + gi);
+  var selected = document.querySelector('input[name="cleanupKeep-' + gi + '"]:checked');
+  if (!selected) { msg.className = 'error'; msg.textContent = 'Pick which one to keep first'; return; }
+  var keepIdx = parseInt(selected.value, 10);
+  var keep = group[keepIdx];
+  var remove = group.filter(function (p, i) { return i !== keepIdx; });
+
+  if (!confirm('Keep "' + keep.name + '" and remove ' + remove.length + ' duplicate(s): ' + remove.map(function (p) { return p.name; }).join(', ') + '?\n\nAny stock on the removed ones will be added to the kept one\'s linked inventory (if it has one). This can\'t be undone automatically.')) return;
+
+  try {
+    var transferredQty = 0;
+    var untransferred = [];
+    for (var i = 0; i < remove.length; i++) {
+      var p = remove[i];
+      if (p.linkedInventoryItemId && p.linkedInventoryItemId !== keep.linkedInventoryItemId) {
+        var removedInv = rawInventory.find(function (inv) { return inv.id === p.linkedInventoryItemId; });
+        var removedQty = removedInv ? (removedInv.data.qty || 0) : 0;
+        if (keep.linkedInventoryItemId && removedQty > 0) {
+          await db.collection('inventory').doc(keep.linkedInventoryItemId).update({ qty: firebase.firestore.FieldValue.increment(removedQty) });
+          await db.collection('inventory').doc(p.linkedInventoryItemId).update({ qty: 0 });
+          var keepInvRecord = rawInventory.find(function (inv) { return inv.id === keep.linkedInventoryItemId; });
+          var qtyAfter = (keepInvRecord ? (keepInvRecord.data.qty || 0) : 0) + removedQty;
+          logMovement(keep.linkedInventoryItemId, keep.name, removedQty, qtyAfter, 'product_merge');
+          transferredQty += removedQty;
+        } else if (removedQty > 0) {
+          untransferred.push(p.name + ' (' + removedQty + ' units — kept product has no linked inventory to receive it)');
+        }
+      }
+      await db.collection('products').doc(p.id).delete();
+    }
+    logEvent('ProductsMerged', { kept: keep.name, removed: remove.map(function (p) { return p.name; }), transferredQty: transferredQty });
+    msg.className = 'ok';
+    msg.textContent = 'Merged. ' + (transferredQty > 0 ? transferredQty + ' unit(s) of stock moved into "' + keep.name + '". ' : '') + (untransferred.length ? '⚠️ Could not auto-transfer: ' + untransferred.join(', ') + ' — check inventory manually.' : '');
+    toast('Products merged');
+    await Promise.all([loadProducts(), loadInventory()]);
+  } catch (e) {
+    log('Product merge error: ' + e.code + ' — ' + e.message);
+    msg.className = 'error'; msg.textContent = 'Merge failed: ' + e.message;
+  }
+}
+
 async function loadCategoryCleanup() {
   var box = document.getElementById('categoryCleanupList');
   box.innerHTML = '<p style="color:#888;font-size:0.85rem">Loading current categories...</p>';
@@ -2236,9 +2409,18 @@ function computePriorityActions() {
   var red = [], yellow = [], green = [];
 
   // RED: any customer owing money
+  // A debt total here can be the sum of more than one open order/sale (see
+  // computeReceivablesData), so this can't jump to a single order doc —
+  // it searches Orders by the customer's phone number instead, which
+  // surfaces every one of their orders (items, total, paid, balance,
+  // status) rather than just the lumped total shown on the dashboard.
   var recv = computeReceivablesData();
   recv.owing.forEach(function (a) {
-    red.push({ text: '🔴 Collect KSH ' + a.balance.toLocaleString() + ' from ' + text(a.name), phone: a.phone, name: a.name });
+    red.push({
+      text: '🔴 Collect KSH ' + a.balance.toLocaleString() + ' from ' + text(a.name),
+      phone: a.phone, name: a.name,
+      orderIdForSearch: a.phone ? normalizePhone(a.phone) : null
+    });
   });
 
   // RED: any order untouched for 2+ days
@@ -2640,16 +2822,45 @@ function renderRestockAlerts(lowStockItems) {
 function renderLeaderboard() {
   var box = document.getElementById('leaderboardBox');
   var totals = {};
+  function getWorkerEntry(name) {
+    if (!totals[name]) totals[name] = { count: 0, revenue: 0, highest: 0, lastDate: null, transactions: [] };
+    return totals[name];
+  }
   rawSales.forEach(function (r) {
     var s = r.data;
     if (s.archived) return;
     var name = s.workerName || 'Unknown';
-    if (!totals[name]) totals[name] = { count: 0, revenue: 0, highest: 0, lastDate: null };
-    totals[name].count++;
-    totals[name].revenue += (s.amount || 0);
-    if ((s.amount || 0) > totals[name].highest) totals[name].highest = s.amount || 0;
+    var t = getWorkerEntry(name);
+    var amt = s.amount || 0;
     var d = s.createdAt ? s.createdAt.toDate() : null;
-    if (d && (!totals[name].lastDate || d > totals[name].lastDate)) totals[name].lastDate = d;
+    t.count++;
+    t.revenue += amt;
+    if (amt > t.highest) t.highest = amt;
+    if (d && (!t.lastDate || d > t.lastDate)) t.lastDate = d;
+    t.transactions.push({ type: 'Walk-in sale', amount: amt, date: d, detail: s.productName || itemsSummary(s.items) || 'Sale', ref: r.id });
+  });
+
+  // Order payments (deposits/balance collected via receivePayment()) are a
+  // second, separate source of a worker's real revenue — without this the
+  // leaderboard only sees walk-in POS sales and a worker who spends a shift
+  // collecting order balances shows KSH 0, even though sumOrderPaymentsInRange
+  // already counts this money correctly everywhere else on the dashboard.
+  realOrders().forEach(function (r) {
+    var o = r.data;
+    (o.paymentHistory || []).forEach(function (entry) {
+      var name = entry.recordedBy || 'Unknown';
+      var t = getWorkerEntry(name);
+      var amt = entry.amount || 0;
+      var d = entry.recordedAt ? new Date(entry.recordedAt) : null;
+      t.count++;
+      t.revenue += amt;
+      if (amt > t.highest) t.highest = amt;
+      if (d && (!t.lastDate || d > t.lastDate)) t.lastDate = d;
+      t.transactions.push({
+        type: 'Order payment (' + (entry.method || 'unspecified') + ')', amount: amt, date: d,
+        detail: (o.receiptNumber || 'order') + ' — ' + (o.customerName || 'Customer'), ref: o.receiptNumber || r.id
+      });
+    });
   });
 
   var expensesByWorker = {};
@@ -2661,15 +2872,19 @@ function renderLeaderboard() {
 
   var list = Object.keys(totals).map(function (name) {
     var t = totals[name];
+    t.transactions.sort(function (a, b) { return (b.date || 0) - (a.date || 0); });
     return {
       name: name, count: t.count, revenue: t.revenue, highest: t.highest,
       average: t.count > 0 ? Math.round(t.revenue / t.count) : 0,
       lastActivity: t.lastDate,
-      expensesLogged: expensesByWorker[name] || 0
+      expensesLogged: expensesByWorker[name] || 0,
+      transactions: t.transactions
     };
   }).sort(function (a, b) { return b.revenue - a.revenue; });
 
-  if (list.length === 0) { box.innerHTML = '<p style="color:#888">No sales recorded yet</p>'; return; }
+  leaderboardList = list; // stashed so toggleWorkerDrilldown() can find a worker's transactions by index without recomputing
+
+  if (list.length === 0) { box.innerHTML = '<p style="color:#888">No sales or order payments recorded yet</p>'; return; }
 
   var maxRevenue = Math.max.apply(null, list.map(function (w) { return w.revenue; }).concat([1]));
   var medals = ['🥇', '🥈', '🥉'];
@@ -2679,23 +2894,48 @@ function renderLeaderboard() {
     var persona = personaFor(w.name);
     var barPct = Math.max(4, Math.round((w.revenue / maxRevenue) * 100));
     html += '<div style="padding:10px 0;border-bottom:1px solid #222">';
-    html += '<div style="display:flex;justify-content:space-between;align-items:center">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="toggleWorkerDrilldown(' + idx + ')">';
     html += '<strong style="color:' + persona.color + '">' + medal + ' ' + persona.emoji + ' ' + text(w.name) + '</strong>';
     html += '<span style="color:#d4af37;font-weight:700">KSH ' + w.revenue.toLocaleString() + '</span>';
     html += '</div>';
     html += '<div style="background:#232329;border-radius:4px;height:6px;margin-top:6px;overflow:hidden"><div style="width:' + barPct + '%;height:100%;background:' + persona.color + '"></div></div>';
-    html += '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:6px;font-size:0.72rem;color:#888">';
-    html += '<span>' + w.count + ' sale' + (w.count === 1 ? '' : 's') + '</span>';
+    html += '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:6px;font-size:0.72rem;color:#888;cursor:pointer" onclick="toggleWorkerDrilldown(' + idx + ')">';
+    html += '<span>' + w.count + ' transaction' + (w.count === 1 ? '' : 's') + ' (tap for list)</span>';
     html += '<span>Avg: KSH ' + w.average.toLocaleString() + '</span>';
     html += '<span>High: KSH ' + w.highest.toLocaleString() + '</span>';
     if (w.expensesLogged > 0) html += '<span>Expenses: KSH ' + w.expensesLogged.toLocaleString() + '</span>';
     if (w.lastActivity) html += '<span>Last: ' + w.lastActivity.toLocaleString() + '</span>';
-    html += '</div></div>';
+    html += '</div>';
+    html += '<div id="workerDrill-' + idx + '" style="display:none;margin-top:8px;background:#0f0f0f;border-radius:6px;padding:8px"></div>';
+    html += '</div>';
   });
   box.innerHTML = html;
 
   renderProductRevenue();
   renderCustomerHistory();
+}
+
+// Expands/collapses the per-worker transaction list under their leaderboard
+// row — every number on the leaderboard (revenue, count, average, high) is
+// just a rollup of these individual sale/order-payment records, so anyone
+// can verify exactly what it's made of instead of taking the total on faith.
+function toggleWorkerDrilldown(idx) {
+  var w = leaderboardList[idx];
+  var el = document.getElementById('workerDrill-' + idx);
+  if (!w || !el) return;
+  if (el.style.display === 'block') { el.style.display = 'none'; return; }
+  if (w.transactions.length === 0) {
+    el.innerHTML = '<p style="color:#888;font-size:0.75rem">No individual transactions found.</p>';
+  } else {
+    var html = '<table style="width:100%;font-size:0.72rem">';
+    html += '<tr style="color:#666"><th style="text-align:left">Date</th><th style="text-align:left">Type</th><th style="text-align:left">Detail</th><th style="text-align:right">Amount</th></tr>';
+    w.transactions.forEach(function (tx) {
+      html += '<tr><td>' + (tx.date ? tx.date.toLocaleDateString() : '—') + '</td><td>' + text(tx.type) + '</td><td>' + text(tx.detail) + '</td><td style="text-align:right;color:#d4af37">KSH ' + tx.amount.toLocaleString() + '</td></tr>';
+    });
+    html += '</table>';
+    el.innerHTML = html;
+  }
+  el.style.display = 'block';
 }
 
 function renderProductRevenue() {
@@ -2754,8 +2994,15 @@ function renderCustomerHistory() {
     var itemLabel = (o.items && o.items.length) ? o.items.map(function (it) { return it.name; }).join(', ') : o.itemType;
     entry.orders.push({ item: itemLabel, date: d, artworkUrl: o.artworkUrl || null, artworkFilename: o.artworkFilename || null });
     if (o.customerName) entry.name = o.customerName;
-    (o.items || []).forEach(function (it) { entry.itemCounts[it.name] = (entry.itemCounts[it.name] || 0) + 1; });
-    if (!o.items && o.itemType) entry.itemCounts[o.itemType] = (entry.itemCounts[o.itemType] || 0) + 1;
+    // "Usual items" should reflect what the customer actually bought, not
+    // what they browsed and never paid for or a stale order staff later
+    // cancelled. Visit count above stays as-is (already counts every real
+    // order); this only guards the item tally used for "Most ordered".
+    var countsTowardUsualItems = o.overallStatus !== 'cancelled' && o.paymentStatus !== 'unpaid';
+    if (countsTowardUsualItems) {
+      (o.items || []).forEach(function (it) { entry.itemCounts[it.name] = (entry.itemCounts[it.name] || 0) + 1; });
+      if (!o.items && o.itemType) entry.itemCounts[o.itemType] = (entry.itemCounts[o.itemType] || 0) + 1;
+    }
     if (d && (!entry.lastVisit || d > entry.lastVisit)) entry.lastVisit = d;
   });
 
@@ -2874,7 +3121,18 @@ async function loadWorkers() {
                 ['worker', 'admin'].map(function (role) { return '<option value="' + role + '"' + (role === w.role ? ' selected' : '') + '>' + role + '</option>'; }).join('') +
               '</select> <button class="small secondary" onclick="changeWorkerRole(\'' + r.id + '\', ' + JSON.stringify(w.name || '') + ')">Save</button>'
             : text(w.role));
-      html += '<tr><td>' + text(w.name) + ' ' + dupeBadge + '</td><td>' + roleCell + '</td><td>' + status + '</td>';
+      // Trial only applies to (and only shows for) admin-role accounts —
+      // it downgrades their real permissions to worker-level via the
+      // rules, and hides any sign of the promotion from them, until this
+      // is switched off. Worker accounts don't need it; owner never does.
+      var trialCell = '';
+      if (w.role === 'admin' && currentUserRole === 'owner') {
+        var isTrial = w.trialAdmin === true;
+        trialCell = '<label style="display:flex;align-items:center;gap:5px;font-size:0.75rem;color:' + (isTrial ? '#facc15' : '#888') + ';cursor:pointer">' +
+          '<input type="checkbox" ' + (isTrial ? 'checked' : '') + ' onchange="toggleTrialAdmin(\'' + r.id + '\', ' + JSON.stringify(w.name || '') + ', this.checked)" style="margin:0"> ' +
+          (isTrial ? 'On trial — worker-level access only' : 'Full admin access') + '</label>';
+      }
+      html += '<tr><td>' + text(w.name) + ' ' + dupeBadge + '</td><td>' + roleCell + (trialCell ? '<br>' + trialCell : '') + '</td><td>' + status + '</td>';
       html += '<td>' + (currentUserRole === 'owner' ? '<button class="small danger" onclick="archiveWorker(\'' + r.id + '\',\'' + (w.name || '').replace(/'/g, "\\'") + '\')">Archive</button> <button class="small danger" onclick="deleteWorker(\'' + r.id + '\',\'' + (w.name || '').replace(/'/g, "\\'") + '\')">Delete</button>' : '') + '</td></tr>';
     });
     html += '</table>';
@@ -2899,6 +3157,25 @@ function toggleArchivedWorkers() {
   } else {
     box.innerHTML = '';
   }
+}
+
+function toggleTrialAdmin(id, name, checked) {
+  var message = checked
+    ? name + ' will keep the "admin" label internally, but their real access stays at worker level — no admin dashboard, no financial data, no destructive actions. They won\'t see any sign of the change.\n\nTurn trial ON for ' + name + '?'
+    : name + ' will get full, real admin access immediately — money, profit, inventory, worker management.\n\nTurn trial OFF (fully activate) for ' + name + '?';
+  showInlineDialog(message, false, async function () {
+    try {
+      await db.collection('workers').doc(id).update({ trialAdmin: checked });
+      logEvent('TrialAdminToggled', { workerId: id, name: name, trialAdmin: checked });
+      log((checked ? 'Trial enabled' : 'Trial ended — full access granted') + ' for ' + name);
+      toast(checked ? name + ' is on trial — worker-level access only' : name + ' now has full admin access');
+      loadWorkers();
+    } catch (e) {
+      log('Toggle trial error: ' + (e.code || 'no-code') + ' — ' + e.message);
+      toast('Could not update trial status: ' + (e.code || e.message), true);
+      loadWorkers(); // re-render to reset the checkbox if the write failed
+    }
+  });
 }
 
 function changeWorkerRole(id, name) {

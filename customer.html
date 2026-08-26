@@ -96,8 +96,14 @@ button.small{width:auto;padding:8px 14px;font-size:0.85rem}
 <h1>👑 ELITE CUSTOMS</h1>
 <p class="sub">From Cars to Consoles — We Customize It All</p>
 
+<div class="card">
+  <span class="eyebrow" style="background:var(--volt);color:#0D0D10">What We Customize</span><h2>🔥 We Customize It All</h2>
+  <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Tap a service to message us directly — we'll quote you.</p>
+  <div id="featuredServices" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px"></div>
+</div>
+
 <div class="card" id="galleryCard" style="border-color:rgba(255,46,99,0.4);box-shadow:0 0 30px rgba(255,46,99,0.15),0 0 60px rgba(41,211,245,0.08)">
-  <span class="eyebrow" style="background:var(--hot)">Real Work, Real Photos</span><h2>📸 Our Work</h2>
+  <span class="eyebrow" style="background:var(--hot)">Real Work, Real Photos</span><h2>📸 Proof We Actually Do This</h2>
   <div id="galleryGrid"><p style="color:#888">Loading...</p></div>
 </div>
 
@@ -121,16 +127,15 @@ button.small{width:auto;padding:8px 14px;font-size:0.85rem}
 </div>
 
 <div class="card">
-  <span class="eyebrow" style="background:var(--sky);color:#0D0D10">The Story</span><h2>About Elite Customs</h2>
-  <p style="color:#ddd;font-size:0.9rem;line-height:1.6;margin-bottom:10px">Elite Customs is a customization and branding business focused on helping people make their vehicles, devices, businesses, and personal items stand out.</p>
-  <p style="color:#ddd;font-size:0.9rem;line-height:1.6;margin-bottom:10px">From stickers and window tinting to bike customization, laptop skins, fridge branding, gaming designs, and business branding, we turn ideas into finished custom work.</p>
-  <p style="color:#ddd;font-size:0.9rem;line-height:1.6">Every project is unique because every customer has their own style. Our goal is simple: quality work, clear communication, and results you'll be proud to show off.</p>
+  <span class="eyebrow" style="background:var(--gold);color:#0D0D10">Shop</span><h2>Sticker & Print Catalog</h2>
+  <input type="text" id="catalogSearch" placeholder="🔍 Search by name (e.g. 'Naruto')" oninput="filterCatalog(this.value)" style="margin-bottom:12px">
+  <div id="catalogList"><p style="color:#888">Loading catalog...</p></div>
 </div>
 
-<div class="card">
-  <span class="eyebrow" style="background:var(--volt);color:#0D0D10">Services</span><h2>We Customize</h2>
-  <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Tap a service to message us directly — we'll quote you.</p>
-  <div id="featuredServices" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px"></div>
+<div class="card" style="border-color:rgba(255,46,99,0.5);box-shadow:0 0 24px rgba(255,46,99,0.12)">
+  <span class="eyebrow" style="background:var(--hot)">Custom Job</span><h2>💡 Have Your Own Idea?</h2>
+  <p style="color:#ccc;font-size:0.9rem;margin-bottom:10px">Don't see it in the shop above? Send us your artwork and we'll quote you — this is most of what we actually do.</p>
+  <a href="https://wa.me/254722912595?text=Hi%20Elite%20Customs%2C%20I%27d%20like%20to%20send%20my%20design" style="display:block;text-align:center;padding:12px;border-radius:8px;background:#25D366;color:#000;font-weight:bold;text-decoration:none">📎 Send Artwork on WhatsApp</a>
 </div>
 
 <div class="card">
@@ -145,15 +150,8 @@ button.small{width:auto;padding:8px 14px;font-size:0.85rem}
 </div>
 
 <div class="card">
-  <span class="eyebrow" style="background:var(--gold);color:#0D0D10">Shop</span><h2>Sticker & Print Catalog</h2>
-  <input type="text" id="catalogSearch" placeholder="🔍 Search by name (e.g. 'Naruto')" oninput="filterCatalog(this.value)" style="margin-bottom:12px">
-  <div id="catalogList"><p style="color:#888">Loading catalog...</p></div>
-</div>
-
-<div class="card">
-  <span class="eyebrow" style="background:var(--hot)">Custom Job</span><h2>Have your own design?</h2>
-  <p style="color:#ccc;font-size:0.9rem;margin-bottom:10px">Send us your artwork directly on WhatsApp and we'll quote you.</p>
-  <a href="https://wa.me/254722912595?text=Hi%20Elite%20Customs%2C%20I%27d%20like%20to%20send%20my%20design" style="display:block;text-align:center;padding:12px;border-radius:8px;background:#25D366;color:#000;font-weight:bold;text-decoration:none">📎 Send Artwork on WhatsApp</a>
+  <span class="eyebrow" style="background:var(--sky);color:#0D0D10">The Story</span><h2>About Elite Customs</h2>
+  <p style="color:#ddd;font-size:0.9rem;line-height:1.6">Custom work on anything — vehicles, devices, business branding, prints, gaming designs. If you can picture it, we can put it on.</p>
 </div>
 
 <div class="card">
@@ -238,7 +236,7 @@ button.small{width:auto;padding:8px 14px;font-size:0.85rem}
     <span style="color:#888;font-size:0.75rem;display:block">PAY 60% DEPOSIT OR FULL AMOUNT — TILL NUMBER</span>
     <strong style="color:var(--gold);font-size:1.4rem;letter-spacing:1px">4090756</strong>
   </p>
-  <p style="color:#ccc;line-height:1.6">You can check your order status anytime at <strong>pixel-vault-ke.vercel.app/track.html</strong> using your phone number or the order ID below.</p>
+  <p style="color:#ccc;line-height:1.6">You can check your order status anytime at <strong>elite-customs-web.vercel.app/track.html</strong> using your phone number or the order ID below.</p>
   <p id="lastOrderId" style="color:var(--volt);font-weight:600"></p>
   <button onclick="resetForm()" class="secondary">Place Another Order</button>
 </div>
@@ -468,14 +466,12 @@ async function loadPublicReviews() {
 function renderFeaturedServices() {
   var accents = ['var(--hot)', 'var(--sky)', 'var(--volt)', 'var(--gold)'];
   var services = [
-    { icon: '🚗', label: 'Vehicle Customization' },
-    { icon: '🏍️', label: 'Bike Customization' },
-    { icon: '🪟', label: 'Window Tinting' },
-    { icon: '🏪', label: 'Shop & Office Branding' },
-    { icon: '💻', label: 'Laptop Customization' },
-    { icon: '🧊', label: 'Fridge Branding' },
-    { icon: '🎮', label: 'Anime & Gaming Designs' },
-    { icon: '💼', label: 'Business Branding' }
+    { icon: '🚗', label: 'Vehicles' },
+    { icon: '🏍️', label: 'Bikes' },
+    { icon: '💻', label: 'Devices' },
+    { icon: '🏪', label: 'Business Branding' },
+    { icon: '🎨', label: 'Prints & Wall Art' },
+    { icon: '🎮', label: 'Anime / Gaming' }
   ];
   var box = document.getElementById('featuredServices');
   box.innerHTML = services.map(function (s, i) {
@@ -487,28 +483,55 @@ function renderFeaturedServices() {
   }).join('');
 }
 
+var expandedCategory = null;
+
 function renderCatalogGrid(searchTerm) {
   var box = document.getElementById('catalogList');
   var term = (searchTerm || '').trim().toLowerCase();
-  var html = '<p style="color:var(--muted);font-size:0.78rem;margin:-6px 0 12px">Tap a photo to add it to your order — 1 unit at a time, adjust below.</p>';
-  var anyMatch = false;
 
-  catalogCategoryOrder.forEach(function (cat) {
-    var items = catalogByCategory[cat].filter(function (item) {
-      return !term || item.name.toLowerCase().indexOf(term) !== -1;
+  if (term) {
+    // SEARCH MODE — this is the actual "picker" experience: type what you
+    // want, see it, tap it. Flat across every category, no browsing
+    // required, no wondering which bucket a design lives in.
+    var matches = [];
+    catalogCategoryOrder.forEach(function (cat) {
+      catalogByCategory[cat].forEach(function (item) {
+        if (item.name.toLowerCase().indexOf(term) !== -1) matches.push(item);
+      });
     });
-    if (items.length === 0) return;
-    anyMatch = true;
-    html += '<div style="margin-bottom:18px">';
-    html += '<div style="font-family:\'Bebas Neue\',sans-serif;letter-spacing:0.5px;color:var(--muted);font-size:0.95rem;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid var(--line)">' + cat + '</div>';
-    html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">' + items.map(function (i) { return i.html; }).join('') + '</div>';
+    if (matches.length === 0) {
+      box.innerHTML = '<p style="color:var(--muted);text-align:center;padding:16px 0">No stickers match "' + text(searchTerm) + '" — try a different word, or send us a WhatsApp message and we\'ll check.</p>';
+      return;
+    }
+    box.innerHTML = '<p style="color:var(--muted);font-size:0.78rem;margin:-6px 0 12px">' + matches.length + ' match' + (matches.length === 1 ? '' : 'es') + ' — tap to add.</p>' +
+      '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">' + matches.map(function (i) { return i.html; }).join('') + '</div>';
+    return;
+  }
+
+  // BROWSE MODE (nothing searched yet) — collapsed category buckets, not
+  // a wall of every product at once. Tap a bucket to open just that one.
+  var html = '<p style="color:var(--muted);font-size:0.78rem;margin:-6px 0 12px">Know what you want? Search above ☝️ — or tap a category to browse.</p>';
+  html += '<div style="display:flex;flex-direction:column;gap:8px">';
+  catalogCategoryOrder.forEach(function (cat) {
+    var items = catalogByCategory[cat];
+    var isOpen = expandedCategory === cat;
+    html += '<div style="background:var(--surface2);border-radius:var(--radius-sm);overflow:hidden">';
+    html += '<div onclick="toggleCatalogCategory(' + JSON.stringify(cat) + ')" style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;cursor:pointer">';
+    html += '<span style="font-family:\'Bebas Neue\',sans-serif;letter-spacing:0.5px;font-size:1rem">' + text(cat) + '</span>';
+    html += '<span style="color:var(--muted);font-size:0.78rem">' + items.length + ' design' + (items.length === 1 ? '' : 's') + ' ' + (isOpen ? '▾' : '▸') + '</span>';
+    html += '</div>';
+    if (isOpen) {
+      html += '<div style="padding:0 10px 10px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px">' + items.map(function (i) { return i.html; }).join('') + '</div>';
+    }
     html += '</div>';
   });
-
-  if (!anyMatch) {
-    html += '<p style="color:var(--muted);text-align:center;padding:16px 0">No stickers match "' + text(searchTerm) + '" — try a different word, or send us a WhatsApp message and we\'ll check.</p>';
-  }
+  html += '</div>';
   box.innerHTML = html;
+}
+
+function toggleCatalogCategory(cat) {
+  expandedCategory = (expandedCategory === cat) ? null : cat;
+  renderCatalogGrid(document.getElementById('catalogSearch').value);
 }
 
 function filterCatalog(searchTerm) {
@@ -516,6 +539,7 @@ function filterCatalog(searchTerm) {
 }
 
 var rawCatalogProductDocs = []; // fetched once — products rarely change mid-session
+var inventoryUnsubscribe = null;
 
 async function loadCatalog() {
   var box = document.getElementById('catalogList');
@@ -526,19 +550,17 @@ async function loadCatalog() {
     rawCatalogProductDocs = [];
     productSnap.forEach(function (doc) { rawCatalogProductDocs.push({ id: doc.id, data: doc.data() }); });
 
-    // ONE-TIME fetch, not a live listener. A live onSnapshot() here keeps a
-    // persistent connection per visitor and re-reads on every single
-    // inventory change (any sale, restock, or +1/-1 tap, for every open
-    // tab) — on the free Firestore tier that adds up fast and was a real
-    // contributor to hitting the daily quota. Reverted until the project's
-    // on a paid plan. Trade-off: stock shown here is accurate as of page
-    // load / last catalog reload, not truly live across open tabs — the
-    // payment-time reservation (in admin.html) is what actually prevents
-    // overselling either way, so this is a display staleness cost only.
-    var inventorySnap = await db.collection('inventory').get();
-    var inventoryById = {};
-    inventorySnap.forEach(function (doc) { inventoryById[doc.id] = doc.data(); });
-    renderCatalogFromProductsAndInventory(inventoryById);
+    // Live inventory listener — stock changes (someone else buying the last
+    // copy, staff restocking, another browser tab placing an order) now
+    // reflect here automatically, without needing a page reload.
+    if (inventoryUnsubscribe) inventoryUnsubscribe();
+    inventoryUnsubscribe = db.collection('inventory').onSnapshot(function (inventorySnap) {
+      var inventoryById = {};
+      inventorySnap.forEach(function (doc) { inventoryById[doc.id] = doc.data(); });
+      renderCatalogFromProductsAndInventory(inventoryById);
+    }, function (e) {
+      log('Inventory live-sync error: ' + e.code + ' — ' + e.message);
+    });
   } catch (e) {
     log('Catalog load error: ' + e.code + ' — ' + e.message);
     box.innerHTML = '<p style="color:#888">Catalog unavailable right now — contact us directly for pricing.</p>';
@@ -745,18 +767,9 @@ async function loadLoyaltyConfig() {
   }
 }
 
-var lastLoyaltyCheckedPhone = null; // avoids re-querying orders on every blur if the phone hasn't actually changed
-
 async function checkLoyaltyStatus() {
   var phone = document.getElementById('cPhone').value.trim();
-  var phoneKeyNow = normalizePhone(phone);
   var banner = document.getElementById('loyaltyBanner');
-
-  // Skip the Firestore query entirely if we already checked this exact
-  // number — tabbing in and out of the field, or re-triggering the
-  // pre-submit re-check, shouldn't cost another read every time.
-  if (phoneKeyNow.length >= 9 && phoneKeyNow === lastLoyaltyCheckedPhone) return;
-
   loyaltyEligible = false;
   loyaltyDiscountPercent = 0;
 
@@ -771,7 +784,6 @@ async function checkLoyaltyStatus() {
   try {
     var snap = await db.collection('orders').where('phoneKey', '==', phoneKey).get();
     loyaltyVisitCount = snap.size;
-    lastLoyaltyCheckedPhone = phoneKeyNow;
     if (loyaltyVisitCount >= threshold) {
       loyaltyEligible = true;
       loyaltyDiscountPercent = loyaltyConfig.discountPercent || 0;
@@ -847,11 +859,27 @@ function setTip(amount, fromCustomInput) {
 // 254722912595 all resolve to the same key)
 
 async function getNextReceiptNumber() {
-  var counterRef = db.collection('counters').doc('orderCounter');
   var year = new Date().getFullYear();
+  var counterRef = db.collection('counters').doc('orderCounter_' + year);
+  var legacyRef = db.collection('counters').doc('orderCounter'); // pre-fix counter that never reset — read once for migration continuity, then ignored
   return db.runTransaction(async function (transaction) {
     var doc = await transaction.get(counterRef);
-    var next = (doc.exists ? (doc.data().count || 0) : 0) + 1;
+    if (doc.exists) {
+      var next = (doc.data().count || 0) + 1;
+      transaction.set(counterRef, { count: next }, { merge: true });
+      return 'EC-' + year + '-' + String(next).padStart(5, '0');
+    }
+    // First order of this year under the per-year scheme. Check the old
+    // combined counter once so we don't collide with numbers already
+    // issued this year before this fix shipped. Mark it migrated so it's
+    // never consulted again (otherwise every future January would wrongly
+    // re-seed from it instead of starting at 1).
+    var legacyDoc = await transaction.get(legacyRef);
+    var next = 1;
+    if (legacyDoc.exists && !legacyDoc.data().migrated) {
+      next = (legacyDoc.data().count || 0) + 1;
+      transaction.set(legacyRef, { migrated: true }, { merge: true });
+    }
     transaction.set(counterRef, { count: next }, { merge: true });
     return 'EC-' + year + '-' + String(next).padStart(5, '0');
   });
@@ -960,7 +988,7 @@ async function submitOrder(){
 function showReferralCard(phoneKey) {
   var card = document.getElementById('referralCard');
   if (!phoneKey || phoneKey.length < 5) { card.classList.add('hidden'); return; }
-  var link = 'https://pixel-vault-ke.vercel.app/customer.html?source=' + encodeURIComponent('ref-' + phoneKey);
+  var link = 'https://elite-customs-web.vercel.app/customer.html?source=' + encodeURIComponent('ref-' + phoneKey);
   var waText = 'Hey! I just ordered custom work from Elite Customs (RNG Plaza, Nairobi) and thought you\'d like them too 🔥 Order here: ' + link;
   document.getElementById('referralWaBtn').href = 'https://wa.me/?text=' + encodeURIComponent(waText);
   card.classList.remove('hidden');
@@ -989,6 +1017,7 @@ function resetForm(){
   document.getElementById('artworkStatus').textContent = '';
   document.getElementById('orderForm').classList.remove('hidden');
   document.getElementById('successView').classList.add('hidden');
+  loadCatalog();
   document.getElementById('referralCard').classList.add('hidden');
 }
 </script>
