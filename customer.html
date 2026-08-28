@@ -512,12 +512,11 @@ function renderCatalogGrid(searchTerm) {
   // a wall of every product at once. Tap a bucket to open just that one.
   var html = '<p style="color:var(--muted);font-size:0.78rem;margin:-6px 0 12px">Know what you want? Search above ☝️ — or tap a category to browse.</p>';
   html += '<div style="display:flex;flex-direction:column;gap:8px">';
-  catalogCategoryOrder.forEach(function (cat) {
+  catalogCategoryOrder.forEach(function (cat, catIndex) {
     var items = catalogByCategory[cat];
     var isOpen = expandedCategory === cat;
     html += '<div style="background:var(--surface2);border-radius:var(--radius-sm);overflow:hidden">';
-    var catAttr = cat.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-    html += '<div onclick="toggleCatalogCategory(\'' + catAttr + '\')" style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;cursor:pointer">';
+    html += '<div onclick="toggleCatalogCategory(' + catIndex + ')" style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;cursor:pointer">';
     html += '<span style="font-family:\'Bebas Neue\',sans-serif;letter-spacing:0.5px;font-size:1rem">' + text(cat) + '</span>';
     html += '<span style="color:var(--muted);font-size:0.78rem">' + items.length + ' design' + (items.length === 1 ? '' : 's') + ' ' + (isOpen ? '▾' : '▸') + '</span>';
     html += '</div>';
@@ -530,7 +529,9 @@ function renderCatalogGrid(searchTerm) {
   box.innerHTML = html;
 }
 
-function toggleCatalogCategory(cat) {
+function toggleCatalogCategory(catIndex) {
+  var cat = catalogCategoryOrder[catIndex];
+  if (cat === undefined) return;
   expandedCategory = (expandedCategory === cat) ? null : cat;
   renderCatalogGrid(document.getElementById('catalogSearch').value);
 }
