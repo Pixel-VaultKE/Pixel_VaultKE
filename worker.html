@@ -95,6 +95,12 @@ button.secondary{background:transparent;color:#29D3F5;border:1.5px solid #29D3F5
     <button type="button" onclick="parseQuickSale()" style="margin-bottom:14px">Understand Sale</button>
     <div id="quickSaleReview" style="margin-bottom:10px"></div>
 
+    <div class="card" style="background:#18181c;border-color:#2a2a30;padding:12px;margin-bottom:12px">
+      <h2 style="font-size:0.85rem;margin-bottom:8px">📸 Tap what the client picked</h2>
+      <input type="text" id="salePictureSearch" placeholder="Search design name..." oninput="renderSalePicturePicker(this.value)" style="margin-bottom:10px">
+      <div id="salePictureGrid"><p style="color:#666;font-size:0.8rem">Loading catalog...</p></div>
+    </div>
+
     <div class="card collapsible collapsed" id="manualAddCard" style="background:#18181c;border-color:#2a2a30;padding:12px;margin-bottom:12px">
       <h2 onclick="toggleCard('manualAddCard')" style="font-size:0.85rem;margin-bottom:8px">+ Add item manually instead</h2>
       <select id="sProduct" onchange="onSaleItemInputChange()">
@@ -197,6 +203,7 @@ button.secondary{background:transparent;color:#29D3F5;border:1.5px solid #29D3F5
       <input type="text" id="wProdCategory" placeholder="Category (e.g. Anime)">
       <input type="number" id="wProdRetail" placeholder="Retail price (KSH)" min="0">
       <input type="number" id="wProdWholesale" placeholder="Wholesale price (KSH, optional)" min="0">
+      <input type="number" id="wProdWholesaleMin" placeholder="Min qty for wholesale price (e.g. 12)" min="2">
       <label style="color:#888;font-size:0.8rem;display:block;margin-bottom:4px">Product photo (optional)</label>
       <input type="file" id="wProdImageFile" accept="image/*" onchange="uploadProductPhoto(this, 'wProdImageUrl')" style="margin-bottom:2px">
       <p id="wProdImageUrlStatus" style="font-size:0.75rem;color:#888;margin:0 0 8px"></p>
@@ -332,11 +339,31 @@ function populateWorkerInventoryLinkSelect() {
   sel.innerHTML = opts;
 }
 
+// Same rule as admin's product form — a wholesale price with no minimum
+// quantity (or vice versa) doesn't just make the catalog messy, it's a
+// real pricing hole: onSaleItemInputChange() only enforces the minimum
+// qty when wholesaleMinQty > 0, so a price saved without one lets anyone
+// pick "wholesale" at any quantity, undercutting retail for no reason.
+function validateBulkPricing(retailPrice, wholesalePrice, wholesaleMinQty) {
+  if (wholesalePrice <= 0 && wholesaleMinQty <= 0) return null;
+  if (wholesalePrice <= 0 || wholesaleMinQty <= 0) {
+    return 'Bulk pricing needs both a wholesale price and a minimum quantity — only one is set';
+  }
+  if (wholesaleMinQty < 2) {
+    return 'Bulk minimum quantity should be at least 2 — otherwise it isn\'t really "bulk"';
+  }
+  if (wholesalePrice >= retailPrice) {
+    return 'Bulk price (KSH ' + wholesalePrice + ') should be lower than retail (KSH ' + retailPrice + ')';
+  }
+  return null;
+}
+
 async function wAddProduct() {
   var name = document.getElementById('wProdName').value.trim();
   var category = document.getElementById('wProdCategory').value.trim();
   var retailPrice = parseFloat(document.getElementById('wProdRetail').value) || 0;
   var wholesalePrice = parseFloat(document.getElementById('wProdWholesale').value) || 0;
+  var wholesaleMinQty = parseInt(document.getElementById('wProdWholesaleMin').value) || 0;
   var linkedInventoryItemId = document.getElementById('wProdInventoryLink').value;
   var imageUrl = document.getElementById('wProdImageUrl').value.trim();
   var msg = document.getElementById('wProdMsg');
@@ -345,17 +372,19 @@ async function wAddProduct() {
   if (retailPrice <= 0) { msg.className = 'error'; msg.textContent = 'Enter a retail price above 0'; return; }
   var duplicate = rawProducts.some(function (p) { return (p.data.name || '').trim().toLowerCase() === name.toLowerCase(); });
   if (duplicate) { msg.className = 'error'; msg.textContent = '⚠️ A product with this name already exists — the boss can update its price, but a new one won\'t be created'; return; }
+  var bulkError = validateBulkPricing(retailPrice, wholesalePrice, wholesaleMinQty);
+  if (bulkError) { msg.className = 'error'; msg.textContent = bulkError; return; }
 
   try {
     await db.collection('products').add({
       name: name, category: category, retailPrice: retailPrice, wholesalePrice: wholesalePrice, costPrice: 0,
-      wholesaleMinQty: 0, linkedInventoryItemId: linkedInventoryItemId || null, unitsPerSale: 1,
+      wholesaleMinQty: wholesaleMinQty, linkedInventoryItemId: linkedInventoryItemId || null, unitsPerSale: 1,
       imageUrl: imageUrl || null, videoUrl: null,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
     logEvent('ProductAdded', { name: name, retailPrice: retailPrice, addedBy: currentWorker ? currentWorker.name : 'worker' });
     log('Product added: ' + name);
-    ['wProdName', 'wProdCategory', 'wProdRetail', 'wProdWholesale', 'wProdImageUrl'].forEach(function (id) { document.getElementById(id).value = ''; });
+    ['wProdName', 'wProdCategory', 'wProdRetail', 'wProdWholesale', 'wProdWholesaleMin', 'wProdImageUrl'].forEach(function (id) { document.getElementById(id).value = ''; });
     document.getElementById('wProdImageUrlStatus').textContent = '';
     msg.className = 'ok'; msg.textContent = 'Added — it\'ll show up in the catalog right away';
     loadProductCatalog();
@@ -371,6 +400,13 @@ async function loadInventoryCache() {
     rawInventory = [];
     snap.forEach(function (doc) { rawInventory.push({ id: doc.id, data: doc.data() }); });
     populateWorkerInventoryLinkSelect();
+    // Inventory and the product catalog load in parallel on startup, so the
+    // picture picker's first render can happen before stock counts arrive —
+    // re-render here so out-of-stock items get greyed out correctly as soon
+    // as both are in, instead of only after the next tap or search keystroke.
+    if (document.getElementById('salePictureGrid')) {
+      renderSalePicturePicker(document.getElementById('salePictureSearch').value);
+    }
   } catch (e) {
     log('Inventory cache load error: ' + e.code + ' — ' + e.message);
   }
@@ -386,8 +422,105 @@ async function loadProductCatalog() {
     rawProducts.forEach(function (p) {
       select.innerHTML += '<option value="' + p.id + '">' + text(p.data.name) + '</option>';
     });
+    renderSalePicturePicker('');
   } catch (e) {
     log('Product catalog load error: ' + e.code + ' — ' + e.message);
+  }
+}
+
+var expandedSaleCategory = null;
+
+// Tap-a-picture sale entry — mirrors the customer catalog's browse/search
+// tiles so a worker can just tap what the client points at instead of
+// typing or hunting a dropdown. Adds straight into the same saleCart used
+// by addSaleItem()/addCustomSaleItem(), so everything downstream (totals,
+// balance, recordSale) works exactly as it already does.
+function renderSalePicturePicker(searchTerm) {
+  var box = document.getElementById('salePictureGrid');
+  if (!box) return;
+  var term = (searchTerm || '').trim().toLowerCase();
+  var inventoryById = {};
+  rawInventory.forEach(function (inv) { inventoryById[inv.id] = inv.data; });
+
+  function tileFor(p) {
+    var inv = p.data.linkedInventoryItemId ? inventoryById[p.data.linkedInventoryItemId] : null;
+    var stockQty = (inv && typeof inv.qty === 'number') ? inv.qty : null;
+    var outOfStock = stockQty === 0;
+    var imgHtml = p.data.imageUrl
+      ? '<img src="' + p.data.imageUrl + '" alt="' + text(p.data.name) + '" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px 6px 0 0" loading="lazy" onerror="this.style.display=\'none\'">'
+      : '<div style="width:100%;aspect-ratio:1;background:#232329;display:flex;align-items:center;justify-content:center;font-size:1.6rem;border-radius:6px 6px 0 0">🏷️</div>';
+    var html = '<div class="peel" id="saleTile-' + p.id + '" onclick="' + (outOfStock ? '' : 'addToSaleCartByPicture(\'' + p.id.replace(/'/g, "\\'") + '\')') + '" style="position:relative;background:#232329;border-radius:6px;overflow:hidden;cursor:' + (outOfStock ? 'default' : 'pointer') + ';opacity:' + (outOfStock ? '0.5' : '1') + '">';
+    html += imgHtml;
+    html += '<div style="padding:5px 6px 6px">';
+    html += '<div style="font-size:0.68rem;line-height:1.2;min-height:1.6em">' + text(p.data.name) + '</div>';
+    html += '<div style="color:#d4af37;font-weight:700;font-size:0.78rem">KSH ' + (p.data.retailPrice || 0).toLocaleString() + '</div>';
+    if (outOfStock) html += '<div style="color:#f87171;font-size:0.6rem">Out of stock</div>';
+    html += '</div></div>';
+    return html;
+  }
+
+  if (term) {
+    var matches = rawProducts.filter(function (p) { return (p.data.name || '').toLowerCase().indexOf(term) !== -1; });
+    if (matches.length === 0) {
+      box.innerHTML = '<p style="color:#666;font-size:0.8rem">No matches for "' + text(searchTerm) + '"</p>';
+      return;
+    }
+    box.innerHTML = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">' + matches.map(tileFor).join('') + '</div>';
+    return;
+  }
+
+  var byCategory = {};
+  var order = [];
+  rawProducts.forEach(function (p) {
+    var cat = p.data.category || 'Other';
+    if (!byCategory[cat]) { byCategory[cat] = []; order.push(cat); }
+    byCategory[cat].push(p);
+  });
+  order.sort();
+  var html = '';
+  order.forEach(function (cat) {
+    var isOpen = expandedSaleCategory === cat;
+    html += '<div style="background:#1f1f24;border-radius:6px;overflow:hidden;margin-bottom:6px">';
+    html += '<div onclick="toggleSaleCategory(\'' + cat.replace(/'/g, "\\'") + '\')" style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;cursor:pointer">';
+    html += '<span style="font-size:0.85rem">' + text(cat) + '</span>';
+    html += '<span style="color:#888;font-size:0.72rem">' + byCategory[cat].length + ' ' + (isOpen ? '▾' : '▸') + '</span>';
+    html += '</div>';
+    if (isOpen) {
+      html += '<div style="padding:0 8px 8px;display:grid;grid-template-columns:repeat(3,1fr);gap:6px">' + byCategory[cat].map(tileFor).join('') + '</div>';
+    }
+    html += '</div>';
+  });
+  box.innerHTML = html || '<p style="color:#666;font-size:0.8rem">No products in catalog yet</p>';
+}
+
+function toggleSaleCategory(cat) {
+  expandedSaleCategory = (expandedSaleCategory === cat) ? null : cat;
+  renderSalePicturePicker(document.getElementById('salePictureSearch').value);
+}
+
+function addToSaleCartByPicture(productId) {
+  var product = rawProducts.find(function (p) { return p.id === productId; });
+  if (!product) return;
+  var unitPrice = product.data.retailPrice || 0;
+  saleCart.push({
+    productId: product.id,
+    name: product.data.name,
+    qty: 1,
+    unitPrice: unitPrice,
+    lineTotal: unitPrice,
+    priceTier: 'retail',
+    custom: false
+  });
+  renderSaleCart();
+  log('Tapped to add to sale: ' + product.data.name);
+
+  var tile = document.getElementById('saleTile-' + productId);
+  if (tile) {
+    var flash = document.createElement('div');
+    flash.textContent = '✓ Added';
+    flash.style.cssText = 'position:absolute;inset:0;background:rgba(198,255,61,0.92);color:#0D0D10;font-weight:800;font-size:0.75rem;display:flex;align-items:center;justify-content:center;border-radius:6px;pointer-events:none';
+    tile.appendChild(flash);
+    setTimeout(function () { if (flash.parentNode) flash.parentNode.removeChild(flash); }, 450);
   }
 }
 
@@ -1204,13 +1337,26 @@ function handleImportFile(input) {
       if (!name) { continue; }
       if (isNaN(retail) || retail <= 0) { errors.push('Row ' + (r + 1) + ' (' + name + '): invalid retail price'); continue; }
       if (isNaN(qty) || qty < 0) { errors.push('Row ' + (r + 1) + ' (' + name + '): invalid stock qty'); continue; }
+      var rowWholesale = idx.wholesale > -1 ? (parseFloat(cells[idx.wholesale]) || 0) : 0;
+      var rowWholesaleMin = idx.wholesaleMin > -1 ? (parseInt(cells[idx.wholesaleMin], 10) || 0) : 0;
+      // Same rule as the manual add-product form: a wholesale price with no
+      // minimum qty (or vice versa) is a broken threshold, not just messy
+      // data — it either silently disables the bulk price or lets it apply
+      // at any quantity. Rather than reject the whole row over a pricing
+      // column, import the item with retail pricing only and say so, so
+      // nothing goes in half-configured without a visible warning.
+      var bulkIssue = validateBulkPricing(retail, rowWholesale, rowWholesaleMin);
+      if (bulkIssue) {
+        errors.push('Row ' + (r + 1) + ' (' + name + '): ' + bulkIssue + ' — imported with retail price only, no bulk pricing');
+        rowWholesale = 0; rowWholesaleMin = 0;
+      }
       pendingImportRows.push({
         name: name,
         category: idx.category > -1 ? (cells[idx.category] || '').trim() : '',
         retailPrice: retail,
-        wholesalePrice: idx.wholesale > -1 ? (parseFloat(cells[idx.wholesale]) || 0) : 0,
+        wholesalePrice: rowWholesale,
         costPrice: idx.cost > -1 ? (parseFloat(cells[idx.cost]) || 0) : 0,
-        wholesaleMinQty: idx.wholesaleMin > -1 ? (parseInt(cells[idx.wholesaleMin], 10) || 0) : 0,
+        wholesaleMinQty: rowWholesaleMin,
         qty: qty,
         minQty: idx.lowAt > -1 ? (parseInt(cells[idx.lowAt], 10) || 0) : 0
       });
@@ -1374,7 +1520,16 @@ async function recordSale() {
       paymentStatus: paymentStatus, workerName: currentWorker.name, customerName: customer
     });
 
-    // Automatic per-line inventory deduction for any item linked to a catalog product
+    // Automatic per-line inventory deduction for any item linked to a catalog product.
+    // This runs each deduction inside its own transaction, reading the real
+    // live stock at commit time instead of trusting the pre-flight check or
+    // the client-side rawInventory cache — those can go stale in the gap
+    // between the warning above and this actually running (another worker's
+    // device, or an order being converted, could deduct the same item in
+    // between). The worker already agreed to proceed if stock was short, so
+    // this still commits the deduction either way — the transaction is
+    // just there to make sure the audit log's "qty after" is the true
+    // resulting number, not a guess from a cache that may be out of date.
     var deductedNames = [], skippedNames = [];
     for (var i = 0; i < saleCart.length; i++) {
       var item = saleCart[i];
@@ -1384,9 +1539,14 @@ async function recordSale() {
       if (!invId) { skippedNames.push(item.name); continue; }
       var deductQty = item.qty * (product.data.unitsPerSale || 1);
       try {
-        await db.collection('inventory').doc(invId).update({ qty: firebase.firestore.FieldValue.increment(-deductQty) });
-        var invRecordForSale = rawInventory.find(function (inv) { return inv.id === invId; });
-        var qtyAfterSale = (invRecordForSale ? (invRecordForSale.data.qty || 0) : 0) - deductQty;
+        var qtyAfterSale = await db.runTransaction(async function (transaction) {
+          var invRef = db.collection('inventory').doc(invId);
+          var invSnap = await transaction.get(invRef);
+          var liveQty = invSnap.exists ? (invSnap.data().qty || 0) : 0;
+          var newQty = liveQty - deductQty;
+          transaction.update(invRef, { qty: newQty });
+          return newQty;
+        });
         logMovement(invId, item.name, -deductQty, qtyAfterSale, 'sale_deduction');
         deductedNames.push(deductQty + ' units of ' + item.name);
       } catch (invErr) {

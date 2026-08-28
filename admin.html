@@ -173,16 +173,26 @@ tr:hover td{background:rgba(255,255,255,0.02)}
   </div>
 
   <div class="stat-grid" id="statsBox">
-    <div class="stat-box"><div class="num" id="stSales">0</div><div class="lbl">Sales Today</div></div>
-    <div class="stat-box"><div class="num" id="stOrders">0</div><div class="lbl">Pending Orders</div></div>
-    <div class="stat-box"><div class="num" id="stWorkers">0</div><div class="lbl">Workers</div></div>
-    <div class="stat-box"><div class="num" id="stRevenue">0</div><div class="lbl">Revenue (KSH)</div></div>
-    <div class="stat-box"><div class="num" id="stLowStock">0</div><div class="lbl">Low Stock</div></div>
-    <div class="stat-box"><div class="num" id="stCash">0</div><div class="lbl">Cash Today</div></div>
-    <div class="stat-box"><div class="num" id="stMpesa">0</div><div class="lbl">M-PESA Today</div></div>
-    <div class="stat-box"><div class="num" id="stJobs">0</div><div class="lbl">Jobs Done Today</div></div>
-    <div class="stat-box"><div class="num" id="stProfit">0</div><div class="lbl">Profit Today</div></div>
-    <div class="stat-box"><div class="num" id="stTips">0</div><div class="lbl">Tips Today</div></div>
+    <div class="stat-box" style="cursor:pointer" onclick="showStatDetail('sales')"><div class="num" id="stSales">0</div><div class="lbl">Sales Today</div></div>
+    <div class="stat-box" style="cursor:pointer" onclick="showStatDetail('orders')"><div class="num" id="stOrders">0</div><div class="lbl">Pending Orders</div></div>
+    <div class="stat-box" style="cursor:pointer" onclick="scrollToCard('workersCard')"><div class="num" id="stWorkers">0</div><div class="lbl">Workers</div></div>
+    <div class="stat-box" style="cursor:pointer" onclick="showStatDetail('revenue')"><div class="num" id="stRevenue">0</div><div class="lbl">Revenue (KSH)</div></div>
+    <div class="stat-box" style="cursor:pointer" onclick="scrollToCard('restockCard')"><div class="num" id="stLowStock">0</div><div class="lbl">Low Stock</div></div>
+    <div class="stat-box" style="cursor:pointer" onclick="showStatDetail('cash')"><div class="num" id="stCash">0</div><div class="lbl">Cash Today</div></div>
+    <div class="stat-box" style="cursor:pointer" onclick="showStatDetail('mpesa')"><div class="num" id="stMpesa">0</div><div class="lbl">M-PESA Today</div></div>
+    <div class="stat-box" style="cursor:pointer" onclick="showStatDetail('jobs')"><div class="num" id="stJobs">0</div><div class="lbl">Jobs Done Today</div></div>
+    <div class="stat-box" style="cursor:pointer" onclick="showStatDetail('profit')"><div class="num" id="stProfit">0</div><div class="lbl">Profit Today</div></div>
+    <div class="stat-box" style="cursor:pointer" onclick="showStatDetail('tips')"><div class="num" id="stTips">0</div><div class="lbl">Tips Today</div></div>
+  </div>
+
+  <div id="statDetailModal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:999;display:none;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto">
+    <div style="background:#18181c;border:1px solid #2a2a30;border-radius:10px;max-width:480px;width:100%;margin-top:40px;padding:16px;max-height:80vh;display:flex;flex-direction:column">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <h2 id="statDetailTitle" style="font-size:1rem;margin:0"></h2>
+        <button class="small secondary" style="width:auto" onclick="closeStatDetail()">✕ Close</button>
+      </div>
+      <div id="statDetailBody" style="overflow-y:auto"></div>
+    </div>
   </div>
 
   <div class="card collapsible collapsed" id="closingCard">
@@ -451,6 +461,163 @@ window.onerror = function (msg, url, line) { log('[ERROR] ' + msg + ' (line ' + 
 
 function toggleCard(id) {
   document.getElementById(id).classList.toggle('collapsed');
+}
+
+// Expands a collapsed card and scrolls it into view — used by dashboard
+// stat boxes (Low Stock, Workers) that already have a full, detailed
+// section elsewhere on the page, so there's no need to duplicate that
+// content in a separate popup.
+function scrollToCard(id) {
+  var card = document.getElementById(id);
+  if (!card) return;
+  card.classList.remove('collapsed');
+  card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function closeStatDetail() {
+  var modal = document.getElementById('statDetailModal');
+  modal.style.display = 'none';
+  modal.classList.add('hidden');
+}
+
+function statDetailRow(label, sub, amount) {
+  return '<div style="padding:7px 0;border-bottom:1px solid #222;font-size:0.82rem">' +
+    '<div style="display:flex;justify-content:space-between"><span>' + text(label) + '</span>' +
+    (amount !== null ? '<strong style="color:#d4af37">KSH ' + amount.toLocaleString() + '</strong>' : '') + '</div>' +
+    (sub ? '<div style="color:#888;font-size:0.72rem">' + text(sub) + '</div>' : '') + '</div>';
+}
+
+// Every dashboard stat box opens this — the actual records behind whatever
+// number is showing, so "Revenue: KSH 350" is never just a number you have
+// to take on faith. Each case below is scoped to "today" to match the
+// stat's own label, using the same live client-side data (rawSales,
+// realOrders, rawExpenses) the stat itself was computed from — nothing
+// here is a separate/parallel calculation that could drift from the number
+// it's explaining.
+function showStatDetail(kind) {
+  var modal = document.getElementById('statDetailModal');
+  var title = document.getElementById('statDetailTitle');
+  var body = document.getElementById('statDetailBody');
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  var html = '';
+
+  if (kind === 'sales') {
+    title.textContent = "Today's walk-in sales";
+    var salesToday = rawSales.filter(function (r) {
+      var d = r.data.createdAt ? r.data.createdAt.toDate() : null;
+      return !r.data.archived && d && d >= today;
+    }).sort(function (a, b) { return (b.data.createdAt ? b.data.createdAt.toDate() : 0) - (a.data.createdAt ? a.data.createdAt.toDate() : 0); });
+    if (!salesToday.length) html = '<p style="color:#888">No walk-in sales recorded yet today</p>';
+    salesToday.forEach(function (r) {
+      html += statDetailRow(text(r.data.customerName, 'Walk-in') + ' — ' + itemsSummary(r.data.items), 'by ' + (r.data.workerName || 'Unknown') + ' · ' + (r.data.paymentMethod || 'method not recorded'), r.data.amount || 0);
+    });
+  }
+
+  else if (kind === 'orders') {
+    title.textContent = 'Pending orders (still in "New")';
+    var pendingOrders = realOrders().filter(function (r) { return r.data.productionStatus === 'new'; });
+    if (!pendingOrders.length) html = '<p style="color:#4ade80">✓ Nothing waiting in New</p>';
+    pendingOrders.forEach(function (r) {
+      html += '<div style="padding:7px 0;border-bottom:1px solid #222;font-size:0.82rem;cursor:pointer" onclick="closeStatDetail();jumpToOrder(\'' + (r.data.receiptNumber || r.id).replace(/'/g, "\\'") + '\')">' +
+        '<div style="display:flex;justify-content:space-between"><span>' + text(r.data.receiptNumber || 'Order') + ' — ' + text(r.data.customerName) + '</span><strong style="color:#d4af37">KSH ' + (r.data.total || 0).toLocaleString() + '</strong></div>' +
+        '<div style="color:#888;font-size:0.72rem">' + text(itemsSummary(r.data.items)) + ' · tap to open</div></div>';
+    });
+  }
+
+  else if (kind === 'revenue' || kind === 'cash' || kind === 'mpesa') {
+    var methodFilter = kind === 'cash' ? 'cash' : kind === 'mpesa' ? 'mpesa' : null;
+    title.textContent = kind === 'revenue' ? "Today's revenue" : kind === 'cash' ? "Today's cash" : "Today's M-PESA";
+    var rows = [];
+    rawSales.forEach(function (r) {
+      var s = r.data;
+      var d = s.createdAt ? s.createdAt.toDate() : null;
+      if (s.archived || !d || d < today) return;
+      var method = s.paymentMethod === 'mpesa' ? 'mpesa' : 'cash';
+      if (methodFilter && method !== methodFilter) return;
+      var received = typeof s.amountPaid === 'number' ? s.amountPaid : (s.amount || 0);
+      if (received <= 0) return;
+      rows.push({ label: text(s.customerName, 'Walk-in') + ' — walk-in sale', sub: method + ' · ' + (s.workerName || 'Unknown'), amount: received, date: d });
+    });
+    realOrders().forEach(function (r) {
+      (r.data.paymentHistory || []).forEach(function (entry) {
+        var d = entry.recordedAt ? new Date(entry.recordedAt) : null;
+        if (!d || d < today) return;
+        var method = entry.method || 'unspecified';
+        if (methodFilter && method !== methodFilter) return;
+        rows.push({ label: text(r.data.receiptNumber || 'Order') + ' — ' + text(r.data.customerName), sub: method + ' · order payment', amount: entry.amount || 0, date: d });
+      });
+      (r.data.refundHistory || []).forEach(function (entry) {
+        var d = entry.recordedAt ? new Date(entry.recordedAt) : null;
+        if (!d || d < today) return;
+        var method = entry.method || 'unspecified';
+        if (methodFilter && method !== methodFilter) return;
+        rows.push({ label: text(r.data.receiptNumber || 'Order') + ' — refund to ' + text(r.data.customerName), sub: method + ' · money out', amount: -(entry.amount || 0), date: d });
+      });
+    });
+    rows.sort(function (a, b) { return b.date - a.date; });
+    if (!rows.length) html = '<p style="color:#888">Nothing recorded yet today</p>';
+    rows.forEach(function (row) { html += statDetailRow(row.label, row.sub, row.amount); });
+  }
+
+  else if (kind === 'jobs') {
+    title.textContent = 'Delivered today';
+    var deliveredToday = realOrders().filter(function (r) {
+      if (r.data.productionStatus !== 'delivered') return false;
+      var d = (r.data.updatedAt || r.data.createdAt) ? (r.data.updatedAt || r.data.createdAt).toDate() : null;
+      return d && d >= today;
+    });
+    if (!deliveredToday.length) html = '<p style="color:#888">Nothing marked delivered yet today</p>';
+    deliveredToday.forEach(function (r) {
+      html += '<div style="padding:7px 0;border-bottom:1px solid #222;font-size:0.82rem;cursor:pointer" onclick="closeStatDetail();jumpToOrder(\'' + (r.data.receiptNumber || r.id).replace(/'/g, "\\'") + '\')">' +
+        '<div style="display:flex;justify-content:space-between"><span>' + text(r.data.receiptNumber || 'Order') + ' — ' + text(r.data.customerName) + '</span><strong style="color:#d4af37">KSH ' + (r.data.total || 0).toLocaleString() + '</strong></div>' +
+        '<div style="color:#888;font-size:0.72rem">' + text(itemsSummary(r.data.items)) + ' · tap to open</div></div>';
+    });
+  }
+
+  else if (kind === 'tips') {
+    title.textContent = "Today's tips";
+    var tipRows = [];
+    rawSales.forEach(function (r) {
+      var d = r.data.createdAt ? r.data.createdAt.toDate() : null;
+      if (!d || d < today || !r.data.tipAmount) return;
+      tipRows.push({ label: text(r.data.customerName, 'Walk-in') + ' — walk-in sale', sub: r.data.workerName || 'Unknown', amount: r.data.tipAmount, date: d });
+    });
+    realOrders().forEach(function (r) {
+      var d = r.data.createdAt ? r.data.createdAt.toDate() : null;
+      if (!d || d < today || !r.data.tipAmount) return;
+      tipRows.push({ label: text(r.data.receiptNumber || 'Order') + ' — ' + text(r.data.customerName), sub: 'order', amount: r.data.tipAmount, date: d });
+    });
+    if (!tipRows.length) html = '<p style="color:#888">No tips recorded yet today</p>';
+    tipRows.forEach(function (row) { html += statDetailRow(row.label, row.sub, row.amount); });
+  }
+
+  else if (kind === 'profit') {
+    title.textContent = "Today's profit — how it's made up";
+    var cashT = parseFloat((document.getElementById('stCash').textContent || '0').replace(/,/g, '')) || 0;
+    var mpesaT = parseFloat((document.getElementById('stMpesa').textContent || '0').replace(/,/g, '')) || 0;
+    var revenueT = parseFloat((document.getElementById('stRevenue').textContent || '0').replace(/,/g, '')) || 0;
+    var salesTodayForCogs = rawSales.filter(function (r) {
+      var d = r.data.createdAt ? r.data.createdAt.toDate() : null;
+      return !r.data.archived && d && d >= today;
+    });
+    var cogsT = estimateCOGS(salesTodayForCogs);
+    var expensesT = 0;
+    rawExpenses.forEach(function (r) {
+      if ((r.data.status || 'approved') !== 'approved') return;
+      var d = r.data.createdAt ? r.data.createdAt.toDate() : null;
+      if (d && d >= today) expensesT += (r.data.amount || 0);
+    });
+    html += statDetailRow('Revenue (cash + M-PESA + unspecified)', 'Tap "Revenue (KSH)" for the transaction list', revenueT);
+    html += statDetailRow('− Cost of goods sold', 'Estimated from linked product cost prices — only as accurate as cost prices are filled in', -cogsT);
+    html += statDetailRow('− Approved expenses today', null, -expensesT);
+    html += '<div style="padding:10px 0;margin-top:4px;border-top:2px solid #333;display:flex;justify-content:space-between;font-weight:700">' +
+      '<span>= Profit today</span><span style="color:#d4af37">KSH ' + (revenueT - cogsT - expensesT).toLocaleString() + '</span></div>';
+    html += '<p style="color:#888;font-size:0.7rem;margin-top:8px">Cash/M-PESA figures read from the dashboard as already displayed, so this always matches what\'s on screen.</p>';
+  }
+
+  body.innerHTML = html;
+  modal.classList.remove('hidden');
+  modal.style.display = 'flex';
 }
 
 // Same deterministic logic as worker.html's personaFor — same name always
@@ -1053,6 +1220,20 @@ function sumOrderPaymentsInRange(startDate, endDateExclusive) {
       if (entry.method === 'mpesa') totals.mpesa += amt;
       else if (entry.method === 'cash') totals.cash += amt;
       else totals.unspecified += amt;
+    });
+    // A refund is a real negative cash event on the day it actually
+    // happens — the original deposit stays counted as revenue on the day
+    // it was paid (that's real history), but a genuine refund pulls it
+    // back out of today's totals on the day the money actually left, so
+    // "today's money" reflects today instead of quietly ignoring refunds.
+    (r.data.refundHistory || []).forEach(function (entry) {
+      var when = entry.recordedAt ? new Date(entry.recordedAt) : null;
+      if (!when || when < startDate || (endDateExclusive && when >= endDateExclusive)) return;
+      var amt = entry.amount || 0;
+      totals.total -= amt;
+      if (entry.method === 'mpesa') totals.mpesa -= amt;
+      else if (entry.method === 'cash') totals.cash -= amt;
+      else totals.unspecified -= amt;
     });
   });
   return totals;
@@ -2777,6 +2958,7 @@ function computeExtraStats() {
   document.getElementById('stJobs').textContent = jobsDone;
 
   var revenueToday = cashToday + mpesaToday + extraStatsOrderPayments.unspecified;
+  document.getElementById('stRevenue').textContent = revenueToday.toLocaleString();
   renderGoalProgress(revenueToday);
 
   var expensesToday = 0;
@@ -2981,15 +3163,26 @@ function renderCustomerHistory() {
   var q = (document.getElementById('customerSearch').value || '').toLowerCase();
   var totals = {};
 
-  function getEntry(key, name, phone) {
-    if (!totals[key]) totals[key] = { name: name || 'Unknown', phone: phone || '—', orders: [], sales: [], totalSpent: 0, lastVisit: null, itemCounts: {} };
+  function getEntry(key, name, phone, matchedByNameOnly) {
+    if (!totals[key]) totals[key] = { name: name || 'Unknown', phone: phone || '—', orders: [], sales: [], totalSpent: 0, lastVisit: null, itemCounts: {}, matchedByNameOnly: !!matchedByNameOnly };
     return totals[key];
   }
 
   realOrders().forEach(function (r) {
     var o = r.data;
-    var key = o.phoneKey || normalizePhone(o.phone || '') || o.customerName || 'unknown';
-    var entry = getEntry(key, o.customerName, o.phone);
+    // Grouping by phone is a real match — two orders with the same phone
+    // are provably the same customer. Falling back to name when there's no
+    // phone on file is not: two different people with no phone and the
+    // same name would wrongly merge into one profile. Normalizing casing
+    // and whitespace at least stops the SAME person's name-only orders
+    // from fragmenting into separate entries over a typo, and the
+    // "matchedByNameOnly" flag lets the render below mark these as
+    // unverified instead of presenting them with the same confidence as a
+    // real phone match.
+    var normalizedName = (o.customerName || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    var phoneKey = o.phoneKey || normalizePhone(o.phone || '');
+    var key = phoneKey || (normalizedName ? 'name:' + normalizedName : 'unknown');
+    var entry = getEntry(key, o.customerName, o.phone, !phoneKey && !!normalizedName);
     var d = o.createdAt ? o.createdAt.toDate() : null;
     var itemLabel = (o.items && o.items.length) ? o.items.map(function (it) { return it.name; }).join(', ') : o.itemType;
     entry.orders.push({ item: itemLabel, date: d, artworkUrl: o.artworkUrl || null, artworkFilename: o.artworkFilename || null });
@@ -3043,6 +3236,7 @@ function renderCustomerHistory() {
     html2 += '<div style="padding:10px;background:#0f0f0f;border-radius:8px;margin-bottom:8px">';
     html2 += '<div style="display:flex;justify-content:space-between;align-items:center">';
     html2 += '<strong>' + text(c.name) + '</strong>' + loyaltyBadge;
+    if (c.matchedByNameOnly) html2 += ' <span style="color:#facc15;font-size:0.65rem" title="No phone number on this order — grouped by name only, could be a different person with the same name">⚠️ name-only match</span>';
     html2 += '<span style="color:#888;font-size:0.8rem">' + c.orders.length + ' order' + (c.orders.length === 1 ? '' : 's') + '</span>';
     html2 += '</div>';
     html2 += '<div style="color:#666;font-size:0.75rem;margin-top:2px">' + text(c.phone) + '</div>';
@@ -3518,7 +3712,11 @@ function renderSales() {
     if (d && d >= today) { todayCount++; todayTotal += (s.amount || 0); }
   });
   document.getElementById('stSales').textContent = todayCount;
-  document.getElementById('stRevenue').textContent = todayTotal.toLocaleString();
+  // Revenue (KSH) is set by computeExtraStats(), not here — that figure
+  // includes order payments (deposits/balances on online orders) as well
+  // as walk-in sales; this todayTotal is walk-in sales only, and writing
+  // it here was silently undercounting Revenue against what Cash/M-PESA
+  // (right next to it) were already showing correctly.
   updateStatVisibility();
   if (privacyGate('sales', box, 'Recent Sales', 'renderSales')) return;
 
@@ -3584,16 +3782,40 @@ function toggleArchivedSales() {
 
 async function archiveSale(id) {
   if (!confirm('Archive this sale? It will be removed from totals but can be restored later.')) return;
+  var found = rawSales.find(function (r) { return r.id === id; });
   try {
-    await db.collection('sales').doc(id).update({ archived: true });
-    log('Archived sale ' + id);
-    toast('Sale archived');
-    var found = rawSales.find(function (r) { return r.id === id; });
-    if (found) found.data.archived = true;
+    // Archiving a sale means "this sale didn't really happen" for
+    // reporting purposes — the stock it deducted needs to come back too,
+    // the same way cancelling an order already restores its stock.
+    // Otherwise the item vanishes from inventory forever while the sale
+    // itself just quietly stops counting in totals.
+    var restored = [];
+    var items = (found && found.data.items) || [];
+    for (var i = 0; i < items.length; i++) {
+      var item = items[i];
+      if (!item.productId) continue;
+      var product = rawProducts.find(function (p) { return p.id === item.productId; });
+      var invId = product ? product.data.linkedInventoryItemId : null;
+      if (!invId) continue;
+      var restoreQty = item.qty * (product.data.unitsPerSale || 1);
+      await db.collection('inventory').doc(invId).update({ qty: firebase.firestore.FieldValue.increment(restoreQty) });
+      var invRecord = rawInventory.find(function (inv) { return inv.id === invId; });
+      var qtyAfter = (invRecord ? (invRecord.data.qty || 0) : 0) + restoreQty;
+      logMovement(invId, item.name, restoreQty, qtyAfter, 'sale_archived_restore', id);
+      restored.push(restoreQty + ' × ' + item.name);
+    }
+    // Tagged so restoreSale() knows whether it needs to re-deduct — an old
+    // sale archived before this fix existed won't have this flag, and
+    // shouldn't have stock re-deducted on restore since none was put back.
+    await db.collection('sales').doc(id).update({ archived: true, stockRestoredOnArchive: restored.length > 0 });
+    log('Archived sale ' + id + (restored.length ? '. Stock restored: ' + restored.join(', ') : ''));
+    toast('Sale archived' + (restored.length ? ', stock restored' : ''));
+    if (found) { found.data.archived = true; found.data.stockRestoredOnArchive = restored.length > 0; }
     var box = document.getElementById('archivedSalesList');
     box.innerHTML = ''; box.dataset.open = 'false';
     renderSales();
     computeExtraStats();
+    await loadInventory();
   } catch (e) {
     log('Archive sale error: ' + e.code + ' — ' + e.message);
     toast('Could not archive sale', true);
@@ -3601,17 +3823,40 @@ async function archiveSale(id) {
 }
 
 async function deleteSale(id) {
-  if (!confirm('Permanently delete this sale record? This cannot be undone and will NOT restore any deducted stock.')) return;
+  var found = rawSales.find(function (r) { return r.id === id; });
+  var alreadyRestored = !!(found && found.data.stockRestoredOnArchive);
+  if (!confirm('Permanently delete this sale record? This cannot be undone.' + (alreadyRestored ? ' Its stock was already restored when it was archived.' : ' Any stock it deducted will be restored to inventory.'))) return;
   try {
+    // Deleting a sale is the same real-world event as cancelling an order
+    // ("this didn't happen") — just permanent. It needs the same stock
+    // restore, unless archiving it already did that (can't restore twice).
+    var restored = [];
+    if (!alreadyRestored) {
+      var items = (found && found.data.items) || [];
+      for (var i = 0; i < items.length; i++) {
+        var item = items[i];
+        if (!item.productId) continue;
+        var product = rawProducts.find(function (p) { return p.id === item.productId; });
+        var invId = product ? product.data.linkedInventoryItemId : null;
+        if (!invId) continue;
+        var restoreQty = item.qty * (product.data.unitsPerSale || 1);
+        await db.collection('inventory').doc(invId).update({ qty: firebase.firestore.FieldValue.increment(restoreQty) });
+        var invRecord = rawInventory.find(function (inv) { return inv.id === invId; });
+        var qtyAfter = (invRecord ? (invRecord.data.qty || 0) : 0) + restoreQty;
+        logMovement(invId, item.name, restoreQty, qtyAfter, 'sale_deleted_restore', id);
+        restored.push(restoreQty + ' × ' + item.name);
+      }
+    }
     await db.collection('sales').doc(id).delete();
     rawSales = rawSales.filter(function (r) { return r.id !== id; });
-    log('Deleted sale ' + id);
-    toast('Sale deleted');
+    log('Deleted sale ' + id + (restored.length ? '. Stock restored: ' + restored.join(', ') : ''));
+    toast('Sale deleted' + (restored.length ? ', stock restored' : ''));
     var box = document.getElementById('archivedSalesList');
     box.innerHTML = ''; box.dataset.open = 'false';
     renderSales();
     computeExtraStats();
     renderReceivables();
+    if (restored.length) await loadInventory();
   } catch (e) {
     log('Delete sale error: ' + e.code + ' — ' + e.message);
     toast(e.code === 'permission-denied' ? 'Only the owner account can delete sales' : 'Could not delete sale', true);
@@ -3619,16 +3864,38 @@ async function deleteSale(id) {
 }
 
 async function restoreSale(id) {
+  var found = rawSales.find(function (r) { return r.id === id; });
   try {
-    await db.collection('sales').doc(id).update({ archived: false });
-    log('Restored sale ' + id);
-    toast('Sale restored');
-    var found = rawSales.find(function (r) { return r.id === id; });
-    if (found) found.data.archived = false;
+    // Symmetric with archiveSale()'s restore — only re-deduct if stock was
+    // actually put back when this sale was archived. An older sale
+    // archived before that fix existed never got its stock restored, so
+    // re-deducting here would take stock that was never actually there.
+    var deducted = [];
+    if (found && found.data.stockRestoredOnArchive) {
+      var items = found.data.items || [];
+      for (var i = 0; i < items.length; i++) {
+        var item = items[i];
+        if (!item.productId) continue;
+        var product = rawProducts.find(function (p) { return p.id === item.productId; });
+        var invId = product ? product.data.linkedInventoryItemId : null;
+        if (!invId) continue;
+        var deductQty = item.qty * (product.data.unitsPerSale || 1);
+        await db.collection('inventory').doc(invId).update({ qty: firebase.firestore.FieldValue.increment(-deductQty) });
+        var invRecord = rawInventory.find(function (inv) { return inv.id === invId; });
+        var qtyAfter = (invRecord ? (invRecord.data.qty || 0) : 0) - deductQty;
+        logMovement(invId, item.name, -deductQty, qtyAfter, 'sale_restored_rededuct', id);
+        deducted.push(deductQty + ' × ' + item.name);
+      }
+    }
+    await db.collection('sales').doc(id).update({ archived: false, stockRestoredOnArchive: false });
+    log('Restored sale ' + id + (deducted.length ? '. Stock re-deducted: ' + deducted.join(', ') : ''));
+    toast('Sale restored' + (deducted.length ? ', stock re-deducted' : ''));
+    if (found) { found.data.archived = false; found.data.stockRestoredOnArchive = false; }
     var box = document.getElementById('archivedSalesList');
     box.innerHTML = ''; box.dataset.open = 'false';
     renderSales();
     computeExtraStats();
+    await loadInventory();
   } catch (e) {
     log('Restore sale error: ' + e.code + ' — ' + e.message);
     toast(e.code === 'permission-denied' ? 'You don\'t have permission to restore this sale' : 'Could not restore sale', true);
@@ -3866,6 +4133,34 @@ async function cancelOrder(orderId) {
   var order = rawOrders.find(function (r) { return r.id === orderId; });
   if (!order) return;
   if (!confirm('Cancel this order? Any stock reserved for it will be restored to inventory.')) return;
+
+  // Money already paid on this order doesn't disappear just because the
+  // order is cancelled — it either goes back to the customer (refund) or
+  // stays as a forfeited/non-refundable deposit. Either way it needs an
+  // actual decision and an actual record, not a silent guess. Without
+  // this, a cancelled order's earlier deposit just sits in paymentHistory
+  // forever, still counted as real revenue on every money total, for work
+  // that's never getting delivered.
+  var amountPaid = order.data.amountPaid || 0;
+  var refundAmount = 0, refundMethod = null, moneyDecision = 'none';
+  if (amountPaid > 0) {
+    var wantsRefund = confirm(
+      'This order has KSH ' + amountPaid.toLocaleString() + ' already paid.\n\n' +
+      'OK = Refund it to the customer\n' +
+      'Cancel = Keep it as a forfeited / non-refundable deposit (it stays counted as real revenue)'
+    );
+    if (wantsRefund) {
+      var refundInput = prompt('How much to refund? (KSH, max ' + amountPaid.toLocaleString() + ')', amountPaid);
+      if (refundInput === null) { toast('Cancellation stopped — refund amount not confirmed', true); return; }
+      refundAmount = Math.max(0, Math.min(parseFloat(refundInput) || 0, amountPaid));
+      refundMethod = (prompt('Refunded via cash or mpesa?', 'cash') || 'cash').trim().toLowerCase();
+      if (refundMethod !== 'cash' && refundMethod !== 'mpesa') refundMethod = 'unspecified';
+      moneyDecision = 'refunded';
+    } else {
+      moneyDecision = 'forfeited';
+    }
+  }
+
   try {
     var restored = [];
     // Stock is only deducted once the order's first payment is recorded
@@ -3888,10 +4183,29 @@ async function cancelOrder(orderId) {
         restored.push(restoreQty + ' × ' + item.name);
       }
     }
-    await db.collection('orders').doc(orderId).update({ overallStatus: 'cancelled', productionStatus: 'cancelled' });
-    logEvent('OrderCancelled', { orderId: orderId, restored: restored, hadDeductedStock: !!order.data.inventoryDeducted });
-    log('Order ' + orderId + ' cancelled. ' + (order.data.inventoryDeducted ? 'Restored: ' + (restored.join(', ') || 'nothing linked to inventory') : 'No stock was deducted yet (unpaid), nothing to restore.'));
-    toast('Order cancelled' + (order.data.inventoryDeducted ? ', stock restored' : ''));
+
+    var updates = {
+      overallStatus: 'cancelled', productionStatus: 'cancelled',
+      // A cancelled order has nothing left to collect — clearing balance
+      // to 0 is what stops it showing up in Receivables forever. The real
+      // history of what was owed/paid stays intact in paymentHistory and
+      // (if refunded) refundHistory; only the "still owed" number changes.
+      balance: 0,
+      cancellationMoneyDecision: moneyDecision
+    };
+    if (refundAmount > 0) {
+      var refundEntry = {
+        amount: refundAmount, method: refundMethod, reason: 'Order cancelled',
+        recordedBy: currentUserName || currentUserRole || 'Unknown',
+        recordedAt: new Date().toISOString()
+      };
+      updates.refundHistory = firebase.firestore.FieldValue.arrayUnion(refundEntry);
+      updates.amountRefunded = (order.data.amountRefunded || 0) + refundAmount;
+    }
+    await db.collection('orders').doc(orderId).update(updates);
+    logEvent('OrderCancelled', { orderId: orderId, restored: restored, hadDeductedStock: !!order.data.inventoryDeducted, moneyDecision: moneyDecision, refundAmount: refundAmount });
+    log('Order ' + orderId + ' cancelled. ' + (order.data.inventoryDeducted ? 'Restored: ' + (restored.join(', ') || 'nothing linked to inventory') : 'No stock was deducted yet (unpaid), nothing to restore.') + (moneyDecision === 'refunded' ? ' Refunded KSH ' + refundAmount + ' via ' + refundMethod + '.' : moneyDecision === 'forfeited' ? ' Deposit forfeited, still counted as revenue.' : ''));
+    toast('Order cancelled' + (order.data.inventoryDeducted ? ', stock restored' : '') + (moneyDecision === 'refunded' ? ', refund recorded' : ''));
     await Promise.all([loadOrders(), loadInventory(), loadProducts()]);
   } catch (e) {
     log('Cancel order error: ' + e.code + ' — ' + e.message);
@@ -4036,6 +4350,27 @@ async function loadProducts() {
   }
 }
 
+// Bulk pricing was flagged as "all over the place with no consistent rule"
+// during the audit — this is why: nothing ever stopped a wholesale price
+// being set without its minimum quantity (or vice versa), or a "bulk"
+// price that isn't actually cheaper than retail. This doesn't fix prices
+// already saved (that's the live-catalog cleanup pass), it just stops the
+// same inconsistency from being created going forward. Returns an error
+// string, or null if the bulk pricing (or lack of it) is coherent.
+function validateBulkPricing(retailPrice, wholesalePrice, wholesaleMinQty) {
+  if (wholesalePrice <= 0 && wholesaleMinQty <= 0) return null; // no bulk pricing set at all — fine
+  if (wholesalePrice <= 0 || wholesaleMinQty <= 0) {
+    return 'Bulk pricing needs both a wholesale price and a minimum quantity — only one is set';
+  }
+  if (wholesaleMinQty < 2) {
+    return 'Bulk minimum quantity should be at least 2 — otherwise it isn\'t really "bulk"';
+  }
+  if (wholesalePrice >= retailPrice) {
+    return 'Bulk price (KSH ' + wholesalePrice + ') should be lower than retail (KSH ' + retailPrice + ') — otherwise there\'s no reason to buy in bulk';
+  }
+  return null;
+}
+
 async function addProduct() {
   var name = document.getElementById('prodName').value.trim();
   var category = document.getElementById('prodCategory').value.trim();
@@ -4053,6 +4388,8 @@ async function addProduct() {
   if (retailPrice <= 0) { msg.className = 'error'; msg.textContent = 'Enter a retail price above 0'; return; }
   var duplicate = rawProducts.some(function (p) { return (p.data.name || '').trim().toLowerCase() === name.toLowerCase(); });
   if (duplicate) { msg.className = 'error'; msg.textContent = '⚠️ A product with this name already exists'; return; }
+  var bulkError = validateBulkPricing(retailPrice, wholesalePrice, wholesaleMinQty);
+  if (bulkError) { msg.className = 'error'; msg.textContent = bulkError; return; }
   if (!linkedInventoryItemId && !confirm('No stock linked yet — after adding this product, open "Edit Details" and tap "Give this design its own stock count" to track it individually (recommended for every design). Add without stock tracking for now?')) return;
 
   try {
@@ -4263,6 +4600,12 @@ function computeReceivablesData() {
   }
   realOrders().forEach(function (r) {
     var o = r.data;
+    // A cancelled order has nothing left to collect, regardless of
+    // whatever balance is still sitting in its stored `balance` field —
+    // newly-cancelled orders get that field zeroed out by cancelOrder(),
+    // but this also protects any order that was cancelled before that fix
+    // existed, so an old cancelled order can't haunt Receivables forever.
+    if (o.overallStatus === 'cancelled') return;
     addDebt('order-' + r.id, o.customerName, o.phone, o.balance || 0, o.createdAt ? o.createdAt.toDate() : null);
   });
   rawSales.forEach(function (r) {
@@ -4326,6 +4669,8 @@ async function saveProductPrices(productId) {
   var imageUrl = document.getElementById('editImageUrl-' + productId).value.trim();
   var videoUrl = document.getElementById('editVideoUrl-' + productId).value.trim();
   if (retail <= 0) { toast('Retail price must be above 0', true); return; }
+  var bulkError = validateBulkPricing(retail, wholesale, wholesaleMinQty);
+  if (bulkError) { toast(bulkError, true); return; }
   try {
     await db.collection('products').doc(productId).update({
       retailPrice: retail, wholesalePrice: wholesale, costPrice: cost, wholesaleMinQty: wholesaleMinQty,
