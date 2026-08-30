@@ -49,6 +49,24 @@ button.secondary{background:transparent;color:#29D3F5;border:1.5px solid #29D3F5
 </head>
 <body>
 
+<!-- Locked-down customer self-entry — the actual fix for handing a
+     worker's phone to a customer. Everything on this screen is opaque and
+     covers the entire viewport (nothing from the rest of the app is
+     visible behind it, no other sale, no other customer's history, no
+     navigation), and the ONLY thing on it is a name and phone field. This
+     doesn't require a native app or device-level kiosk mode — the whole
+     rest of the page is just hidden behind this while it's open. -->
+<div id="customerSelfEntryOverlay" class="hidden" style="position:fixed;inset:0;z-index:9999;background:#0D0D10;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px">
+  <div style="width:100%;max-width:360px;text-align:center">
+    <p style="font-size:1.1rem;font-weight:700;margin-bottom:6px">👋 Please enter your details</p>
+    <p style="color:#888;font-size:0.85rem;margin-bottom:20px">Just your name and phone number — hand the phone back when you're done.</p>
+    <input type="text" id="selfEntryName" placeholder="Your name" style="font-size:1.1rem;padding:14px;margin-bottom:12px">
+    <input type="tel" id="selfEntryPhone" placeholder="Your phone number" style="font-size:1.1rem;padding:14px;margin-bottom:20px">
+    <button type="button" onclick="closeCustomerSelfEntry(true)" style="margin-bottom:10px">Done</button>
+    <button type="button" class="secondary" onclick="closeCustomerSelfEntry(false)">Cancel — I'll type it myself</button>
+  </div>
+</div>
+
 <div class="peel" style="margin-bottom:16px">
   <span class="eyebrow" style="background:#29D3F5;color:#0D0D10">Team Portal</span>
   <h1 style="background:linear-gradient(100deg,#D4AF37,#29D3F5);-webkit-background-clip:text;background-clip:text;color:transparent">ELITE CUSTOMS — WORKER</h1>
@@ -89,7 +107,9 @@ button.secondary{background:transparent;color:#29D3F5;border:1.5px solid #29D3F5
     <span class="eyebrow" style="background:#C6FF3D;color:#0D0D10">Sell</span><h2>⚡ Record a Sale</h2>
     <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Tell Pixel Vault what happened — it matches your real catalog and asks when it's not sure.</p>
     <input type="text" id="sCustomer" placeholder="Customer name (optional)">
-    <input type="tel" id="sPhone" placeholder="Customer phone (optional, links their history)">
+    <input type="tel" id="sPhone" placeholder="Customer phone (optional, links their history)" onblur="checkForExistingOrder()">
+    <button type="button" class="secondary" style="margin-bottom:10px" onclick="openCustomerSelfEntry()">🔒 Let the customer type it themselves</button>
+    <div id="existingOrderBanner" style="margin-bottom:10px"></div>
 
     <textarea id="quickSaleInput" placeholder="Sold 2 Naruto stickers and 1 iPhone case for KSh 700" style="min-height:60px"></textarea>
     <button type="button" onclick="parseQuickSale()" style="margin-bottom:14px">Understand Sale</button>
@@ -178,6 +198,9 @@ button.secondary{background:transparent;color:#29D3F5;border:1.5px solid #29D3F5
     <button id="lookupBtn" onclick="lookupOrder()">Search</button>
     <div id="lookupMsg"></div>
     <div id="lookupResults"></div>
+    <div id="orderEditPanel" class="hidden" style="margin-top:14px;padding:12px;background:#18181c;border:1px solid #2a2a30;border-radius:8px">
+      <div id="orderEditBody"></div>
+    </div>
   </div>
 
 
@@ -288,6 +311,20 @@ async function uploadProductPhoto(fileInput, targetInputId) {
   if (!file) return;
   var statusId = targetInputId + 'Status';
   var statusEl = document.getElementById(statusId);
+  // Same check as customer.html's artwork upload — the upload endpoint is
+  // visible in this page's source, so this stops an obviously-wrong file
+  // (wrong type, or one large enough to matter for storage cost) rather
+  // than relying only on Cloudinary's own preset settings to catch it.
+  if (file.size > 10 * 1024 * 1024) {
+    if (statusEl) { statusEl.textContent = 'File too large (max 10MB)'; statusEl.style.color = '#f87171'; }
+    fileInput.value = '';
+    return;
+  }
+  if (file.type.indexOf('image/') !== 0) {
+    if (statusEl) { statusEl.textContent = 'Only image files are accepted'; statusEl.style.color = '#f87171'; }
+    fileInput.value = '';
+    return;
+  }
   if (statusEl) { statusEl.textContent = 'Uploading...'; statusEl.style.color = '#888'; }
   var formData = new FormData();
   formData.append('file', file);
@@ -1071,6 +1108,276 @@ async function toggleChecklistStep(orderId, stepIndex, isDone, templateKey) {
   }
 }
 
+// Checks whether the phone just entered in Record a Sale already has an
+// open order waiting — a customer who ordered online (e.g. "3 stickers")
+// and then walks in shouldn't silently become a second, disconnected sale
+// record for the same purchase. This only warns and offers to jump to the
+// existing order; it never blocks recording a genuinely separate sale.
+// Locked-down customer self-entry — opens a full-screen overlay showing
+// ONLY a name/phone form, nothing else from the app visible or reachable
+// behind it. This exists because handing over an unlocked phone with the
+// full worker portal open means the customer can see other customers'
+// names, phone numbers, and sale history just by looking at or tapping
+// around the screen — a real privacy problem, not a hypothetical one.
+function openCustomerSelfEntry() {
+  document.getElementById('selfEntryName').value = document.getElementById('sCustomer').value || '';
+  document.getElementById('selfEntryPhone').value = document.getElementById('sPhone').value || '';
+  var overlay = document.getElementById('customerSelfEntryOverlay');
+  overlay.classList.remove('hidden');
+  document.getElementById('selfEntryName').focus();
+}
+
+function closeCustomerSelfEntry(save) {
+  if (save) {
+    document.getElementById('sCustomer').value = document.getElementById('selfEntryName').value.trim();
+    document.getElementById('sPhone').value = document.getElementById('selfEntryPhone').value.trim();
+    checkForExistingOrder();
+  }
+  document.getElementById('customerSelfEntryOverlay').classList.add('hidden');
+}
+
+async function checkForExistingOrder() {
+  var banner = document.getElementById('existingOrderBanner');
+  var phone = document.getElementById('sPhone').value.trim();
+  banner.innerHTML = '';
+  if (phone.length < 7) return;
+  try {
+    var key = normalizePhone(phone);
+    var snap = await db.collection('orders').where('phoneKey', '==', key).orderBy('createdAt', 'desc').limit(5).get();
+    var openOrders = [];
+    snap.forEach(function (d) {
+      var o = d.data();
+      if (o.overallStatus !== 'cancelled' && o.productionStatus !== 'delivered') openOrders.push({ id: d.id, data: o });
+    });
+    if (openOrders.length === 0) return;
+
+    var html = '<div style="background:#2a2410;border:1px solid #d4af37;border-radius:8px;padding:10px;font-size:0.8rem">';
+    html += '<strong style="color:#facc15">⚠️ This number already has an open order — check it\'s not the same purchase before recording a new sale:</strong>';
+    openOrders.forEach(function (r) {
+      var o = r.data;
+      var itemsLabel = (o.items || []).map(function (it) { return it.qty + '× ' + it.name; }).join(', ') || '—';
+      html += '<div style="margin-top:8px;padding-top:8px;border-top:1px solid #443">';
+      html += '<div>' + text(o.receiptNumber || 'Order') + ' — ' + text(o.customerName) + '</div>';
+      html += '<div style="color:#aaa;font-size:0.75rem">' + text(itemsLabel) + (o.balance > 0 ? ' · KSH ' + o.balance.toLocaleString() + ' owed' : ' · fully paid') + '</div>';
+      html += '<button type="button" class="small secondary" style="margin-top:4px" onclick="fillSaleFromOrder(\'' + r.id.replace(/'/g, "\\'") + '\')">Use this order\'s details</button> ';
+      html += '<button type="button" class="small secondary" style="margin-top:4px" onclick="openOrderEdit(\'' + r.id.replace(/'/g, "\\'") + '\')">Open &amp; edit that order instead</button>';
+      html += '</div>';
+    });
+    html += '<div style="margin-top:8px"><button type="button" class="small secondary" onclick="document.getElementById(\'existingOrderBanner\').innerHTML=\'\'">This is a different sale — dismiss</button></div>';
+    html += '</div>';
+    banner.innerHTML = html;
+  } catch (e) {
+    log('Existing-order check failed: ' + e.code + ' — ' + e.message);
+  }
+}
+
+// Pulls the matched order's name/phone into the sale form so the worker
+// isn't retyping details the customer already gave online — used when
+// they confirm it genuinely is the same purchase, just being completed
+// in person (e.g. paying the balance as a walk-in "sale" record).
+function fillSaleFromOrder(orderId) {
+  db.collection('orders').doc(orderId).get().then(function (doc) {
+    if (!doc.exists) return;
+    var o = doc.data();
+    document.getElementById('sCustomer').value = o.customerName || '';
+    document.getElementById('sPhone').value = o.phone || document.getElementById('sPhone').value;
+    toast('Details filled from ' + (o.receiptNumber || 'that order'));
+  });
+}
+
+// ---------- ORDER EDITING ----------
+// Any staff account can do this — a worker alone in the shop, no admin or
+// owner around, still needs to be able to actually run the business when a
+// customer changes their mind mid-order. Guardrails: can't touch a
+// cancelled/delivered order, can't drop the total below what's already
+// paid (that's a refund, which needs an admin — refunds aren't built into
+// worker.html), and every edit is logged with who/what/why, same as every
+// other money-adjacent action in this app.
+var editingOrder = null; // { id, data } — fresh fetch from Firestore, not the normalized display copy
+var editCart = [];
+
+async function openOrderEdit(orderId) {
+  try {
+    var doc = await db.collection('orders').doc(orderId).get();
+    if (!doc.exists) { toast('Order not found', true); return; }
+    var data = doc.data();
+    if (data.overallStatus === 'cancelled') { toast('This order is cancelled — nothing to edit', true); return; }
+    if (data.productionStatus === 'delivered') { toast('This order is already delivered — nothing to edit', true); return; }
+    editingOrder = { id: orderId, data: data };
+    editCart = (data.items || []).map(function (it) {
+      return {
+        productId: it.productId || null, name: it.name, qty: it.qty,
+        unitPrice: it.unitPrice != null ? it.unitPrice : (it.qty ? (it.lineTotal || 0) / it.qty : 0),
+        priceTier: it.priceTier || 'retail'
+      };
+    });
+    renderOrderEditPanel();
+    var panel = document.getElementById('orderEditPanel');
+    panel.classList.remove('hidden');
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (e) {
+    log('Open order edit error: ' + e.code + ' — ' + e.message);
+    toast(e.code === 'permission-denied' ? 'You don\'t have permission to edit this order' : 'Could not open this order for editing', true);
+  }
+}
+
+function closeOrderEdit() {
+  editingOrder = null; editCart = [];
+  document.getElementById('orderEditPanel').classList.add('hidden');
+}
+
+function editCartTotal() {
+  return editCart.reduce(function (sum, it) { return sum + (it.qty * it.unitPrice); }, 0);
+}
+
+function editCartAdjustQty(idx, delta) {
+  if (!editCart[idx]) return;
+  editCart[idx].qty += delta;
+  if (editCart[idx].qty <= 0) editCart.splice(idx, 1);
+  renderOrderEditPanel();
+}
+
+function editCartRemove(idx) {
+  editCart.splice(idx, 1);
+  renderOrderEditPanel();
+}
+
+function editCartAddProduct(productId) {
+  var product = rawProducts.find(function (p) { return p.id === productId; });
+  if (!product) return;
+  var existing = editCart.find(function (it) { return it.productId === productId; });
+  if (existing) { existing.qty += 1; }
+  else { editCart.push({ productId: product.id, name: product.data.name, qty: 1, unitPrice: product.data.retailPrice || 0, priceTier: 'retail' }); }
+  renderOrderEditPanel();
+}
+
+function renderEditItemPicker(term) {
+  var box = document.getElementById('editItemPicker');
+  if (!box) return;
+  term = (term || '').trim().toLowerCase();
+  var matches = term ? rawProducts.filter(function (p) { return (p.data.name || '').toLowerCase().indexOf(term) !== -1; }) : rawProducts;
+  if (!matches.length) { box.innerHTML = '<p style="color:#666;font-size:0.78rem">No products found</p>'; return; }
+  var html = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">';
+  matches.slice(0, 30).forEach(function (p) {
+    var imgHtml = p.data.imageUrl
+      ? '<img src="' + p.data.imageUrl + '" alt="' + text(p.data.name) + '" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px 6px 0 0" loading="lazy" onerror="this.style.display=\'none\'">'
+      : '<div style="width:100%;aspect-ratio:1;background:#232329;display:flex;align-items:center;justify-content:center;font-size:1.4rem;border-radius:6px 6px 0 0">🏷️</div>';
+    html += '<div onclick="editCartAddProduct(\'' + p.id.replace(/'/g, "\\'") + '\')" style="background:#232329;border-radius:6px;overflow:hidden;cursor:pointer">' + imgHtml +
+      '<div style="padding:4px 5px"><div style="font-size:0.65rem;line-height:1.2">' + text(p.data.name) + '</div><div style="color:#d4af37;font-weight:700;font-size:0.72rem">KSH ' + (p.data.retailPrice || 0).toLocaleString() + '</div></div></div>';
+  });
+  html += '</div>';
+  box.innerHTML = html;
+}
+
+function renderOrderEditPanel() {
+  var box = document.getElementById('orderEditBody');
+  if (!editingOrder) return;
+  var o = editingOrder.data;
+  var newTotal = editCartTotal();
+  var amountPaid = o.amountPaid || 0;
+  var html = '<div style="font-size:0.8rem;color:#888;margin-bottom:8px">Editing ' + text(o.receiptNumber || editingOrder.id) + ' — ' + text(o.customerName) + '</div>';
+  html += '<div style="margin-bottom:10px">';
+  editCart.forEach(function (item, idx) {
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #222;font-size:0.82rem">';
+    html += '<span style="flex:1">' + text(item.name) + '<br><span style="color:#888;font-size:0.72rem">KSH ' + item.unitPrice.toLocaleString() + ' each</span></span>';
+    html += '<span style="display:flex;align-items:center;gap:6px">';
+    html += '<button type="button" class="small secondary" style="width:28px;padding:2px" onclick="editCartAdjustQty(' + idx + ',-1)">-</button>';
+    html += '<span style="min-width:20px;text-align:center">' + item.qty + '</span>';
+    html += '<button type="button" class="small secondary" style="width:28px;padding:2px" onclick="editCartAdjustQty(' + idx + ',1)">+</button>';
+    html += '<button type="button" class="small danger" style="width:auto;padding:2px 8px" onclick="editCartRemove(' + idx + ')">✕</button>';
+    html += '</span></div>';
+  });
+  html += '</div>';
+  html += '<input type="text" id="editItemSearch" placeholder="Search to add an item..." oninput="renderEditItemPicker(this.value)" style="margin-bottom:8px">';
+  html += '<div id="editItemPicker" style="max-height:220px;overflow-y:auto;margin-bottom:10px"></div>';
+  html += '<div style="display:flex;justify-content:space-between;font-weight:700;padding:8px 0;border-top:2px solid #333">';
+  html += '<span>New total</span><span style="color:#d4af37">KSH ' + newTotal.toLocaleString() + '</span></div>';
+  html += '<div style="font-size:0.75rem;color:#888;margin-bottom:10px">Already paid: KSH ' + amountPaid.toLocaleString() + ' · New balance: KSH ' + Math.max(0, newTotal - amountPaid).toLocaleString() + '</div>';
+  if (newTotal < amountPaid) {
+    html += '<p style="color:#f87171;font-size:0.78rem;margin-bottom:10px">⚠️ This total is less than what\'s already been paid (KSH ' + amountPaid.toLocaleString() + '). That\'s a refund situation, not a normal edit — get an admin/owner to process the difference as a refund, then edit this after.</p>';
+  }
+  html += '<button type="button" onclick="saveOrderEdit()"' + (newTotal < amountPaid || editCart.length === 0 ? ' disabled' : '') + '>Save changes</button>';
+  html += '<button type="button" class="secondary" style="margin-top:8px" onclick="closeOrderEdit()">Cancel</button>';
+  box.innerHTML = html;
+  renderEditItemPicker('');
+}
+
+async function saveOrderEdit() {
+  if (!editingOrder) return;
+  var o = editingOrder.data;
+  var newTotal = editCartTotal();
+  var amountPaid = o.amountPaid || 0;
+  if (editCart.length === 0) { toast('An order needs at least one item — cancel it instead if there\'s nothing left', true); return; }
+  if (newTotal < amountPaid) { toast('New total is below what\'s already paid — that needs an admin refund first', true); return; }
+
+  var reasonInput = prompt('Why is this order being edited? (shown in the order\'s history)');
+  if (reasonInput === null) return; // they backed out of the prompt — abort, don't save with no reason
+  var reason = reasonInput.trim() || '(no reason given)';
+
+  try {
+    // Adjust stock only if this order's items were already deducted — same
+    // rule cancelOrder() uses in admin.html: an order that hasn't been
+    // paid yet never touched inventory, so editing it before that point
+    // shouldn't touch inventory either.
+    var stockChanges = [];
+    if (o.inventoryDeducted) {
+      var oldQtyByProduct = {};
+      (o.items || []).forEach(function (it) { if (it.productId) oldQtyByProduct[it.productId] = (oldQtyByProduct[it.productId] || 0) + it.qty; });
+      var newQtyByProduct = {};
+      editCart.forEach(function (it) { if (it.productId) newQtyByProduct[it.productId] = (newQtyByProduct[it.productId] || 0) + it.qty; });
+      var allProductIds = Object.keys(oldQtyByProduct).concat(Object.keys(newQtyByProduct)).filter(function (v, i, a) { return a.indexOf(v) === i; });
+      for (var i = 0; i < allProductIds.length; i++) {
+        var pid = allProductIds[i];
+        var oldQty = oldQtyByProduct[pid] || 0;
+        var newQty = newQtyByProduct[pid] || 0;
+        if (oldQty === newQty) continue;
+        var product = rawProducts.find(function (p) { return p.id === pid; });
+        var invId = product ? product.data.linkedInventoryItemId : null;
+        if (!invId) continue;
+        var unitsPerSale = product.data.unitsPerSale || 1;
+        var deltaUnits = (newQty - oldQty) * unitsPerSale; // positive = deduct more, negative = restore
+        var qtyAfter = await db.runTransaction((function (invIdCaptured, deltaCaptured) {
+          return async function (transaction) {
+            var invRef = db.collection('inventory').doc(invIdCaptured);
+            var invSnap = await transaction.get(invRef);
+            var liveQty = invSnap.exists ? (invSnap.data().qty || 0) : 0;
+            var updated = liveQty - deltaCaptured;
+            transaction.update(invRef, { qty: updated });
+            return updated;
+          };
+        })(invId, deltaUnits));
+        logMovement(invId, product.data.name, -deltaUnits, qtyAfter, 'order_edit_adjust', editingOrder.id);
+        stockChanges.push((deltaUnits > 0 ? '-' : '+') + Math.abs(deltaUnits) + ' ' + product.data.name);
+      }
+    }
+
+    var newBalance = Math.max(0, newTotal - amountPaid);
+    var newPaymentStatus = newBalance <= 0 && newTotal > 0 ? 'paid' : (amountPaid > 0 ? 'partial' : 'unpaid');
+    var cleanItems = editCart.map(function (it) {
+      return { productId: it.productId || null, name: it.name, qty: it.qty, unitPrice: it.unitPrice, lineTotal: it.qty * it.unitPrice, priceTier: it.priceTier || 'retail' };
+    });
+    var editEntry = {
+      before: (o.items || []).map(function (it) { return it.qty + '× ' + it.name; }).join(', ') || '(none)',
+      after: cleanItems.map(function (it) { return it.qty + '× ' + it.name; }).join(', '),
+      oldTotal: o.total || 0, newTotal: newTotal, reason: reason,
+      editedBy: currentWorker ? currentWorker.name : 'Unknown',
+      editedAt: new Date().toISOString()
+    };
+    await db.collection('orders').doc(editingOrder.id).update({
+      items: cleanItems, total: newTotal, balance: newBalance, paymentStatus: newPaymentStatus,
+      editHistory: firebase.firestore.FieldValue.arrayUnion(editEntry)
+    });
+    logEvent('OrderEdited', { orderId: editingOrder.id, oldTotal: o.total || 0, newTotal: newTotal, editedBy: currentWorker ? currentWorker.name : 'Unknown' });
+    log('Order ' + editingOrder.id + ' edited by ' + (currentWorker ? currentWorker.name : 'Unknown') + '. ' + (stockChanges.length ? 'Stock adjusted: ' + stockChanges.join(', ') : 'No stock adjustment needed.'));
+    toast('Order updated' + (stockChanges.length ? ', stock adjusted' : ''));
+    closeOrderEdit();
+    lookupOrder();
+  } catch (e) {
+    log('Save order edit error: ' + e.code + ' — ' + e.message);
+    toast(e.code === 'permission-denied' ? 'Could not save — check permissions and try again' : 'Could not save changes', true);
+  }
+}
+
 async function lookupOrder() {
   var raw = document.getElementById('lookupInput').value.trim();
   var msg = document.getElementById('lookupMsg');
@@ -1141,6 +1448,9 @@ async function lookupOrder() {
           html += '<span>' + label + '</span></label>';
         });
         html += '</div></div>';
+      }
+      if (o.overallStatus !== 'cancelled' && o.productionStatus !== 'delivered') {
+        html += '<button type="button" class="secondary" style="margin-top:8px" onclick="openOrderEdit(\'' + item.id.replace(/'/g, "\\'") + '\')">✏️ Edit Items</button>';
       }
       html += '</div>';
     });

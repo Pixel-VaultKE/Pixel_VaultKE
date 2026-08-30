@@ -337,13 +337,6 @@ tr:hover td{background:rgba(255,255,255,0.02)}
     <div id="movementsList"><p style="color:#888">Loading...</p></div>
   </div>
 
-  <div class="card collapsible collapsed" id="dataQualityCard">
-    <span class="eyebrow" style="background:#FF2E63;color:#fff">Audit</span><h2 onclick="toggleCard('dataQualityCard')">🩺 Data Quality Scan</h2>
-    <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Checks the records already loaded for things that don't add up — read-only, never changes anything. Tap Run Scan to check now.</p>
-    <button onclick="runDataQualityScan()">Run Scan</button>
-    <div id="dataQualityResults" style="margin-top:12px"></div>
-  </div>
-
   <div class="card collapsible collapsed" id="productsCard">
     <span class="eyebrow" style="background:#D4AF37;color:#0D0D10">Catalog</span><h2 onclick="toggleCard('productsCard')">Products & Pricing</h2>
     <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Each product links to an inventory item. Selling it auto-deducts stock.</p>
@@ -363,6 +356,17 @@ tr:hover td{background:rgba(255,255,255,0.02)}
     <input type="number" id="prodUnitsPerSale" placeholder="Units consumed per sale" min="1" value="1">
     <button onclick="addProduct()">Add Product</button>
     <div id="prodMsg"></div>
+  </div>
+
+  <div class="card collapsible collapsed" id="customOptionsCard">
+    <span class="eyebrow" style="background:#38bdf8;color:#0D0D10">Catalog</span><h2 onclick="toggleCard('customOptionsCard')">🎨 Custom Order Options</h2>
+    <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Give customers real choices instead of a blank text box — e.g. Stickers: Finish (Glossy/Matte/Holographic). Set these per category; they show up automatically on the customer site for any product in that category.</p>
+    <div id="customOptionsList"><p style="color:#888">Loading...</p></div>
+    <input type="text" id="coCategory" placeholder="Category this applies to (must match a product category exactly)">
+    <input type="text" id="coLabel" placeholder="Question label (e.g. Finish, Size, Pattern)">
+    <input type="text" id="coChoices" placeholder="Choices, comma-separated (e.g. Glossy, Matte, Holographic)">
+    <button onclick="addCustomOptionGroup()">Add This Option Group</button>
+    <div id="coMsg"></div>
   </div>
 
   <div style="margin:20px 0 -6px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:0.5px">🎯 CUSTOMERS & MARKETING</div>
@@ -646,6 +650,20 @@ async function uploadProductPhoto(fileInput, targetInputId) {
   if (!file) return;
   var statusId = targetInputId + 'Status';
   var statusEl = document.getElementById(statusId);
+  // Same reasoning as the other two upload points in this system — the
+  // Cloudinary endpoint is visible in this page's source to anyone, so a
+  // real client-side type/size check matters here too, not just on the
+  // customer-facing artwork upload.
+  if (file.size > 10 * 1024 * 1024) {
+    if (statusEl) { statusEl.textContent = 'File too large (max 10MB)'; statusEl.style.color = '#ff4444'; }
+    fileInput.value = '';
+    return;
+  }
+  if (file.type.indexOf('image/') !== 0) {
+    if (statusEl) { statusEl.textContent = 'Only image files are accepted'; statusEl.style.color = '#ff4444'; }
+    fileInput.value = '';
+    return;
+  }
   if (statusEl) { statusEl.textContent = 'Uploading...'; statusEl.style.color = '#888'; }
   var formData = new FormData();
   formData.append('file', file);
@@ -678,6 +696,18 @@ async function uploadGalleryPhoto(fileInput) {
   var statusEl = document.getElementById('galUploadStatus');
   if (!category) {
     statusEl.textContent = 'Enter a category first';
+    statusEl.style.color = '#ff4444';
+    fileInput.value = '';
+    return;
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    statusEl.textContent = 'File too large (max 10MB)';
+    statusEl.style.color = '#ff4444';
+    fileInput.value = '';
+    return;
+  }
+  if (file.type.indexOf('image/') !== 0) {
+    statusEl.textContent = 'Only image files are accepted';
     statusEl.style.color = '#ff4444';
     fileInput.value = '';
     return;
@@ -1146,130 +1176,6 @@ var MOVEMENT_LABELS = {
   order_cancelled_restore: '↩️ Order cancelled — restored', stock_override: '⚠️ Owner override'
 };
 
-// ---------- DATA QUALITY SCAN ----------
-// Read-only diagnostic over data already loaded in memory — no extra
-// Firestore reads, never writes anything. Each check names the actual
-// record(s) affected, never just a count, so there's always something
-// concrete to act on.
-function runDataQualityScan() {
-  var box = document.getElementById('dataQualityResults');
-  box.innerHTML = '<p style="color:#888">Scanning...</p>';
-  var findings = []; // {level: 'error'|'warning', text, detail}
-
-  function add(level, text, detail) { findings.push({ level: level, text: text, detail: detail || '' }); }
-
-  // Negative stock — should be structurally impossible per the rules, but
-  // checked anyway in case any record predates that rule.
-  rawInventory.forEach(function (inv) {
-    if (typeof inv.data.qty === 'number' && inv.data.qty < 0) {
-      add('error', 'Negative stock: "' + (inv.data.name || inv.id) + '" shows ' + inv.data.qty);
-    }
-  });
-
-  // Products with no real price set.
-  rawProducts.forEach(function (p) {
-    if (!p.data.retailPrice || p.data.retailPrice <= 0) {
-      add('warning', 'Product with no price: "' + (p.data.name || p.id) + '"');
-    }
-  });
-
-  // Orders referencing a product that no longer exists (e.g. deleted by
-  // Product Cleanup merges) — the order's own line item still has its own
-  // name/price snapshot, so this is informational, not data loss.
-  var productIds = {};
-  rawProducts.forEach(function (p) { productIds[p.id] = true; });
-  realOrders().forEach(function (r) {
-    (r.data.items || []).forEach(function (item) {
-      if (item.productId && !productIds[item.productId]) {
-        add('warning', 'Order ' + (r.data.receiptNumber || r.id) + ' references a deleted product: "' + (item.name || item.productId) + '"');
-      }
-    });
-  });
-
-  // Orders with no customer name or phone at all.
-  realOrders().forEach(function (r) {
-    var o = r.data;
-    if (!o.customerName && !o.phone) {
-      add('error', 'Order ' + (o.receiptNumber || r.id) + ' has no customer name or phone at all');
-    }
-  });
-
-  // Overpayment — amountPaid exceeds the order total without a matching refund.
-  realOrders().forEach(function (r) {
-    var o = normalizeOrder(r.data);
-    var refunded = (r.data.refundHistory || []).reduce(function (s, e) { return s + (e.amount || 0); }, 0);
-    if (o.amountPaid - refunded > o.total + 1) {
-      add('warning', 'Order ' + (o.receiptNumber || r.id) + ' has been paid KSH ' + o.amountPaid + ' against a KSH ' + o.total + ' total (net of refunds: KSH ' + (o.amountPaid - refunded) + ')');
-    }
-  });
-
-  // "Delivered" but not actually fully paid — should have been caught by
-  // the deposit guardrail, but worth surfacing if it happened anyway.
-  realOrders().forEach(function (r) {
-    var o = normalizeOrder(r.data);
-    if (o.productionStatus === 'delivered' && o.paymentStatus !== 'paid' && o.overallStatus !== 'cancelled') {
-      add('warning', 'Order ' + (o.receiptNumber || r.id) + ' is marked Delivered but payment status is "' + o.paymentStatus + '"');
-    }
-  });
-
-  // Order total doesn't match the sum of its own line items — could mean a
-  // manual discount was applied (fine) or a genuine data mismatch (not fine).
-  realOrders().forEach(function (r) {
-    var o = r.data;
-    if (!o.items || !o.items.length) return;
-    var itemSum = o.items.reduce(function (s, it) { return s + (it.lineTotal || 0); }, 0);
-    var tipAmount = o.tipAmount || 0;
-    if (Math.abs((o.total || 0) - itemSum - tipAmount) > 1) {
-      add('warning', 'Order ' + (o.receiptNumber || r.id) + ' total (KSH ' + o.total + ') doesn\'t match its item lines + tip (KSH ' + (itemSum + tipAmount) + ') — likely a manual discount, worth a glance');
-    }
-  });
-
-  // Sales with no items and no legacy single-product fields either —
-  // genuinely can't tell what was sold.
-  rawSales.forEach(function (r) {
-    var s = r.data;
-    if ((!s.items || !s.items.length) && !s.productName) {
-      add('error', 'Sale ' + r.id + ' has no items and no product name — unclear what was actually sold');
-    }
-  });
-
-  // Same customer name appearing under multiple different phone numbers —
-  // possible fragmented identity (or just two different people sharing a
-  // name — flagged as a heads-up, not asserted as fact).
-  var nameToPhones = {};
-  realOrders().forEach(function (r) {
-    var name = (r.data.customerName || '').trim().toLowerCase();
-    var key = r.data.phoneKey;
-    if (!name || !key) return;
-    if (!nameToPhones[name]) nameToPhones[name] = {};
-    nameToPhones[name][key] = true;
-  });
-  Object.keys(nameToPhones).forEach(function (name) {
-    var phones = Object.keys(nameToPhones[name]);
-    if (phones.length > 1) {
-      add('warning', '"' + name + '" appears under ' + phones.length + ' different phone numbers — could be fragmented history, or two different people with the same name');
-    }
-  });
-
-  // Render
-  var errors = findings.filter(function (f) { return f.level === 'error'; });
-  var warnings = findings.filter(function (f) { return f.level === 'warning'; });
-  var html = '<div class="stat-grid" style="margin-bottom:10px">';
-  html += '<div class="stat-box"><div class="num" style="color:#f87171">' + errors.length + '</div><div class="lbl">Errors</div></div>';
-  html += '<div class="stat-box"><div class="num" style="color:#facc15">' + warnings.length + '</div><div class="lbl">Warnings</div></div>';
-  html += '<div class="stat-box"><div class="num" style="color:var(--volt)">' + (findings.length === 0 ? '✓' : findings.length) + '</div><div class="lbl">' + (findings.length === 0 ? 'All Clear' : 'Total Flagged') + '</div></div>';
-  html += '</div>';
-  if (findings.length === 0) {
-    html += '<p class="ok">Nothing flagged in what\'s currently loaded.</p>';
-  } else {
-    errors.concat(warnings).forEach(function (f) {
-      html += '<div style="padding:8px 0;border-bottom:1px solid #2a2a30;font-size:0.85rem;color:' + (f.level === 'error' ? '#f87171' : '#facc15') + '">' +
-        (f.level === 'error' ? '🔴 ' : '🟡 ') + text(f.text) + '</div>';
-    });
-  }
-  box.innerHTML = html;
-}
-
 async function loadMovements() {
   var box = document.getElementById('movementsList');
   if (!box) return;
@@ -1368,31 +1274,6 @@ function sumOrderPaymentsInRange(startDate, endDateExclusive) {
     });
   });
   return totals;
-}
-
-// FIXED: this used to be two separately hand-written formulas — one
-// feeding the Goal-progress alert, one feeding the Command Center's
-// Revenue row. They were mathematically equivalent at the time, but two
-// copies of "how do we compute today's revenue" is exactly how they end
-// up disagreeing the first time someone edits one and not the other.
-// Now there's exactly one version; every caller gets the same numbers
-// from the same source, always.
-function computeRevenueForToday(today) {
-  var cashD = 0, mpesaD = 0, salesTodayForCogs = [];
-  rawSales.forEach(function (r) {
-    var s = r.data;
-    if (s.archived) return;
-    var d = s.createdAt ? s.createdAt.toDate() : null;
-    if (!d || d < today) return;
-    salesTodayForCogs.push(r);
-    var received = typeof s.amountPaid === 'number' ? s.amountPaid : (s.amount || 0);
-    if (s.paymentMethod === 'mpesa') mpesaD += received; else cashD += received;
-  });
-  var orderPayments = sumOrderPaymentsInRange(today, null);
-  cashD += orderPayments.cash;
-  mpesaD += orderPayments.mpesa;
-  var revenueD = cashD + mpesaD + orderPayments.unspecified;
-  return { cashD: cashD, mpesaD: mpesaD, revenueD: revenueD, orderPayments: orderPayments, salesTodayForCogs: salesTodayForCogs };
 }
 
 // Hides destructive, owner-only controls from an admin-role login so they never
@@ -2348,7 +2229,7 @@ async function commitRestore() {
   // visible immediately instead of requiring a manual reload and a leap of
   // faith that it landed correctly.
   try {
-    await Promise.all([loadWorkers(), loadInventory(), loadSales(), loadOrders(), loadProducts(), loadExpenses(), loadGoal(), loadRecentClosings(), loadQuotes(), loadGallery(), loadMarketingSources(), loadPendingNotes(), loadTasks(), loadRecentTips(), loadReviews(), loadLoyaltyConfigForm(), loadMovements(), loadIssueReports()]);
+    await Promise.all([loadWorkers(), loadInventory(), loadSales(), loadOrders(), loadProducts(), loadExpenses(), loadGoal(), loadRecentClosings(), loadQuotes(), loadGallery(), loadMarketingSources(), loadPendingNotes(), loadTasks(), loadRecentTips(), loadReviews(), loadLoyaltyConfigForm(), loadMovements(), loadIssueReports(), loadCustomOptionsConfig()]);
     msg.textContent = 'Restore complete — dashboard is showing the restored data now.';
   } catch (e) {
     log('Post-restore refresh error: ' + e.code + ' — ' + e.message);
@@ -2581,7 +2462,6 @@ async function mergeCategoriesCleanup() {
     }
     msg.className = 'ok';
     msg.textContent = 'Merged ' + toUpdate.length + ' products into "' + target + '".';
-    logEvent('CategoriesMerged', { mergedFrom: checked, mergedInto: target, productCount: toUpdate.length });
     toast('Categories merged');
     loadCategoryCleanup();
     loadProducts(); // refresh the main catalog view too, since categories changed
@@ -2661,7 +2541,7 @@ async function downloadBackup() {
 }
 
 async function loadDashboard() {
-  await Promise.all([loadWorkers(), loadInventory(), loadSales(), loadOrders(), loadProducts(), loadExpenses(), loadGoal(), loadRecentClosings(), loadQuotes(), loadGallery(), loadMarketingSources(), loadPendingNotes(), loadTasks(), loadRecentTips(), loadReviews(), loadLoyaltyConfigForm(), loadMovements(), loadIssueReports()]);
+  await Promise.all([loadWorkers(), loadInventory(), loadSales(), loadOrders(), loadProducts(), loadExpenses(), loadGoal(), loadRecentClosings(), loadQuotes(), loadGallery(), loadMarketingSources(), loadPendingNotes(), loadTasks(), loadRecentTips(), loadReviews(), loadLoyaltyConfigForm(), loadMovements(), loadIssueReports(), loadCustomOptionsConfig()]);
   populateTaskAssignDropdown();
   populateTipSendDropdown();
   loadUnassignedTips();
@@ -2764,7 +2644,7 @@ function computePriorityActions() {
   // RED: any order untouched for 2+ days
   var untouched = realOrders().filter(function (r) {
     var o = normalizeOrder(r.data);
-    if (o.overallStatus === 'completed_settled' || o.overallStatus === 'cancelled') return false;
+    if (o.overallStatus === 'completed_settled') return false;
     var d = o.createdAt ? o.createdAt.toDate() : null;
     return d && (now - d) / (1000 * 60 * 60) > 48;
   }).length;
@@ -2799,7 +2679,17 @@ function computePriorityActions() {
   });
 
   // YELLOW: goal not yet reached today
-  var revenueD = computeRevenueForToday(today).revenueD;
+  var cashD = 0, mpesaD = 0;
+  rawSales.forEach(function (r) {
+    var s = r.data;
+    if (s.archived) return;
+    var d = s.createdAt ? s.createdAt.toDate() : null;
+    if (!d || d < today) return;
+    var received = typeof s.amountPaid === 'number' ? s.amountPaid : (s.amount || 0);
+    if (s.paymentMethod === 'mpesa') mpesaD += received; else cashD += received;
+  });
+  var goalOrderPayments = sumOrderPaymentsInRange(today, null);
+  var revenueD = cashD + mpesaD + goalOrderPayments.cash + goalOrderPayments.mpesa + goalOrderPayments.unspecified;
   if (revenueD < dailyGoal) {
     yellow.push({ text: '🟡 Today\'s goal not yet reached (KSH ' + revenueD.toLocaleString() + ' / ' + dailyGoal.toLocaleString() + ')' });
   }
@@ -2899,15 +2789,25 @@ function renderCommandCenter() {
   };
 
   // --- Today: money ---
-  var rev = computeRevenueForToday(today);
-  var cashD = rev.cashD, mpesaD = rev.mpesaD, revenueD = rev.revenueD, salesTodayForCogs = rev.salesTodayForCogs;
-  var summaryOrderPayments = rev.orderPayments; // kept for the collectedToday reference further down
-  var expensesD = 0;
+  var cashD = 0, mpesaD = 0, expensesD = 0, salesTodayForCogs = [];
+  rawSales.forEach(function (r) {
+    var s = r.data;
+    if (s.archived) return;
+    var d = s.createdAt ? s.createdAt.toDate() : null;
+    if (!d || d < today) return;
+    salesTodayForCogs.push(r);
+    var received = typeof s.amountPaid === 'number' ? s.amountPaid : (s.amount || 0);
+    if (s.paymentMethod === 'mpesa') mpesaD += received; else cashD += received;
+  });
   rawExpenses.forEach(function (r) {
     if ((r.data.status || 'approved') !== 'approved') return;
     var d = r.data.createdAt ? r.data.createdAt.toDate() : null;
     if (d && d >= today) expensesD += (r.data.amount || 0);
   });
+  var summaryOrderPayments = sumOrderPaymentsInRange(today, null);
+  cashD += summaryOrderPayments.cash;
+  mpesaD += summaryOrderPayments.mpesa;
+  var revenueD = cashD + mpesaD + summaryOrderPayments.unspecified;
   var cogsD = estimateCOGS(salesTodayForCogs);
   var profitD = revenueD - cogsD - expensesD;
   var todayHtml = row('Revenue', 'KSH ' + revenueD.toLocaleString()) +
@@ -2930,10 +2830,10 @@ function renderCommandCenter() {
     row('Largest Debtor', largestDebtor ? (text(largestDebtor.name) + ' (KSH ' + largestDebtor.balance.toLocaleString() + ')') : 'None');
 
   // --- Production: jobs ---
-  var jobsWaiting = realOrders().filter(function (r) { var s = normalizeOrder(r.data); return s.productionStatus !== 'delivered' && s.overallStatus !== 'cancelled'; }).length;
+  var jobsWaiting = realOrders().filter(function (r) { return normalizeOrder(r.data).productionStatus !== 'delivered'; }).length;
   var untouched48h = realOrders().filter(function (r) {
     var o = normalizeOrder(r.data);
-    if (o.overallStatus === 'completed_settled' || o.overallStatus === 'cancelled') return false;
+    if (o.overallStatus === 'completed_settled') return false;
     var d = o.createdAt ? o.createdAt.toDate() : null;
     if (!d) return false;
     return (new Date() - d) / (1000 * 60 * 60) > 48;
@@ -4070,7 +3970,13 @@ var PAYMENT_LABELS = { unpaid: 'Unpaid', partial: 'Partially Paid', paid: 'Fully
 // normalizeOrder now comes from shared.js (handles legacy pre-line-item orders too)
 
 function itemsSummary(items) {
-  return items.map(function (it) { return it.qty + '× ' + it.name; }).join(', ') || '—';
+  return items.map(function (it) {
+    var optsText = '';
+    if (it.customOptions && Object.keys(it.customOptions).length > 0) {
+      optsText = ' (' + Object.keys(it.customOptions).map(function (k) { return k + ': ' + it.customOptions[k]; }).join(', ') + ')';
+    }
+    return it.qty + '× ' + it.name + optsText;
+  }).join(', ') || '—';
 }
 
 function buildNotifyButton(o) {
@@ -4391,6 +4297,79 @@ async function bulkDeleteTestOrders() {
 }
 
 // ---------- PRODUCTS ----------
+// ---------- CUSTOM ORDER OPTIONS ----------
+// Structured per-category choices (Finish: Glossy/Matte/..., Size: A4/A5)
+// so a customer picks from real, staff-defined options instead of writing
+// free text that then has to be interpreted. Stored once in
+// settings/customOptionsConfig, read by customer.html to render the
+// picker, and the customer's actual selections travel with the order item
+// exactly as chosen — never invented or guessed by the system.
+var customOptionsConfig = {};
+
+async function loadCustomOptionsConfig() {
+  var box = document.getElementById('customOptionsList');
+  try {
+    var doc = await db.collection('settings').doc('customOptionsConfig').get();
+    customOptionsConfig = doc.exists ? (doc.data().categories || {}) : {};
+    renderCustomOptionsList();
+  } catch (e) {
+    log('Custom options load error: ' + e.code + ' — ' + e.message);
+    if (box) box.innerHTML = '<p style="color:#ff4444">Could not load</p>';
+  }
+}
+
+function renderCustomOptionsList() {
+  var box = document.getElementById('customOptionsList');
+  var categories = Object.keys(customOptionsConfig);
+  if (categories.length === 0) { box.innerHTML = '<p style="color:#888">No custom options set up yet — customers will just see the plain notes box until you add some below.</p>'; return; }
+  var html = '';
+  categories.forEach(function (cat) {
+    (customOptionsConfig[cat] || []).forEach(function (group, idx) {
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #222;font-size:0.85rem">';
+      html += '<span><strong>' + text(cat) + '</strong> — ' + text(group.label) + ': ' + text((group.choices || []).join(', ')) + '</span>';
+      html += '<button type="button" class="small danger" style="width:auto" onclick="removeCustomOptionGroup(\'' + cat.replace(/'/g, "\\'") + '\',' + idx + ')">✕</button>';
+      html += '</div>';
+    });
+  });
+  box.innerHTML = html;
+}
+
+async function saveCustomOptionsConfig() {
+  await db.collection('settings').doc('customOptionsConfig').set({ categories: customOptionsConfig }, { merge: false });
+}
+
+async function addCustomOptionGroup() {
+  var category = document.getElementById('coCategory').value.trim();
+  var label = document.getElementById('coLabel').value.trim();
+  var choices = document.getElementById('coChoices').value.split(',').map(function (c) { return c.trim(); }).filter(Boolean);
+  var msg = document.getElementById('coMsg');
+  if (!category || !label || choices.length < 2) {
+    msg.className = 'error'; msg.textContent = 'Enter a category, a question label, and at least 2 choices';
+    return;
+  }
+  if (!customOptionsConfig[category]) customOptionsConfig[category] = [];
+  customOptionsConfig[category].push({ label: label, choices: choices });
+  try {
+    await saveCustomOptionsConfig();
+    document.getElementById('coCategory').value = '';
+    document.getElementById('coLabel').value = '';
+    document.getElementById('coChoices').value = '';
+    msg.className = 'ok'; msg.textContent = 'Added';
+    renderCustomOptionsList();
+  } catch (e) {
+    msg.className = 'error'; msg.textContent = 'Could not save';
+    log('Custom options save error: ' + e.code + ' — ' + e.message);
+  }
+}
+
+async function removeCustomOptionGroup(category, idx) {
+  if (!customOptionsConfig[category]) return;
+  customOptionsConfig[category].splice(idx, 1);
+  if (customOptionsConfig[category].length === 0) delete customOptionsConfig[category];
+  await saveCustomOptionsConfig();
+  renderCustomOptionsList();
+}
+
 async function loadProducts() {
   var box = document.getElementById('productsList');
   try {
