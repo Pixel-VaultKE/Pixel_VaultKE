@@ -784,7 +784,7 @@ async function checkLoyaltyStatus() {
   var phoneKey = normalizePhone(phone);
   var threshold = loyaltyConfig.visitThreshold || 5;
   try {
-    var snap = await db.collection('orders').where('phoneKey', '==', phoneKey).get();
+    var snap = await db.collection('orders').where('phoneKey', '==', phoneKey).limit(20).get();
     loyaltyVisitCount = snap.size;
     if (loyaltyVisitCount >= threshold) {
       loyaltyEligible = true;
