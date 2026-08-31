@@ -253,6 +253,7 @@ button.small{width:auto;padding:8px 14px;font-size:0.85rem}
 
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <script src="shared.js"></script>
 
 <script>
@@ -918,55 +919,34 @@ async function submitOrder(){
   btn.innerHTML = '<span class="spinner"></span>Placing your order...';
   log('Submitting order...');
   try {
-    // Re-check loyalty status right before locking in the total — guards
-    // against the phone field never firing its blur event (e.g. autofill,
-    // or the customer tabbing straight to Submit) and the discount silently
-    // not applying even though they qualify.
-    await checkLoyaltyStatus();
-    var cartTotal = cart.reduce(function (sum, item) { return sum + item.lineTotal; }, 0);
-    var loyaltyDiscountAmount = loyaltyEligible ? Math.round(cartTotal * (loyaltyDiscountPercent / 100)) : 0;
-    var discountedSubtotal = cartTotal - loyaltyDiscountAmount;
-    var total = discountedSubtotal + tipAmount;
-
-    // Stock is NOT reserved here anymore — placing an order no longer holds
-    // an item hostage before any money changes hands. It's reserved when
-    // staff record the first payment (deposit or full) on this order, in
-    // admin.html. That means the same design could theoretically be sold to
-    // two different customers before either pays — accepted tradeoff, this
-    // was a deliberate choice to not lock stock on an unpaid order.
+    // CHANGED — this used to write straight to db.collection('orders')
+    // from the browser, computing price/discount/total itself. The
+    // current firestore.rules require request.auth != null && isStaff()
+    // to create an order document, which an anonymous customer is
+    // neither — that direct write would be rejected outright. createOrder
+    // (functions/index.js) is the Cloud Function built specifically to
+    // replace it: it runs with the Admin SDK (not subject to these
+    // rules), re-derives every price from the live products collection
+    // instead of trusting the browser, and recomputes the loyalty
+    // discount and total server-side. The client's only remaining job is
+    // to say WHICH products and how many — never what they cost.
     var receiptNumber = await getNextReceiptNumber();
-    var doc = await db.collection('orders').add({
+    var createOrder = firebase.functions().httpsCallable('createOrder');
+    var result = await createOrder({
       customerName: name,
       phone: phone,
       phoneKey: normalizePhone(phone),
       email: email || null,
-      items: cart,
-      subtotalBeforeDiscount: cartTotal,
-      loyaltyDiscountApplied: loyaltyEligible,
-      loyaltyDiscountPercent: loyaltyEligible ? loyaltyDiscountPercent : 0,
-      loyaltyDiscountAmount: loyaltyDiscountAmount,
-      total: total,
-      tipAmount: tipAmount,
-      tipAssigned: false,
-      // Stock reservation now happens at payment time (admin.html), not
-      // here — see deductInventoryForOrder()'s trigger in receivePayment().
-      inventoryDeducted: false,
-      amountPaid: 0,
-      balance: total,
-      paymentStatus: 'unpaid',
-      productionStatus: 'new',
-      overallStatus: 'open',
       description: desc,
       receiptNumber: receiptNumber,
       source: orderSource,
-      artworkUrl: attachedArtwork ? attachedArtwork.url : null,
-      artworkFilename: attachedArtwork ? attachedArtwork.filename : null,
-      artworkSize: attachedArtwork ? attachedArtwork.size : null,
-      artworkUploadedAt: attachedArtwork ? attachedArtwork.uploadedAt : null,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      items: cart,
+      tipAmount: tipAmount,
+      artwork: attachedArtwork || null
     });
-    log('SUCCESS: Order ID ' + doc.id + ' — Receipt ' + receiptNumber);
-    document.getElementById('lastOrderId').textContent = 'Receipt: ' + receiptNumber;
+    var orderResult = result.data;
+    log('SUCCESS: Order ID ' + orderResult.orderId + ' — Receipt ' + orderResult.receiptNumber);
+    document.getElementById('lastOrderId').textContent = 'Receipt: ' + orderResult.receiptNumber;
     document.getElementById('orderForm').classList.add('hidden');
     document.getElementById('successView').classList.remove('hidden');
     document.getElementById('miniCartBar').classList.remove('visible');
