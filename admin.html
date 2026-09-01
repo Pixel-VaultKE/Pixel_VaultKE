@@ -4033,6 +4033,10 @@ async function toggleChecklistStep(orderId, stepIndex, isDone) {
     await db.collection('orders').doc(orderId).update({ checklist: checklist });
     found.data.checklist = checklist;
     log('Checklist step ' + stepIndex + ' for order ' + orderId + ': ' + isDone);
+    renderOrders(); // FIXED — this function previously called no render at
+    // all after a successful write, so the checklist UI could show stale
+    // state until something unrelated happened to trigger a redraw. See
+    // RECON_REPORT.md finding 🔴#2.
   } catch (e) {
     log('Checklist update error: ' + e.code + ' — ' + e.message);
     toast('Could not save checklist', true);
@@ -4662,6 +4666,10 @@ async function receivePayment(orderId) {
       await deductInventoryForOrder(orderId, o);
     }
     renderOrders();
+    computeExtraStats(); // FIXED — this used to only call renderOrders(), so a
+    // payment updated the order list but left Revenue/Profit/Cash/M-PESA/Debt
+    // at the top of the dashboard stale until the next full page load. See
+    // RECON_REPORT.md finding 🔴#1.
   } catch (e) {
     log('Receive payment error: ' + e.code + ' — ' + e.message);
     toast('Could not record payment', true);
