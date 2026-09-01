@@ -194,3 +194,101 @@ exports.createOrder = functions.https.onCall(async (data, context) => {
 
   return { orderId: orderRef.id, receiptNumber: receiptNumber, total: total };
 });
+
+/**
+ * reviewApplication — the ONLY way an upload-team applicant becomes an
+ * uploader with real access. Approving someone in the admin UI does
+ * nothing by itself unless it goes through here — the client cannot
+ * create an `uploaders` document directly (firestore.rules blocks that
+ * write outright), and it cannot grant someone a working login on its
+ * own, because only the Admin SDK can create a Firebase Auth account
+ * and attach the custom claim the uploader workspace checks.
+ *
+ * Caller must be an existing owner/admin — re-checked here against
+ * their own workers/{uid} document, never trusted from anything the
+ * client claims about itself.
+ */
+exports.reviewApplication = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Sign in required.');
+  }
+
+  const callerSnap = await db.collection('workers').doc(context.auth.uid).get();
+  const callerRole = callerSnap.exists ? callerSnap.data().role : null;
+  if (callerRole !== 'owner' && callerRole !== 'admin') {
+    throw new functions.https.HttpsError('permission-denied', 'Only an owner or admin can review applications.');
+  }
+
+  const applicationId = typeof data.applicationId === 'string' ? data.applicationId : null;
+  const decision = data.decision; // 'approve' | 'reject'
+  const notes = typeof data.notes === 'string' ? data.notes.slice(0, 1000) : '';
+
+  if (!applicationId || (decision !== 'approve' && decision !== 'reject')) {
+    throw new functions.https.HttpsError('invalid-argument', 'applicationId and a valid decision are required.');
+  }
+
+  const appRef = db.collection('uploadApplications').doc(applicationId);
+  const appSnap = await appRef.get();
+  if (!appSnap.exists) {
+    throw new functions.https.HttpsError('not-found', 'That application no longer exists.');
+  }
+  const appData = appSnap.data();
+  if (appData.status !== 'pending') {
+    throw new functions.https.HttpsError('failed-precondition', 'This application has already been reviewed.');
+  }
+
+  if (decision === 'reject') {
+    await appRef.update({
+      status: 'rejected',
+      reviewedBy: context.auth.uid,
+      reviewedAt: admin.firestore.FieldValue.serverTimestamp(),
+      reviewNotes: notes
+    });
+    return { status: 'rejected' };
+  }
+
+  // decision === 'approve' — create the real, working uploader identity.
+  // Reuses the applicant's own email as their login; if an account with
+  // that email already exists (e.g. re-applying after removal), reuse it
+  // rather than erroring, so an approved return-uploader isn't blocked.
+  let userRecord;
+  try {
+    userRecord = await admin.auth().getUserByEmail(appData.email);
+  } catch (e) {
+    userRecord = await admin.auth().createUser({
+      email: appData.email,
+      displayName: appData.applicantName,
+      password: Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)
+    });
+    // No password is communicated here on purpose — the approved
+    // applicant resets their own via the standard Firebase "forgot
+    // password" flow before their first login, so nobody ever has to
+    // hand a raw password to anyone over WhatsApp or SMS.
+    await admin.auth().generatePasswordResetLink(appData.email);
+  }
+
+  const uploaderRef = db.collection('uploaders').doc(userRecord.uid);
+  await uploaderRef.set({
+    name: appData.applicantName,
+    phone: appData.phone,
+    email: appData.email,
+    applicationId: applicationId,
+    status: 'active',
+    authUid: userRecord.uid,
+    joinedAt: admin.firestore.FieldValue.serverTimestamp(),
+    totalAccepted: 0,
+    totalRejected: 0,
+    totalEarned: 0
+  });
+
+  await admin.auth().setCustomUserClaims(userRecord.uid, { uploaderId: userRecord.uid });
+
+  await appRef.update({
+    status: 'approved',
+    reviewedBy: context.auth.uid,
+    reviewedAt: admin.firestore.FieldValue.serverTimestamp(),
+    reviewNotes: notes
+  });
+
+  return { status: 'approved', uploaderId: userRecord.uid };
+});

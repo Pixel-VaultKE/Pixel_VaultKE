@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Customers — Elite Customs</title>
+<style>
+  body { font-family: -apple-system, Arial, sans-serif; background:#0D0D10; color:#eee; margin:0; padding:16px; }
+  h1 { font-size:1.3rem; margin:0 0 4px; }
+  .sub { color:#9ca3af; font-size:0.85rem; margin-bottom:16px; }
+  input { width:100%; box-sizing:border-box; padding:12px 14px; border-radius:10px; border:1px solid #2a2a35;
+    background:#15151d; color:#fff; font-size:1rem; margin-bottom:14px; }
+  .row { display:flex; align-items:center; justify-content:space-between; gap:10px;
+    background:#15151d; border:1px solid #23232e; border-radius:12px; padding:12px 14px; margin-bottom:8px; }
+  .row .info { min-width:0; }
+  .name { font-weight:700; font-size:0.95rem; }
+  .meta { color:#9ca3af; font-size:0.78rem; margin-top:2px; }
+  .wa-btn { background:#25D366; color:#0D0D10; font-weight:800; border:none; border-radius:10px;
+    padding:10px 14px; font-size:0.85rem; white-space:nowrap; text-decoration:none; flex-shrink:0; }
+  #loginSection { max-width:340px; margin:60px auto; text-align:center; }
+  #loginSection input { margin-bottom:10px; }
+  #loginSection button { width:100%; padding:12px; border-radius:10px; border:none;
+    background:#C6FF3D; color:#0D0D10; font-weight:800; font-size:1rem; }
+  .hidden { display:none; }
+  .error { color:#f87171; font-size:0.85rem; margin-top:6px; }
+  .empty { color:#6b7280; text-align:center; padding:30px 0; font-size:0.9rem; }
+  .filterRow { display:flex; gap:6px; margin-bottom:14px; flex-wrap:wrap; }
+  .filterPill { background:#15151d; border:1px solid #2a2a35; color:#d1d5db; font-size:0.8rem;
+    padding:7px 12px; border-radius:999px; cursor:pointer; }
+  .filterPill.active { background:#C6FF3D; color:#0D0D10; border-color:#C6FF3D; font-weight:700; }
+</style>
+</head>
+<body>
+
+<div id="loginSection">
+  <h1>Staff sign in</h1>
+  <div class="sub">Owner / admin accounts only</div>
+  <input type="email" id="aEmail" placeholder="Email">
+  <input type="password" id="aPass" placeholder="Password">
+  <button onclick="doLogin()">Sign In</button>
+  <div class="error" id="loginMsg"></div>
+</div>
+
+<div id="mainSection" class="hidden">
+  <h1>Customers</h1>
+  <div class="sub" id="countLine">Loading...</div>
+  <input type="text" id="search" placeholder="Search by name or phone..." oninput="renderList()">
+  <div class="filterRow" id="dateFilters"></div>
+  <div id="list"></div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="shared.js"></script>
+<script>
+// firebaseConfig / firebase.initializeApp / db / auth / escapeHtml come
+// from shared.js, same as admin.html.
+
+var allCustomers = []; // deduped, most-recent-order-first
+var activeDateFilter = 'all'; // 'today' | 'yesterday' | 'week' | 'all'
+
+function startOfDay(d) { var x = new Date(d); x.setHours(0, 0, 0, 0); return x; }
+
+function matchesDateFilter(c) {
+  if (activeDateFilter === 'all') return true;
+  if (!c.lastOrderDate) return false;
+  var today = startOfDay(new Date());
+  var orderDay = startOfDay(c.lastOrderDate);
+  var diffDays = Math.round((today - orderDay) / 86400000);
+  if (activeDateFilter === 'today') return diffDays === 0;
+  if (activeDateFilter === 'yesterday') return diffDays === 1;
+  if (activeDateFilter === 'week') return diffDays >= 0 && diffDays <= 6;
+  return true;
+}
+
+function setDateFilter(val) {
+  activeDateFilter = val;
+  renderDateFilters();
+  renderList();
+}
+
+function renderDateFilters() {
+  var opts = [['today', 'Today'], ['yesterday', 'Yesterday'], ['week', 'This Week'], ['all', 'All']];
+  document.getElementById('dateFilters').innerHTML = opts.map(function (o) {
+    return '<button class="filterPill' + (activeDateFilter === o[0] ? ' active' : '') + '" ' +
+      'onclick="setDateFilter(\'' + o[0] + '\')">' + o[1] + '</button>';
+  }).join('');
+}
+
+// Kenyan local numbers are commonly saved as 07XXXXXXXX or 01XXXXXXXX.
+// WhatsApp's click-to-chat link needs full international digits, no
+// leading 0 and no '+'. This mirrors the business's own number already
+// hardcoded elsewhere in this codebase (254722912595) rather than
+// guessing at a library shared.js may or may not export.
+function toWhatsAppDigits(phone) {
+  var digits = (phone || '').replace(/\D/g, '');
+  if (digits.indexOf('0') === 0) digits = '254' + digits.slice(1);
+  else if (digits.indexOf('254') !== 0) digits = '254' + digits; // already-bare 7XXXXXXXX
+  return digits;
+}
+
+async function loadCustomers() {
+  document.getElementById('countLine').textContent = 'Loading...';
+  try {
+    // Ordered by most recent first, capped at 500 orders — recent
+    // customers first, without pulling the entire history of a
+    // long-running shop into the browser on every page load.
+    var snap = await db.collection('orders').orderBy('createdAt', 'desc').limit(500).get();
+    var seen = {};
+    var out = [];
+    snap.forEach(function (doc) {
+      var d = doc.data();
+      var key = d.phoneKey || d.phone;
+      if (!key || seen[key]) return; // keep only the most recent order per customer
+      seen[key] = true;
+      out.push({
+        name: d.customerName || 'Unknown',
+        phone: d.phone || '',
+        lastOrderTotal: d.total,
+        lastOrderDate: d.createdAt && d.createdAt.toDate ? d.createdAt.toDate() : null,
+        receiptNumber: d.receiptNumber || ''
+      });
+    });
+    allCustomers = out;
+    document.getElementById('countLine').textContent = out.length + ' customer' + (out.length === 1 ? '' : 's');
+    renderList();
+  } catch (e) {
+    document.getElementById('countLine').textContent = '';
+    document.getElementById('list').innerHTML = '<div class="error">Could not load customers: ' + escapeHtml(e.message) + '</div>';
+  }
+}
+
+function renderList() {
+  var q = document.getElementById('search').value.trim().toLowerCase();
+  var filtered = allCustomers.filter(function (c) {
+    var matchesText = !q || c.name.toLowerCase().indexOf(q) !== -1 || c.phone.indexOf(q) !== -1;
+    return matchesText && matchesDateFilter(c);
+  });
+  var listEl = document.getElementById('list');
+  if (filtered.length === 0) {
+    listEl.innerHTML = '<div class="empty">No customers match that filter.</div>';
+    return;
+  }
+  listEl.innerHTML = filtered.map(function (c) {
+    var dateStr = c.lastOrderDate ? c.lastOrderDate.toLocaleDateString() : '';
+    var waNumber = toWhatsAppDigits(c.phone);
+    var waText = encodeURIComponent('Hi ' + c.name + ', this is Elite Customs — ');
+    return '<div class="row">' +
+      '<div class="info">' +
+        '<div class="name">' + escapeHtml(c.name) + '</div>' +
+        '<div class="meta">' + escapeHtml(c.phone) + (dateStr ? ' · last order ' + dateStr : '') + '</div>' +
+      '</div>' +
+      '<a class="wa-btn" href="https://wa.me/' + waNumber + '?text=' + waText + '" target="_blank" rel="noopener">Message</a>' +
+    '</div>';
+  }).join('');
+}
+
+auth.onAuthStateChanged(async function (user) {
+  if (!user) {
+    document.getElementById('loginSection').classList.remove('hidden');
+    document.getElementById('mainSection').classList.add('hidden');
+    return;
+  }
+  try {
+    var snap = await db.collection('workers').doc(user.uid).get();
+    if (!snap.exists || (snap.data().role !== 'owner' && snap.data().role !== 'admin')) {
+      await auth.signOut();
+      document.getElementById('loginMsg').textContent = 'This account is not an owner or admin account';
+      return;
+    }
+    document.getElementById('loginSection').classList.add('hidden');
+    document.getElementById('mainSection').classList.remove('hidden');
+    loadCustomers();
+    renderDateFilters();
+  } catch (e) {
+    await auth.signOut();
+    document.getElementById('loginMsg').textContent = 'Could not verify account';
+  }
+});
+
+async function doLogin() {
+  var email = document.getElementById('aEmail').value.trim();
+  var pass = document.getElementById('aPass').value;
+  var msg = document.getElementById('loginMsg');
+  msg.textContent = '';
+  if (!email || !pass) { msg.textContent = 'Enter email and password'; return; }
+  try {
+    await auth.signInWithEmailAndPassword(email, pass);
+  } catch (e) {
+    msg.textContent = e.message;
+  }
+}
+</script>
+</body>
+</html>

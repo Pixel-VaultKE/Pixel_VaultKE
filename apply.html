@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Join the Pixel Vault KE Upload Team</title>
+<style>
+  body { font-family: -apple-system, Arial, sans-serif; background:#0D0D10; color:#eee; margin:0; padding:20px; }
+  .card { max-width:420px; margin:20px auto; }
+  h1 { font-size:1.4rem; margin:0 0 6px; }
+  .sub { color:#9ca3af; font-size:0.9rem; margin-bottom:22px; line-height:1.5; }
+  label { display:block; font-size:0.85rem; color:#d1d5db; margin:14px 0 6px; }
+  input, textarea { width:100%; box-sizing:border-box; padding:12px 14px; border-radius:10px;
+    border:1px solid #2a2a35; background:#15151d; color:#fff; font-size:1rem; font-family:inherit; }
+  textarea { resize:vertical; min-height:80px; }
+  button { width:100%; margin-top:22px; padding:14px; border-radius:12px; border:none;
+    background:#C6FF3D; color:#0D0D10; font-weight:800; font-size:1rem; }
+  button:disabled { opacity:0.6; }
+  .msg { margin-top:14px; font-size:0.88rem; text-align:center; }
+  .error { color:#f87171; }
+  .success { text-align:center; }
+  .success h2 { color:#C6FF3D; }
+  .hidden { display:none; }
+</style>
+</head>
+<body>
+
+<div class="card" id="formCard">
+  <h1>Join the Pixel Vault KE Upload Team</h1>
+  <div class="sub">We're looking for people to help upload designs to the
+    catalog. Fill this in — we'll review it and reach out if you're a fit.</div>
+
+  <form id="applyForm">
+    <label for="fName">Full name</label>
+    <input type="text" id="fName" required maxlength="100">
+
+    <label for="fPhone">Phone number</label>
+    <input type="tel" id="fPhone" required maxlength="20" placeholder="07XX XXX XXX">
+
+    <label for="fEmail">Email</label>
+    <input type="email" id="fEmail" required maxlength="150">
+
+    <label for="fWhy">Why do you want to join?</label>
+    <textarea id="fWhy" required maxlength="800"></textarea>
+
+    <label for="fExp">Any relevant experience? (optional)</label>
+    <textarea id="fExp" maxlength="800"></textarea>
+
+    <button type="submit" id="submitBtn">Submit Application</button>
+    <div class="msg error hidden" id="errMsg"></div>
+  </form>
+</div>
+
+<div class="card success hidden" id="successCard">
+  <h2>✓ Application received</h2>
+  <p>Thanks — we'll review it and get in touch if it's a fit. No need to
+    apply again.</p>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="shared.js"></script>
+<script>
+// firebaseConfig / db come from shared.js, same as every other page.
+
+document.getElementById('applyForm').addEventListener('submit', async function (e) {
+  e.preventDefault();
+  var btn = document.getElementById('submitBtn');
+  var errEl = document.getElementById('errMsg');
+  errEl.classList.add('hidden');
+
+  var name = document.getElementById('fName').value.trim();
+  var phone = document.getElementById('fPhone').value.trim();
+  var email = document.getElementById('fEmail').value.trim();
+  var why = document.getElementById('fWhy').value.trim();
+  var exp = document.getElementById('fExp').value.trim();
+
+  if (!name || !phone || !email || !why) {
+    errEl.textContent = 'Please fill in all required fields.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Submitting...';
+
+  try {
+    // status is forced to 'pending' here AND enforced again by
+    // firestore.rules — this client-side value is a convenience, not
+    // the security boundary. The rule is what actually stops someone
+    // from submitting themselves pre-approved.
+    await db.collection('uploadApplications').add({
+      applicantName: name,
+      phone: phone,
+      email: email,
+      whyInterested: why,
+      experience: exp || null,
+      status: 'pending',
+      submittedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    document.getElementById('formCard').classList.add('hidden');
+    document.getElementById('successCard').classList.remove('hidden');
+  } catch (err) {
+    errEl.textContent = 'Something went wrong — please try again. (' + err.message + ')';
+    errEl.classList.remove('hidden');
+    btn.disabled = false;
+    btn.textContent = 'Submit Application';
+  }
+});
+</script>
+</body>
+</html>
