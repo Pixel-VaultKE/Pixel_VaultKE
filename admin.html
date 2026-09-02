@@ -371,6 +371,31 @@ tr:hover td{background:rgba(255,255,255,0.02)}
 
   <div style="margin:20px 0 -6px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:0.5px">🎯 CUSTOMERS & MARKETING</div>
 
+  <div class="card collapsible collapsed" id="contactCustomersCard">
+    <span class="eyebrow" style="background:#25D366;color:#0D0D10">Reach Out</span><h2 onclick="toggleCard('contactCustomersCard')">📱 Contact Customers</h2>
+    <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Everyone who's ordered, pulled straight from Orders — not a separate list. Search or filter by day, tap Message to open WhatsApp.</p>
+    <input type="text" id="ccSearch" placeholder="Search by name or phone..." oninput="renderCustomerContacts()" style="margin-bottom:8px">
+    <div id="ccDateFilters" style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap"></div>
+    <div id="ccList"><p style="color:#888">Loading...</p></div>
+  </div>
+
+  <div class="card collapsible collapsed" id="uploadTeamCard">
+    <span class="eyebrow" style="background:#C6FF3D;color:#0D0D10">Recruitment</span><h2 onclick="toggleCard('uploadTeamCard')">🖼️ Upload Team</h2>
+    <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Applications from <code style="color:#29D3F5">apply.html</code> land here. Approve creates their real login — nothing else does.</p>
+    <div style="background:#0D0D10;border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:14px">
+      <div style="font-size:0.85rem;color:#888;margin-bottom:8px">Current rate per accepted picture: <b id="utCurrentRate" style="color:#fff">—</b></div>
+      <input type="number" id="utNewRate" step="0.01" min="0" placeholder="e.g. 1.65" style="width:100px;margin-right:8px">
+      <button onclick="saveUploaderRate()">Set Rate</button>
+      <div id="utRateMsg" style="color:#f87171;font-size:0.8rem;margin-top:6px"></div>
+    </div>
+    <div style="font-size:0.85rem;color:#888;margin-bottom:6px">🕓 Pending</div>
+    <div id="utPendingList"><p style="color:#888">Loading...</p></div>
+    <div style="font-size:0.85rem;color:#888;margin:14px 0 6px">✅ Approved</div>
+    <div id="utApprovedList"></div>
+    <div style="font-size:0.85rem;color:#888;margin:14px 0 6px">❌ Rejected</div>
+    <div id="utRejectedList"></div>
+  </div>
+
   <div class="card collapsible collapsed" id="marketingSourcesCard">
     <span class="eyebrow" style="background:#29D3F5;color:#0D0D10">Where Orders Come From</span><h2 onclick="toggleCard('marketingSourcesCard')">📍 Marketing Sources</h2>
     <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Which QR code, flyer, or location is actually driving orders. Tag each printed QR with a different link (see below), then check back here.</p>
@@ -465,6 +490,7 @@ tr:hover td{background:rgba(255,255,255,0.02)}
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <script src="shared.js"></script>
 
 <script>
@@ -2550,11 +2576,175 @@ async function loadDashboard() {
   renderNotifications();
   renderPriorityActions();
   renderCommandCenter();
+  renderCustomerContacts(); // pulls from rawOrders — already loaded above, no extra query
+  ccActiveDateFilter = 'all';
+  renderCcDateFilters();
+  loadUploadApplications();
+  loadUploaderRate();
   var lowCount = rawInventory.filter(function (inv) {
     var i = inv.data;
     return typeof i.qty === 'number' && typeof i.minQty === 'number' && i.qty <= i.minQty;
   }).length;
   if (lowCount > 0) toast('⚠️ ' + lowCount + ' item(s) low on stock — check Inventory', true);
+}
+
+// ===== Contact Customers — reuses rawOrders, the same array every other
+// part of this dashboard already loads. Not a second source of truth. =====
+var ccActiveDateFilter = 'all';
+
+function ccStartOfDay(d) { var x = new Date(d); x.setHours(0, 0, 0, 0); return x; }
+
+function ccMatchesDate(dateObj) {
+  if (ccActiveDateFilter === 'all') return true;
+  if (!dateObj) return false;
+  var diffDays = Math.round((ccStartOfDay(new Date()) - ccStartOfDay(dateObj)) / 86400000);
+  if (ccActiveDateFilter === 'today') return diffDays === 0;
+  if (ccActiveDateFilter === 'yesterday') return diffDays === 1;
+  if (ccActiveDateFilter === 'week') return diffDays >= 0 && diffDays <= 6;
+  return true;
+}
+
+function ccSetDateFilter(val) {
+  ccActiveDateFilter = val;
+  renderCcDateFilters();
+  renderCustomerContacts();
+}
+
+function renderCcDateFilters() {
+  var opts = [['today', 'Today'], ['yesterday', 'Yesterday'], ['week', 'This Week'], ['all', 'All']];
+  document.getElementById('ccDateFilters').innerHTML = opts.map(function (o) {
+    var active = ccActiveDateFilter === o[0];
+    return '<button onclick="ccSetDateFilter(\'' + o[0] + '\')" style="background:' + (active ? '#C6FF3D' : '#0D0D10') +
+      ';color:' + (active ? '#0D0D10' : '#d1d5db') + ';border:1px solid var(--line);border-radius:999px;' +
+      'padding:6px 12px;font-size:0.78rem;font-weight:' + (active ? '700' : '400') + '">' + o[1] + '</button>';
+  }).join('');
+}
+
+function ccToWhatsAppDigits(phone) {
+  var digits = (phone || '').replace(/\D/g, '');
+  if (digits.indexOf('0') === 0) digits = '254' + digits.slice(1);
+  else if (digits.indexOf('254') !== 0) digits = '254' + digits;
+  return digits;
+}
+
+function renderCustomerContacts() {
+  var seen = {};
+  var customers = [];
+  realOrders().forEach(function (r) {
+    var d = r.data;
+    var key = d.phoneKey || d.phone;
+    if (!key || seen[key]) return; // realOrders() is already newest-first
+    seen[key] = true;
+    customers.push({
+      name: d.customerName || 'Unknown',
+      phone: d.phone || '',
+      date: d.createdAt && d.createdAt.toDate ? d.createdAt.toDate() : null
+    });
+  });
+
+  var q = (document.getElementById('ccSearch').value || '').trim().toLowerCase();
+  var filtered = customers.filter(function (c) {
+    var matchesText = !q || c.name.toLowerCase().indexOf(q) !== -1 || c.phone.indexOf(q) !== -1;
+    return matchesText && ccMatchesDate(c.date);
+  });
+
+  var listEl = document.getElementById('ccList');
+  if (!filtered.length) {
+    listEl.innerHTML = '<p style="color:#888">No customers match that filter.</p>';
+    return;
+  }
+  listEl.innerHTML = filtered.map(function (c) {
+    var dateStr = c.date ? c.date.toLocaleDateString() : '';
+    var waNumber = ccToWhatsAppDigits(c.phone);
+    var waText = encodeURIComponent('Hi ' + c.name + ', this is Elite Customs — ');
+    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;' +
+      'background:#0D0D10;border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px">' +
+      '<div style="min-width:0"><div style="font-weight:700;font-size:0.9rem">' + escapeHtml(c.name) + '</div>' +
+      '<div style="color:#888;font-size:0.75rem;margin-top:2px">' + escapeHtml(c.phone) + (dateStr ? ' · ' + dateStr : '') + '</div></div>' +
+      '<a href="https://wa.me/' + waNumber + '?text=' + waText + '" target="_blank" rel="noopener" ' +
+      'style="background:#25D366;color:#0D0D10;font-weight:800;border-radius:8px;padding:8px 12px;font-size:0.8rem;text-decoration:none;flex-shrink:0">Message</a>' +
+      '</div>';
+  }).join('');
+}
+
+// ===== Upload Team — applications review + rate ======================
+var rawApplications = [];
+
+async function loadUploadApplications() {
+  try {
+    var snap = await db.collection('uploadApplications').orderBy('submittedAt', 'desc').limit(300).get();
+    rawApplications = snap.docs.map(function (d) { return { id: d.id, data: d.data() }; });
+    renderUploadApplications();
+  } catch (e) {
+    document.getElementById('utPendingList').innerHTML = '<p style="color:#f87171">Could not load: ' + escapeHtml(e.message) + '</p>';
+  }
+}
+
+function utAppCard(a, showButtons) {
+  var d = a.data;
+  var dateStr = d.submittedAt && d.submittedAt.toDate ? d.submittedAt.toDate().toLocaleString() : '';
+  var html = '<div style="background:#0D0D10;border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:8px">' +
+    '<div style="font-weight:700">' + escapeHtml(d.applicantName) + '</div>' +
+    '<div style="color:#888;font-size:0.75rem;margin:2px 0 8px">' + escapeHtml(d.phone) + ' · ' + escapeHtml(d.email) + (dateStr ? ' · ' + dateStr : '') + '</div>' +
+    '<div style="font-size:0.85rem;color:#d1d5db;margin-bottom:8px">' + escapeHtml(d.whyInterested) + '</div>';
+  if (showButtons) {
+    html += '<div style="display:flex;gap:8px">' +
+      '<button onclick="reviewUploadApplication(\'' + a.id + '\',\'approve\')" style="flex:1;background:#25D366;color:#0D0D10;border:none;border-radius:8px;padding:9px;font-weight:700;font-size:0.82rem">Approve</button>' +
+      '<button onclick="reviewUploadApplication(\'' + a.id + '\',\'reject\')" style="flex:1;background:#3a1f1f;color:#f87171;border:1px solid #5c2b2b;border-radius:8px;padding:9px;font-weight:700;font-size:0.82rem">Reject</button>' +
+      '</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+function renderUploadApplications() {
+  var pending = rawApplications.filter(function (a) { return a.data.status === 'pending'; });
+  var approved = rawApplications.filter(function (a) { return a.data.status === 'approved'; });
+  var rejected = rawApplications.filter(function (a) { return a.data.status === 'rejected'; });
+  document.getElementById('utPendingList').innerHTML = pending.length ? pending.map(function (a) { return utAppCard(a, true); }).join('') : '<p style="color:#888">None pending</p>';
+  document.getElementById('utApprovedList').innerHTML = approved.length ? approved.map(function (a) { return utAppCard(a, false); }).join('') : '<p style="color:#888">None yet</p>';
+  document.getElementById('utRejectedList').innerHTML = rejected.length ? rejected.map(function (a) { return utAppCard(a, false); }).join('') : '<p style="color:#888">None yet</p>';
+}
+
+async function reviewUploadApplication(applicationId, decision) {
+  if (!confirm('Are you sure you want to ' + decision + ' this application?')) return;
+  try {
+    var reviewApplication = firebase.functions().httpsCallable('reviewApplication');
+    await reviewApplication({ applicationId: applicationId, decision: decision, notes: '' });
+    await loadUploadApplications();
+    toast(decision === 'approve' ? 'Approved — their login is ready' : 'Rejected');
+  } catch (e) {
+    toast('Could not ' + decision + ': ' + e.message, true);
+  }
+}
+
+async function loadUploaderRate() {
+  try {
+    var snap = await db.collection('settings').doc('uploaderRate').get();
+    var rate = snap.exists ? snap.data().rate : null;
+    document.getElementById('utCurrentRate').textContent = rate != null ? ('KSh ' + rate) : 'not set';
+  } catch (e) {
+    document.getElementById('utCurrentRate').textContent = 'error';
+  }
+}
+
+async function saveUploaderRate() {
+  var val = parseFloat(document.getElementById('utNewRate').value);
+  var msgEl = document.getElementById('utRateMsg');
+  msgEl.textContent = '';
+  if (isNaN(val) || val < 0) { msgEl.textContent = 'Enter a valid rate.'; return; }
+  try {
+    await db.collection('settings').doc('uploaderRate').set({
+      rate: val,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedBy: firebase.auth().currentUser.uid
+    }, { merge: true });
+    document.getElementById('utNewRate').value = '';
+    loadUploaderRate();
+    toast('Rate updated');
+  } catch (e) {
+    msgEl.textContent = 'Could not save: ' + e.message;
+  }
 }
 
 function computeAlerts() {

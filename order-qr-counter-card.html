@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Elite Customs — Scan to Order</title>
+<style>
+  body { font-family: -apple-system, Arial, sans-serif; background:#0b0b0f; color:#fff;
+    display:flex; align-items:center; justify-content:center; min-height:100vh; margin:0; }
+  .card { background:#15151d; border:2px solid #2a2a35; border-radius:20px; padding:40px 32px;
+    text-align:center; max-width:420px; }
+  h1 { font-size:1.4rem; margin:0 0 4px; color:#fff; }
+  .sub { color:#9ca3af; font-size:0.95rem; margin-bottom:24px; }
+  .qr-box { background:#fff; border-radius:16px; padding:16px; display:inline-block; }
+  .qr-box img { display:block; width:260px; height:260px; }
+  .steps { text-align:left; margin-top:24px; color:#d1d5db; font-size:0.9rem; line-height:1.6; }
+  .steps b { color:#fff; }
+  .link { margin-top:20px; font-size:0.8rem; color:#6b7280; word-break:break-all; }
+  @media print {
+    body { background:#fff; color:#000; }
+    .card { border-color:#000; }
+    .sub, .steps, .link { color:#000; }
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>Scan to place your order</h1>
+    <div class="sub">Elite Customs</div>
+    <div class="qr-box">
+      <img src="https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=https%3A%2F%2Felite-customs-web.vercel.app%2Fcustomer.html"
+           alt="QR code to order form">
+    </div>
+    <div class="steps">
+      <b>1.</b> Open your phone's camera and scan the code above<br>
+      <b>2.</b> Fill in your name, phone number, and what you'd like<br>
+      <b>3.</b> Submit — we'll see your order on our side<br>
+      <b>4.</b> Pay at the counter, we'll confirm it
+    </div>
+    <div class="link">elite-customs-web.vercel.app/customer.html</div>
+  </div>
+</body>
+</html>
