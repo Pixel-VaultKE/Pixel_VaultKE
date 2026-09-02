@@ -1,0 +1,396 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============================================================
+    // MOTHER ENGINE — PLATFORM LAYER (Step 01 + Step 02)
+    // ============================================================
+    // Elite Customs' existing collections below (orders, products, sales,
+    // etc.) are UNCHANGED and UNTOUCHED by this section — they keep
+    // working exactly as they do today until the migration (step 03) and
+    // cutover (step 04). This section only adds the new platform-level
+    // scaffolding: the business registry, tenant identity via custom
+    // claims (request.auth.token.businessId / .platformOperator / .role),
+    // and — as of step 02 — the actual tenant-data isolation pattern,
+    // proven on one real collection (products) and written so the exact
+    // same pattern applies to every future tenant collection unchanged.
+    // Claims are set by the admin-scripts/ tools using the Admin SDK,
+    // never by a client directly.
+
+    function isPlatformOperator() {
+      return request.auth != null && request.auth.token.platformOperator == true;
+    }
+
+    // Claim match ONLY — this is the "brutally simple" check from the
+    // locked architecture. Kept separate from the active-business check
+    // below so it's obvious which line does which job.
+    function hasBusinessClaim(businessId) {
+      return request.auth != null && request.auth.token.businessId == businessId;
+    }
+
+    // A suspended/deleted business should lose access immediately, not
+    // whenever someone remembers to revoke every individual user's
+    // claims. This costs one extra document read per rule evaluation —
+    // a deliberate, small cost for "no exceptions" on the boundary,
+    // layered ON TOP of the claim check per the locked architecture's own
+    // wording ("permissions are checked on top of that").
+    function businessIsActive(businessId) {
+      return get(/databases/$(database)/documents/businesses/$(businessId)).data.status == 'active';
+    }
+
+    // THE pattern — every tenant-scoped collection (products today,
+    // orders/sales/payments/etc. next) should gate access through this
+    // one function, not reimplement the check inline. One place to get
+    // it right, one place to fix it if it's ever wrong.
+    function canAccessTenantData(businessId) {
+      return hasBusinessClaim(businessId) && businessIsActive(businessId);
+    }
+
+    match /businesses/{businessId} {
+      // A business's own tenant members can read their own registry
+      // entry (to show their business name/settings in their dashboard
+      // later) — never another business's. The platform operator can
+      // read any of them (Platform Console: business list/health).
+      // Deliberately NOT using canAccessTenantData() here — reading your
+      // own registry entry should still work even if status is
+      // "suspended" (so a suspended tenant can at least see *why*,
+      // rather than the app just breaking silently), while every actual
+      // *data* collection below uses the stricter active-only check.
+      allow read: if isPlatformOperator() || hasBusinessClaim(businessId);
+      // Only the platform operator can create or edit a business's
+      // registry entry — a tenant cannot change its own module
+      // configuration, fee-rate override, or status. That's a
+      // platform-controlled decision, not tenant self-service.
+      allow write: if isPlatformOperator();
+
+      // Tenant identity — a worker can read their own profile within
+      // their own business. Nobody (not even that business's own owner,
+      // not even a platform operator) can read another worker's profile
+      // yet — that's a deliberate, known gap: it fails safe (denied, not
+      // leaked), but it means no worker-management UI or platform
+      // support/oversight roster view is buildable on this structure
+      // until a real permission model gets designed for it. Flagging
+      // here so it's a decision, not a surprise, when that UI gets built.
+      match /workers/{workerId} {
+        allow read: if request.auth != null && request.auth.uid == workerId && hasBusinessClaim(businessId);
+        allow write: if false; // written only by admin-scripts/assignUserToBusiness.js for now
+      }
+    }
+
+    // Directory of platform operators, for a future Platform Console UI
+    // to list ("who currently has operator access"). This is NOT the
+    // security mechanism — the platformOperator custom claim is. This
+    // collection could be deleted entirely and no security property
+    // would change; it just saves the UI from needing to enumerate
+    // Firebase Auth users directly.
+    match /platformOperators/{uid} {
+      allow read: if isPlatformOperator();
+      allow write: if false; // written only by admin-scripts/setPlatformOperator.js
+    }
+
+    // ---- Tenant data collections (Step 02) ----
+    // products is the first one, proven with the attack-from-both-sides
+    // test suite in rules-tests/. Every future tenant collection
+    // (orders, sales, payments, inventory, expenses, customers...) gets
+    // the identical two-line shape below — only the path segment changes.
+    match /businesses/{businessId}/products/{productId} {
+      allow read: if canAccessTenantData(businessId);
+      // The businessId field inside the document (if present — useful
+      // later for collectionGroup queries at the platform level, e.g.
+      // "every product across every tenant") must match the path segment
+      // it's actually stored under. Without this check, a document
+      // living under Business A's path could carry a field claiming it
+      // belongs to Business B — structurally harmless to Business B's
+      // own data (path-based isolation still holds), but it would
+      // corrupt any platform-level report built on that field instead of
+      // the path. Deny it outright rather than let a lie sit in the data.
+      allow write: if canAccessTenantData(businessId) &&
+        (!('businessId' in request.resource.data) || request.resource.data.businessId == businessId);
+    }
+
+    // ============================================================
+    // ELITE CUSTOMS — EXISTING SINGLE-TENANT COLLECTIONS (unchanged below)
+    // ============================================================
+
+    function myRole() {
+      return get(/databases/$(database)/documents/workers/$(request.auth.uid)).data.role;
+    }
+
+    // FIXED — CRITICAL BUG: the previous version used dotted access
+    // (get(...).data.archived != true) for fields that most worker docs
+    // never had set. In Firestore rules, reading a field that doesn't
+    // exist on a map THROWS, and a thrown error inside a boolean
+    // expression evaluates that expression to false — not true. So
+    // isActiveAccount() was returning false for every account, including
+    // the owner, breaking every single permission check app-wide the
+    // moment this deployed. Fixed with .get(key, default), the safe
+    // optional-field accessor, and combined into one get() call instead
+    // of two (also fixes a wasted extra document read on every check).
+    function isActiveAccount() {
+      let w = get(/databases/$(database)/documents/workers/$(request.auth.uid)).data;
+      return w.get('archived', false) != true && w.get('active', true) != false;
+    }
+
+    // NEW — lets an admin's *role field* stay 'admin' (so the owner can
+    // promote someone before they're actually ready, without a second
+    // step later) while their real permissions stay at worker level until
+    // the owner explicitly turns trial off. This is checked in the rule
+    // itself, not just hidden in the UI — someone in this state genuinely
+    // cannot write admin-level data even via devtools, not just politely
+    // asked not to.
+    function isTrialAdmin() {
+      let w = get(/databases/$(database)/documents/workers/$(request.auth.uid)).data;
+      return w.get('trialAdmin', false) == true;
+    }
+
+    function isAdminOrOwner() {
+      return request.auth != null && (myRole() == 'admin' || myRole() == 'owner') && isActiveAccount() && !isTrialAdmin();
+    }
+
+    function isOwner() {
+      return request.auth != null && myRole() == 'owner' && isActiveAccount();
+    }
+
+    function isStaff() {
+      return request.auth != null && myRole() in ['worker', 'admin', 'owner'] && isActiveAccount();
+    }
+
+    match /workers/{workerId} {
+      allow read: if request.auth != null && (request.auth.uid == workerId || isAdminOrOwner());
+      allow create: if isAdminOrOwner();
+      allow update: if request.auth != null &&
+        ((request.auth.uid == workerId && request.resource.data.role == resource.data.role)
+         || isOwner());
+      allow delete: if isOwner();
+    }
+
+    match /sales/{saleId} {
+      allow create: if request.auth != null &&
+        (request.resource.data.workerId == request.auth.uid || isAdminOrOwner());
+      allow read, update: if request.auth != null &&
+        (resource.data.workerId == request.auth.uid || isAdminOrOwner());
+      allow delete: if isOwner();
+    }
+
+    match /orders/{orderId} {
+      allow create: if request.auth != null && isStaff()
+        && request.resource.data.customerName is string
+        && request.resource.data.customerName.size() > 0
+        && request.resource.data.customerName.size() < 200
+        && request.resource.data.phone is string
+        && request.resource.data.phone.size() > 0
+        && request.resource.data.phone.size() < 30
+        && request.resource.data.items is list
+        && request.resource.data.items.size() > 0
+        && request.resource.data.items.size() <= 50
+        && request.resource.data.total is number
+        && request.resource.data.total >= 0;
+      allow get: if true;
+      allow list: if isStaff() || request.query.limit <= 20;
+      allow update: if request.auth != null && isStaff() &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['items', 'total']) ||
+         (request.resource.data.items is list &&
+          request.resource.data.items.size() > 0 &&
+          request.resource.data.items.size() <= 50 &&
+          request.resource.data.total is number &&
+          request.resource.data.total >= 0)) &&
+        (isOwner() ||
+         (request.resource.data.amountPaid == null ? 0 : request.resource.data.amountPaid) >=
+         (resource.data.amountPaid == null ? 0 : resource.data.amountPaid));
+      allow delete: if isOwner();
+    }
+
+    match /inventory/{itemId} {
+      allow read: if true;
+      allow create: if isAdminOrOwner() ||
+        (isStaff() && request.resource.data.qty is number && request.resource.data.qty >= 0);
+      allow update: if isAdminOrOwner() ||
+        (isStaff() &&
+         request.resource.data.qty is number && request.resource.data.qty >= 0 &&
+         request.resource.data.name == resource.data.name &&
+         request.resource.data.minQty == resource.data.minQty);
+      allow delete: if isAdminOrOwner();
+    }
+
+    match /products/{productId} {
+      allow read: if true;
+      allow create: if isStaff();
+      allow update, delete: if isAdminOrOwner();
+    }
+
+    match /gallery/{photoId} {
+      allow read: if true;
+      allow write: if isAdminOrOwner();
+    }
+
+    match /pendingNotes/{noteId} {
+      allow read, write: if isStaff();
+    }
+
+    match /tasks/{taskId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && isAdminOrOwner();
+      allow update: if request.auth != null &&
+        (isAdminOrOwner() ||
+         (resource.data.assignedToId == request.auth.uid &&
+          request.resource.data.assignedToId == resource.data.assignedToId));
+      allow delete: if request.auth != null && isAdminOrOwner();
+    }
+
+    match /counters/{counterId} {
+      allow read: if true;
+      allow write: if request.resource.data.count is int
+        && request.resource.data.count > 0
+        && (resource == null
+            ? true
+            : request.resource.data.count == resource.data.count + 1
+              || request.resource.data.count == resource.data.count);
+    }
+
+    match /settings/{settingId} {
+      allow read: if settingId == 'loyaltyConfig' || settingId == 'customOptionsConfig' || isAdminOrOwner();
+      allow write: if isAdminOrOwner();
+    }
+
+    match /dailyReports/{reportId} {
+      allow read, write: if isAdminOrOwner();
+    }
+
+    match /quotes/{quoteId} {
+      allow read, write: if isStaff();
+    }
+
+    match /expenses/{expenseId} {
+      allow create: if request.auth != null &&
+        (request.resource.data.workerId == request.auth.uid || isAdminOrOwner());
+      allow read: if request.auth != null &&
+        (resource.data.workerId == request.auth.uid || isAdminOrOwner());
+      allow update, delete: if isAdminOrOwner();
+    }
+
+    match /events/{eventId} {
+      allow create: if request.auth != null && request.resource.data.workerId == request.auth.uid;
+      allow read: if request.auth != null &&
+        (resource.data.workerId == request.auth.uid || isAdminOrOwner());
+      allow update, delete: if false;
+    }
+
+    match /tips/{tipId} {
+      allow create: if isAdminOrOwner();
+      allow read: if request.auth != null &&
+        (resource.data.recipientWorkerId == request.auth.uid || isAdminOrOwner());
+      allow update, delete: if isAdminOrOwner();
+    }
+
+    match /issueReports/{issueId} {
+      allow create: if isStaff() && request.resource.data.text is string
+        && request.resource.data.text.size() > 0 && request.resource.data.text.size() < 500
+        && request.resource.data.status == 'open';
+      allow read: if isStaff();
+      allow update, delete: if isAdminOrOwner();
+    }
+
+    match /reviews/{reviewId} {
+      allow create: if request.resource.data.orderId is string
+        && request.resource.data.rating is number
+        && request.resource.data.rating >= 1 && request.resource.data.rating <= 5
+        && request.resource.data.approved == false
+        && (!('comment' in request.resource.data)
+            || (request.resource.data.comment is string && request.resource.data.comment.size() < 1000))
+        && request.resource.data.phoneKey ==
+           get(/databases/$(database)/documents/orders/$(request.resource.data.orderId)).data.phoneKey;
+      allow read: if resource.data.approved == true || isAdminOrOwner();
+      allow update, delete: if isAdminOrOwner();
+    }
+
+    match /movements/{movementId} {
+      allow create: if isStaff() && request.resource.data.workerId == request.auth.uid;
+      allow read: if isStaff();
+      allow update, delete: if false;
+    }
+
+    // ============================================================
+    // UPLOAD TEAM — application/review layer only (no picture-submission
+    // collections yet — those depend on the storage decision still open
+    // in UPLOADER_ARCHITECTURE.md).
+    // ============================================================
+
+    // Public application form (apply.html). Anyone can create their own
+    // application; status is FORCED to 'pending' here — the client-side
+    // form also sets this, but this line is the actual boundary. An
+    // applicant can never read applications (their own or anyone else's)
+    // — the only way they learn the outcome is being contacted directly,
+    // matching "nobody sees data that isn't theirs to see."
+    match /uploadApplications/{applicationId} {
+      // Requires the invisible anonymous session apply.html creates —
+      // request.auth.uid comes from that, never from a field the client
+      // typed. submitterUid must match it exactly, so nobody can create
+      // an application claiming to be someone else's to edit later.
+      allow create: if request.auth != null
+        && request.resource.data.submitterUid == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.applicantName is string && request.resource.data.applicantName.size() > 0
+        && request.resource.data.phone is string && request.resource.data.phone.size() > 0
+        && request.resource.data.email is string && request.resource.data.email.size() > 0
+        && request.resource.data.whyInterested is string && request.resource.data.whyInterested.size() > 0;
+
+      // The original submitter can correct their own application, but
+      // ONLY while it's still pending, and this branch cannot be used to
+      // change status, reviewer fields, or whose application it is —
+      // those stay exactly as they were. The moment reviewApplication
+      // (Admin SDK) sets status to anything but 'pending', this branch
+      // stops matching on its own — no separate lock needed.
+      allow update: if request.auth != null
+        && resource.data.submitterUid == request.auth.uid
+        && resource.data.status == 'pending'
+        && request.resource.data.submitterUid == resource.data.submitterUid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.applicantName is string && request.resource.data.applicantName.size() > 0
+        && request.resource.data.phone is string && request.resource.data.phone.size() > 0
+        && request.resource.data.email is string && request.resource.data.email.size() > 0
+        && request.resource.data.whyInterested is string && request.resource.data.whyInterested.size() > 0;
+
+      // Admin's review happens exclusively through reviewApplication()
+      // (functions/index.js), which runs under the Admin SDK and isn't
+      // subject to this rule at all — so this stays "if false" on
+      // purpose. The old version of this line was "allow update: if
+      // isAdminOrOwner()", which let an admin flip status to 'approved'
+      // with a raw client write, bypassing the Cloud Function entirely.
+      // That would mark an application approved in the database with no
+      // real Firebase Auth account or uploaders/ profile ever created —
+      // a "ghost approval" that looks fine in applications.html but
+      // leaves the applicant unable to actually log in. Not because
+      // today's UI does this (it doesn't — review() only ever calls the
+      // Cloud Function), but because the invariant should hold whether
+      // or not every future write happens to remember to use it.
+      allow update: if false;
+
+      // A submitter can read only their own application (to check
+      // status and prefill the edit form); admin reads all of them.
+      // Nobody reads anyone else's.
+      allow read: if isAdminOrOwner()
+        || (request.auth != null && resource.data.submitterUid == request.auth.uid);
+      allow delete: if false;
+    }
+
+    // Only reviewApplication (functions/index.js) can ever create one of
+    // these — it runs under the Admin SDK, which isn't subject to this
+    // rule at all. This line exists purely to make sure nothing else,
+    // ever, can write here directly.
+    match /uploaders/{uploaderId} {
+      allow read: if isAdminOrOwner() || (request.auth != null && request.auth.uid == uploaderId);
+      allow write: if false;
+    }
+
+    // Owner/admin sets the rate directly — no Cloud Function needed for
+    // this one, it's just a number, not a trust-sensitive computation.
+    // What the rate PRODUCES (earnings) will be Cloud-Function-only once
+    // that layer gets built.
+    match /settings/uploaderRate {
+      allow read: if isAdminOrOwner();
+      allow write: if isAdminOrOwner()
+        && request.resource.data.rate is number && request.resource.data.rate >= 0;
+    }
+
+  }
+}

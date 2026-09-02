@@ -102,8 +102,8 @@ function appCardHtml(a, showButtons) {
   }
   if (showButtons) {
     html += '<div class="btnRow">' +
-      '<button class="btn approve" onclick="review(\'' + a.id + '\',\'approve\')">Approve</button>' +
-      '<button class="btn reject" onclick="review(\'' + a.id + '\',\'reject\')">Reject</button>' +
+      '<button class="btn approve" onclick="review(\'' + a.id + '\',\'approve\',this)">Approve</button>' +
+      '<button class="btn reject" onclick="review(\'' + a.id + '\',\'reject\',this)">Reject</button>' +
       '</div>';
   } else if (d.reviewNotes) {
     html += '<div class="meta">Note: ' + escapeHtml(d.reviewNotes) + '</div>';
@@ -128,15 +128,27 @@ function renderApplications() {
     : '<div class="empty">None yet</div>';
 }
 
-async function review(applicationId, decision) {
+async function review(applicationId, decision, btn) {
   var label = decision === 'approve' ? 'approve' : 'reject';
   if (!confirm('Are you sure you want to ' + label + ' this application?')) return;
+  // Real gap this closes: nothing stopped a fast double-click from firing
+  // two reviewApplication calls for the same application before the
+  // first one finished — the Cloud Function itself would only let one
+  // actually succeed (the second reads status !== 'pending' and fails,
+  // or a genuine Auth email-collision error surfaces), but the person
+  // clicking just sees a confusing failure on what was actually a
+  // successful approval. Disabling both buttons the instant either is
+  // pressed removes the race, not just papers over its symptom.
+  var row = btn ? btn.parentElement : null;
+  var buttons = row ? row.querySelectorAll('button') : [];
+  buttons.forEach(function (b) { b.disabled = true; });
   try {
     var reviewApplication = firebase.functions().httpsCallable('reviewApplication');
     await reviewApplication({ applicationId: applicationId, decision: decision, notes: '' });
     await loadApplications();
   } catch (e) {
     alert('Could not ' + label + ': ' + e.message);
+    buttons.forEach(function (b) { b.disabled = false; });
   }
 }
 
