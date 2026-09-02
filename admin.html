@@ -373,7 +373,7 @@ tr:hover td{background:rgba(255,255,255,0.02)}
 
   <div class="card collapsible collapsed" id="contactCustomersCard">
     <span class="eyebrow" style="background:#25D366;color:#0D0D10">Reach Out</span><h2 onclick="toggleCard('contactCustomersCard')">📱 Contact Customers</h2>
-    <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Everyone who's ordered, pulled straight from Orders — not a separate list. Search or filter by day, tap Message to open WhatsApp.</p>
+    <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Everyone who's ordered or bought in-person, pulled straight from Orders and Sales — not a separate list. Search or filter by day, tap Message to open WhatsApp.</p>
     <input type="text" id="ccSearch" placeholder="Search by name or phone..." oninput="renderCustomerContacts()" style="margin-bottom:8px">
     <div id="ccDateFilters" style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap"></div>
     <div id="ccList"><p style="color:#888">Loading...</p></div>
@@ -2576,7 +2576,7 @@ async function loadDashboard() {
   renderNotifications();
   renderPriorityActions();
   renderCommandCenter();
-  renderCustomerContacts(); // pulls from rawOrders — already loaded above, no extra query
+  renderCustomerContacts(); // pulls from rawOrders + rawSales — both already loaded above, no extra query
   ccActiveDateFilter = 'all';
   renderCcDateFilters();
   loadUploadApplications();
@@ -2588,8 +2588,9 @@ async function loadDashboard() {
   if (lowCount > 0) toast('⚠️ ' + lowCount + ' item(s) low on stock — check Inventory', true);
 }
 
-// ===== Contact Customers — reuses rawOrders, the same array every other
-// part of this dashboard already loads. Not a second source of truth. =====
+// ===== Contact Customers — reuses rawOrders and rawSales, the same
+// arrays every other part of this dashboard already loads. Not a
+// second source of truth. =====
 var ccActiveDateFilter = 'all';
 
 function ccStartOfDay(d) { var x = new Date(d); x.setHours(0, 0, 0, 0); return x; }
@@ -2630,16 +2631,37 @@ function ccToWhatsAppDigits(phone) {
 function renderCustomerContacts() {
   var seen = {};
   var customers = [];
+
+  // Orders and walk-in sales are two different collections, and neither
+  // is reliably newest-first once merged, so collect both with their
+  // real date, sort once, then dedupe on phoneKey||phone keeping the
+  // most recent contact (walk-ins with no phone at all are skipped —
+  // there's nothing to message).
+  var combined = [];
   realOrders().forEach(function (r) {
     var d = r.data;
-    var key = d.phoneKey || d.phone;
-    if (!key || seen[key]) return; // realOrders() is already newest-first
-    seen[key] = true;
-    customers.push({
+    combined.push({
       name: d.customerName || 'Unknown',
       phone: d.phone || '',
+      key: d.phoneKey || d.phone,
       date: d.createdAt && d.createdAt.toDate ? d.createdAt.toDate() : null
     });
+  });
+  rawSales.forEach(function (r) {
+    var d = r.data;
+    if (!d.phone && !d.phoneKey) return; // no way to reach a walk-in with no phone recorded
+    combined.push({
+      name: d.customerName || 'Unknown',
+      phone: d.phone || '',
+      key: d.phoneKey || d.phone,
+      date: d.createdAt && d.createdAt.toDate ? d.createdAt.toDate() : null
+    });
+  });
+  combined.sort(function (a, b) { return (b.date || 0) - (a.date || 0); });
+  combined.forEach(function (c) {
+    if (!c.key || seen[c.key]) return;
+    seen[c.key] = true;
+    customers.push({ name: c.name, phone: c.phone, date: c.date });
   });
 
   var q = (document.getElementById('ccSearch').value || '').trim().toLowerCase();

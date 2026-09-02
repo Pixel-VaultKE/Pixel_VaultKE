@@ -3,193 +3,58 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Join the Upload Team — Elite Customs</title>
+<title>Join the Pixel Vault KE Upload Team</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600;700;800&display=swap');
-
-:root{
-  --ink:#111114;
-  --surface:#1A1A1F;
-  --hot:#FF2E63;
-  --volt:#C6FF3D;
-  --gold:#D4AF37;
-  --line:rgba(255,255,255,0.08);
-  --text:#EDEDEF;
-  --muted:#9A9AA2;
-}
-*{box-sizing:border-box}
-body{
-  margin:0;
-  font-family:'Inter',system-ui,sans-serif;
-  background:
-    radial-gradient(circle at 3px 3px, rgba(255,255,255,0.035) 1px, transparent 0) 0 0/22px 22px,
-    var(--ink);
-  color:var(--text);
-  min-height:100vh;
-}
-.wrap{
-  display:flex;
-  flex-direction:column;
-  min-height:100vh;
-}
-.hero{
-  padding:40px 24px 32px;
-  border-bottom:1px solid var(--line);
-}
-.hero h1{
-  font-family:'Bebas Neue',sans-serif;
-  font-size:2.6rem;
-  line-height:0.95;
-  letter-spacing:1px;
-  margin:0 0 14px;
-  background:linear-gradient(100deg,var(--hot),var(--gold));
-  -webkit-background-clip:text;
-  background-clip:text;
-  color:transparent;
-  max-width:14ch;
-}
-.hero p{
-  color:var(--muted);
-  font-size:0.98rem;
-  line-height:1.6;
-  max-width:42ch;
-  margin:0 0 22px;
-}
-.terms{
-  display:flex;
-  flex-direction:column;
-  gap:14px;
-  max-width:38ch;
-}
-.term{
-  padding-left:14px;
-  border-left:2px solid var(--line);
-}
-.term b{color:var(--volt);font-weight:800;display:block;font-size:0.9rem}
-.term span{color:var(--muted);font-size:0.85rem;line-height:1.5}
-
-.formArea{
-  flex:1;
-  padding:28px 24px 60px;
-}
-form{max-width:440px}
-label{
-  display:block;
-  font-size:0.82rem;
-  color:var(--muted);
-  margin:16px 0 6px;
-}
-label:first-of-type{margin-top:0}
-input,textarea{
-  width:100%;
-  padding:13px 14px;
-  border-radius:10px;
-  border:1px solid var(--line);
-  background:var(--surface);
-  color:var(--text);
-  font-size:1rem;
-  font-family:inherit;
-}
-input:focus,textarea:focus{
-  outline:2px solid var(--volt);
-  outline-offset:1px;
-}
-textarea{resize:vertical;min-height:88px}
-button{
-  width:100%;
-  margin-top:24px;
-  padding:15px;
-  border-radius:12px;
-  border:none;
-  background:var(--hot);
-  color:#fff;
-  font-weight:800;
-  font-size:1rem;
-  cursor:pointer;
-}
-button:disabled{opacity:0.55;cursor:default}
-.msg{margin-top:12px;font-size:0.88rem}
-.error{color:var(--hot)}
-.success{max-width:440px}
-.success h2{
-  font-family:'Bebas Neue',sans-serif;
-  color:var(--volt);
-  font-size:1.6rem;
-  letter-spacing:0.5px;
-  margin:0 0 10px;
-}
-.success p{color:var(--muted);line-height:1.6}
-.hidden{display:none}
-
-@media (min-width:860px){
-  .wrap{flex-direction:row}
-  .hero{
-    width:42%;
-    border-bottom:none;
-    border-right:1px solid var(--line);
-    padding:64px 48px;
-    display:flex;
-    flex-direction:column;
-    justify-content:center;
-  }
-  .hero h1{font-size:3.4rem}
-  .formArea{
-    width:58%;
-    padding:64px 56px;
-    display:flex;
-    align-items:center;
-  }
-  form{width:100%}
-}
+  body { font-family: -apple-system, Arial, sans-serif; background:#0D0D10; color:#eee; margin:0; padding:20px; }
+  .card { max-width:420px; margin:20px auto; }
+  h1 { font-size:1.4rem; margin:0 0 6px; }
+  .sub { color:#9ca3af; font-size:0.9rem; margin-bottom:22px; line-height:1.5; }
+  label { display:block; font-size:0.85rem; color:#d1d5db; margin:14px 0 6px; }
+  input, textarea { width:100%; box-sizing:border-box; padding:12px 14px; border-radius:10px;
+    border:1px solid #2a2a35; background:#15151d; color:#fff; font-size:1rem; font-family:inherit; }
+  textarea { resize:vertical; min-height:80px; }
+  button { width:100%; margin-top:22px; padding:14px; border-radius:12px; border:none;
+    background:#C6FF3D; color:#0D0D10; font-weight:800; font-size:1rem; }
+  button:disabled { opacity:0.6; }
+  .msg { margin-top:14px; font-size:0.88rem; text-align:center; }
+  .error { color:#f87171; }
+  .success { text-align:center; }
+  .success h2 { color:#C6FF3D; }
+  .hidden { display:none; }
 </style>
 </head>
 <body>
 
-<div class="wrap">
-  <div class="hero">
-    <h1>Upload for Elite Customs</h1>
-    <p>We're building out the catalog and need people to help populate it with designs. Apply below — we review every application ourselves.</p>
-    <div class="terms">
-      <div class="term"><b>Paid per accepted picture</b><span>You're paid for what passes review, not for time logged.</span></div>
-      <div class="term"><b>We review, you don't self-approve</b><span>Every upload gets checked before it counts.</span></div>
-      <div class="term"><b>Work from anywhere</b><span>No fixed hours — assignments come to you once you're in.</span></div>
-    </div>
-  </div>
+<div class="card" id="formCard">
+  <h1>Join the Pixel Vault KE Upload Team</h1>
+  <div class="sub">We're looking for people to help upload designs to the
+    catalog. Fill this in — we'll review it and reach out if you're a fit.</div>
 
-  <div class="formArea">
-    <div id="formCard">
-      <form id="applyForm">
-        <label for="fName">Full name</label>
-        <input type="text" id="fName" required maxlength="100">
+  <form id="applyForm">
+    <label for="fName">Full name</label>
+    <input type="text" id="fName" required maxlength="100">
 
-        <label for="fPhone">Phone number</label>
-        <input type="tel" id="fPhone" required maxlength="20" placeholder="07XX XXX XXX">
+    <label for="fPhone">Phone number</label>
+    <input type="tel" id="fPhone" required maxlength="20" placeholder="07XX XXX XXX">
 
-        <label for="fEmail">Email</label>
-        <input type="email" id="fEmail" required maxlength="150">
+    <label for="fEmail">Email</label>
+    <input type="email" id="fEmail" required maxlength="150">
 
-        <label for="fWhy">Why do you want to join?</label>
-        <textarea id="fWhy" required maxlength="800"></textarea>
+    <label for="fWhy">Why do you want to join?</label>
+    <textarea id="fWhy" required maxlength="800"></textarea>
 
-        <label for="fExp">Any relevant experience? (optional)</label>
-        <textarea id="fExp" maxlength="800"></textarea>
+    <label for="fExp">Any relevant experience? (optional)</label>
+    <textarea id="fExp" maxlength="800"></textarea>
 
-        <button type="submit" id="submitBtn">Submit Application</button>
-        <div class="msg error hidden" id="errMsg"></div>
-      </form>
-      <div class="msg hidden" id="editingNotice" style="color:var(--muted)"></div>
-    </div>
+    <button type="submit" id="submitBtn">Submit Application</button>
+    <div class="msg error hidden" id="errMsg"></div>
+  </form>
+</div>
 
-    <div class="success hidden" id="successCard">
-      <h2>Application received</h2>
-      <p>Thanks — we'll review it and reach out if it's a fit. No need to apply again.</p>
-    </div>
-
-    <div class="success hidden" id="statusCard">
-      <h2 id="statusHeading"></h2>
-      <p id="statusText"></p>
-    </div>
-  </div>
+<div class="card success hidden" id="successCard">
+  <h2>✓ Application received</h2>
+  <p>Thanks — we'll review it and get in touch if it's a fit. No need to
+    apply again.</p>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -197,85 +62,13 @@ button:disabled{opacity:0.55;cursor:default}
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="shared.js"></script>
 <script>
-// firebaseConfig / db / auth come from shared.js, same as every other page.
-
-var editingApplicationId = null; // null = fresh submission, set = editing a pending one
-
-function showForm() {
-  document.getElementById('formCard').classList.remove('hidden');
-  document.getElementById('successCard').classList.add('hidden');
-  document.getElementById('statusCard').classList.add('hidden');
-}
-
-function showStatus(heading, text) {
-  document.getElementById('formCard').classList.add('hidden');
-  document.getElementById('successCard').classList.add('hidden');
-  document.getElementById('statusCard').classList.remove('hidden');
-  document.getElementById('statusHeading').textContent = heading;
-  document.getElementById('statusText').textContent = text;
-}
-
-async function initApplyPage() {
-  // An invisible session, not a login screen — the applicant never sees
-  // this happen. It exists purely so "can this person edit THIS
-  // application" is a question firestore.rules can actually answer,
-  // instead of trusting whatever the browser claims.
-  try {
-    await auth.signInAnonymously();
-  } catch (e) {
-    // If anonymous auth itself is unreachable, fall back to a normal
-    // fresh-submission form — editing just won't be available this
-    // session, but applying still works.
-    showForm();
-    return;
-  }
-
-  try {
-    var snap = await db.collection('uploadApplications')
-      .where('submitterUid', '==', auth.currentUser.uid)
-      .limit(1).get();
-
-    if (snap.empty) { showForm(); return; }
-
-    var doc = snap.docs[0];
-    var d = doc.data();
-
-    if (d.status !== 'pending') {
-      var label = d.status === 'approved' ? 'approved' : 'reviewed';
-      showStatus(
-        'Application ' + label,
-        d.status === 'approved'
-          ? 'Your application was approved — we\'ll be in touch with login details.'
-          : 'Your application has already been reviewed. If you think this is a mistake, message us directly.'
-      );
-      return;
-    }
-
-    // Pending — prefill and switch into edit mode.
-    editingApplicationId = doc.id;
-    document.getElementById('fName').value = d.applicantName || '';
-    document.getElementById('fPhone').value = d.phone || '';
-    document.getElementById('fEmail').value = d.email || '';
-    document.getElementById('fWhy').value = d.whyInterested || '';
-    document.getElementById('fExp').value = d.experience || '';
-    document.getElementById('submitBtn').textContent = 'Update Application';
-    var notice = document.getElementById('editingNotice');
-    notice.innerHTML = 'Editing your pending application. <a href="#" id="notMeLink" style="color:var(--volt)">Not you?</a>';
-    notice.classList.remove('hidden');
-    document.getElementById('notMeLink').addEventListener('click', async function (e) {
-      e.preventDefault();
-      await auth.signOut();
-      editingApplicationId = null;
-      document.getElementById('applyForm').reset();
-      document.getElementById('submitBtn').textContent = 'Submit Application';
-      notice.classList.add('hidden');
-      await auth.signInAnonymously(); // fresh identity for whoever's using the device now
-    });
-    showForm();
-  } catch (e) {
-    showForm(); // if the lookup itself fails, don't block a fresh submission
-  }
-}
+// firebaseConfig / db come from shared.js, same as every other page.
+// firestore.rules requires request.auth != null on this collection, so
+// every applicant needs a session — anonymous is enough since we only
+// need a stable uid, not an identity.
+var appAuthReady = firebase.auth().signInAnonymously().catch(function (e) {
+  console.error('Anonymous sign-in failed:', e);
+});
 
 document.getElementById('applyForm').addEventListener('submit', async function (e) {
   e.preventDefault();
@@ -296,36 +89,38 @@ document.getElementById('applyForm').addEventListener('submit', async function (
   }
 
   btn.disabled = true;
-  btn.textContent = editingApplicationId ? 'Saving...' : 'Submitting...';
-
-  var payload = {
-    applicantName: name,
-    phone: phone,
-    email: email,
-    whyInterested: why,
-    experience: exp || null,
-    submitterUid: auth.currentUser.uid,
-    status: 'pending' // forced here AND by firestore.rules — the rule is the real boundary
-  };
+  btn.textContent = 'Submitting...';
 
   try {
-    if (editingApplicationId) {
-      await db.collection('uploadApplications').doc(editingApplicationId).update(payload);
-    } else {
-      payload.submittedAt = firebase.firestore.FieldValue.serverTimestamp();
-      await db.collection('uploadApplications').add(payload);
-    }
+    await appAuthReady;
+    var user = firebase.auth().currentUser;
+    if (!user) throw new Error('Could not start a session — check your connection and try again.');
+
+    // status is forced to 'pending' here AND enforced again by
+    // firestore.rules — this client-side value is a convenience, not
+    // the security boundary. The rule is what actually stops someone
+    // from submitting themselves pre-approved. submitterUid must match
+    // the caller's own auth.uid (rules check this), so it's read from
+    // the live Firebase Auth session, never typed by hand.
+    await db.collection('uploadApplications').add({
+      submitterUid: user.uid,
+      applicantName: name,
+      phone: phone,
+      email: email,
+      whyInterested: why,
+      experience: exp || null,
+      status: 'pending',
+      submittedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
     document.getElementById('formCard').classList.add('hidden');
     document.getElementById('successCard').classList.remove('hidden');
   } catch (err) {
     errEl.textContent = 'Something went wrong — please try again. (' + err.message + ')';
     errEl.classList.remove('hidden');
     btn.disabled = false;
-    btn.textContent = editingApplicationId ? 'Update Application' : 'Submit Application';
+    btn.textContent = 'Submit Application';
   }
 });
-
-initApplyPage();
 </script>
 </body>
 </html>
