@@ -292,3 +292,53 @@ exports.reviewApplication = functions.https.onCall(async (data, context) => {
 
   return { status: 'approved', uploaderId: userRecord.uid };
 });
+
+/**
+ * setUploaderStatus — the only way an uploader's status ever changes
+ * after approval. Handles suspend, remove, and reactivate through one
+ * function rather than three, since they're the same operation (flip
+ * the status field) with different target values.
+ *
+ * Deliberately does NOT touch the Firebase Auth account or its custom
+ * claim — the account still exists and can still log in either way.
+ * What actually gates access is the LIVE status check in
+ * firestore.rules (the same "no exceptions" pattern already proven for
+ * Elite Customs' isActiveAccount()) — so a suspension takes effect on
+ * the uploader's very next write attempt, not on their next login.
+ * That check will need adding to firestore.rules once the actual
+ * submission collections exist — this function alone doesn't enforce
+ * anything by itself, it just records the decision as fact.
+ */
+exports.setUploaderStatus = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Sign in required.');
+  }
+
+  const callerSnap = await db.collection('workers').doc(context.auth.uid).get();
+  const callerRole = callerSnap.exists ? callerSnap.data().role : null;
+  if (callerRole !== 'owner' && callerRole !== 'admin') {
+    throw new functions.https.HttpsError('permission-denied', 'Only an owner or admin can change an uploader\'s status.');
+  }
+
+  const uploaderId = typeof data.uploaderId === 'string' ? data.uploaderId : null;
+  const newStatus = data.status; // 'active' | 'suspended' | 'removed'
+  const validStatuses = ['active', 'suspended', 'removed'];
+
+  if (!uploaderId || validStatuses.indexOf(newStatus) === -1) {
+    throw new functions.https.HttpsError('invalid-argument', 'uploaderId and a valid status are required.');
+  }
+
+  const uploaderRef = db.collection('uploaders').doc(uploaderId);
+  const uploaderSnap = await uploaderRef.get();
+  if (!uploaderSnap.exists) {
+    throw new functions.https.HttpsError('not-found', 'That uploader record no longer exists.');
+  }
+
+  await uploaderRef.update({
+    status: newStatus,
+    statusChangedBy: context.auth.uid,
+    statusChangedAt: admin.firestore.FieldValue.serverTimestamp()
+  });
+
+  return { status: newStatus };
+});

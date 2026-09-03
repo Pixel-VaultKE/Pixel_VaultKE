@@ -165,6 +165,8 @@ button.secondary{background:transparent;color:#29D3F5;border:1.5px solid #29D3F5
       <option value="mpesa">M-PESA</option>
     </select>
     <input type="text" id="sDesc" placeholder="Description (optional)">
+    <label for="sBackdate" style="display:block;color:#888;font-size:0.78rem;margin:8px 0 4px">This sale happened earlier? (optional — leave blank for right now)</label>
+    <input type="datetime-local" id="sBackdate" style="margin-bottom:10px">
     <button id="saleBtn" onclick="recordSale()">Record Sale</button>
     <div id="saleMsg"></div>
   </div>
@@ -1768,6 +1770,25 @@ async function recordSale() {
   }
   var paymentStatus = balance <= 0 ? 'paid' : (amountPaid > 0 ? 'partial' : 'unpaid');
 
+  // FIXED — sales used to always stamp 'now' with no way to correct it,
+  // so a sale rung up a couple minutes after midnight for something that
+  // actually happened the night before landed on the wrong day's
+  // numbers. Leave this blank and nothing changes from before. Bounded
+  // to the last 24 hours (matching firestore.rules) — this is a
+  // same-shift correction, not a way to backdate the books.
+  var backdateVal = document.getElementById('sBackdate').value;
+  var createdAtValue = firebase.firestore.FieldValue.serverTimestamp();
+  if (backdateVal) {
+    var pickedSaleTime = new Date(backdateVal);
+    var hoursAgoSale = (new Date() - pickedSaleTime) / 3600000;
+    if (hoursAgoSale < 0 || hoursAgoSale > 24) {
+      msg.className = 'error';
+      msg.textContent = 'That time has to be in the past, within the last 24 hours.';
+      return;
+    }
+    createdAtValue = firebase.firestore.Timestamp.fromDate(pickedSaleTime);
+  }
+
   setBusy(btn, true, 'Record Sale');
   var itemsSummaryStr = saleCart.map(function (it) { return it.qty + '× ' + it.name; }).join(', ');
   log('Recording sale of KSH ' + amount + ' (' + itemsSummaryStr + ')...');
@@ -1788,7 +1809,7 @@ async function recordSale() {
       description: desc,
       workerId: currentWorker.id,
       workerName: currentWorker.name,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      createdAt: createdAtValue
     };
 
     // Pre-flight stock check — warn before committing, instead of silently going negative
@@ -1875,6 +1896,7 @@ async function recordSale() {
     document.getElementById('sTip').value = '';
     document.getElementById('sBalanceInfo').textContent = '';
     document.getElementById('sDesc').value = '';
+    document.getElementById('sBackdate').value = '';
     document.getElementById('sCalcPrice').textContent = '';
     saleCart = [];
     renderSaleCart();

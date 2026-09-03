@@ -399,6 +399,9 @@ tr:hover td{background:rgba(255,255,255,0.02)}
     <div id="utApprovedList"></div>
     <div style="font-size:0.85rem;color:#888;margin:14px 0 6px">❌ Rejected</div>
     <div id="utRejectedList"></div>
+    <div style="border-top:1px solid var(--line);margin:18px 0 14px"></div>
+    <div style="font-size:0.85rem;color:#888;margin-bottom:6px">👥 Active Uploaders</div>
+    <div id="utUploaderRoster"><p style="color:#888">Loading...</p></div>
   </div>
 
   <div class="card collapsible collapsed" id="marketingSourcesCard">
@@ -439,6 +442,8 @@ tr:hover td{background:rgba(255,255,255,0.02)}
     </select>
     <input type="number" id="expAmount" placeholder="Amount (KSH)" min="0">
     <input type="text" id="expNote" placeholder="Note (optional)">
+    <label for="expBackdate" style="display:block;color:#888;font-size:0.78rem;margin:8px 0 4px">This happened earlier? (optional — leave blank for right now)</label>
+    <input type="datetime-local" id="expBackdate" style="margin-bottom:8px">
     <button onclick="addExpense()">Log Expense</button>
     <div id="expMsg"></div>
   </div>
@@ -2585,6 +2590,7 @@ async function loadDashboard() {
   ccActiveDateFilter = 'all';
   renderCcDateFilters();
   loadUploadApplications();
+  loadUploaderRoster();
   loadUploaderRate();
   var lowCount = rawInventory.filter(function (inv) {
     var i = inv.data;
@@ -2742,6 +2748,71 @@ async function reviewUploadApplication(applicationId, decision) {
     toast(decision === 'approve' ? 'Approved — their login is ready' : 'Rejected');
   } catch (e) {
     toast('Could not ' + decision + ': ' + e.message, true);
+  }
+}
+
+// ===== Uploader roster — everyone already approved, with status control ====
+var rawUploaders = [];
+
+async function loadUploaderRoster() {
+  try {
+    var snap = await db.collection('uploaders').orderBy('joinedAt', 'desc').limit(300).get();
+    rawUploaders = snap.docs.map(function (d) { return { id: d.id, data: d.data() }; });
+    renderUploaderRoster();
+  } catch (e) {
+    document.getElementById('utUploaderRoster').innerHTML = '<p style="color:#f87171">Could not load: ' + escapeHtml(e.message) + '</p>';
+  }
+}
+
+function utStatusBadge(status) {
+  var colors = { active: '#25D366', suspended: '#d4af37', removed: '#f87171' };
+  return '<span style="color:' + (colors[status] || '#888') + ';font-weight:700;text-transform:capitalize">' + escapeHtml(status) + '</span>';
+}
+
+function renderUploaderRoster() {
+  var el = document.getElementById('utUploaderRoster');
+  if (!rawUploaders.length) { el.innerHTML = '<p style="color:#888">No uploaders yet</p>'; return; }
+
+  el.innerHTML = rawUploaders.map(function (u) {
+    var d = u.data;
+    var joinedStr = d.joinedAt && d.joinedAt.toDate ? d.joinedAt.toDate().toLocaleDateString() : '';
+    var buttons = '';
+    if (d.status === 'active') {
+      buttons =
+        '<button onclick="changeUploaderStatus(\'' + u.id + '\',\'suspended\')" style="flex:1;background:#3a2f1f;color:#d4af37;border:1px solid #5c4b2b;border-radius:8px;padding:8px;font-weight:700;font-size:0.78rem">Suspend</button>' +
+        '<button onclick="changeUploaderStatus(\'' + u.id + '\',\'removed\')" style="flex:1;background:#3a1f1f;color:#f87171;border:1px solid #5c2b2b;border-radius:8px;padding:8px;font-weight:700;font-size:0.78rem">Remove</button>';
+    } else if (d.status === 'suspended') {
+      buttons =
+        '<button onclick="changeUploaderStatus(\'' + u.id + '\',\'active\')" style="flex:1;background:#25D366;color:#0D0D10;border:none;border-radius:8px;padding:8px;font-weight:700;font-size:0.78rem">Reactivate</button>' +
+        '<button onclick="changeUploaderStatus(\'' + u.id + '\',\'removed\')" style="flex:1;background:#3a1f1f;color:#f87171;border:1px solid #5c2b2b;border-radius:8px;padding:8px;font-weight:700;font-size:0.78rem">Remove</button>';
+    } else {
+      buttons = '<button onclick="changeUploaderStatus(\'' + u.id + '\',\'active\')" style="flex:1;background:#25D366;color:#0D0D10;border:none;border-radius:8px;padding:8px;font-weight:700;font-size:0.78rem">Reinstate</button>';
+    }
+
+    return '<div style="background:#0D0D10;border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:8px">' +
+      '<div style="display:flex;justify-content:space-between;align-items:start">' +
+        '<div><div style="font-weight:700">' + escapeHtml(d.name || 'Unknown') + '</div>' +
+        '<div style="color:#888;font-size:0.75rem;margin:2px 0">' + escapeHtml(d.phone || '') + ' · joined ' + joinedStr + '</div></div>' +
+        utStatusBadge(d.status) +
+      '</div>' +
+      '<div style="color:#888;font-size:0.8rem;margin:8px 0">' +
+        (d.totalAccepted || 0) + ' accepted · ' + (d.totalRejected || 0) + ' rejected · KSh ' + (d.totalEarned || 0) + ' earned' +
+      '</div>' +
+      '<div style="display:flex;gap:8px">' + buttons + '</div>' +
+    '</div>';
+  }).join('');
+}
+
+async function changeUploaderStatus(uploaderId, newStatus) {
+  var verb = newStatus === 'active' ? 'reactivate' : newStatus;
+  if (!confirm('Are you sure you want to ' + verb + ' this uploader?')) return;
+  try {
+    var setUploaderStatus = firebase.functions().httpsCallable('setUploaderStatus');
+    await setUploaderStatus({ uploaderId: uploaderId, status: newStatus });
+    await loadUploaderRoster();
+    toast('Updated');
+  } catch (e) {
+    toast('Could not update: ' + e.message, true);
   }
 }
 
@@ -5141,18 +5212,40 @@ async function addExpense() {
   var category = document.getElementById('expCategory').value;
   var amount = parseFloat(document.getElementById('expAmount').value) || 0;
   var note = document.getElementById('expNote').value.trim();
+  var backdateVal = document.getElementById('expBackdate').value;
   var msg = document.getElementById('expMsg');
 
   if (amount <= 0) { msg.className = 'error'; msg.textContent = 'Enter a valid amount'; return; }
 
+  // FIXED — this used to always stamp 'now' with no way to correct it,
+  // which meant an expense entered a couple minutes after midnight for
+  // something that actually happened the night before landed on the
+  // wrong day. Picking a time here only takes effect if you actually
+  // fill it in; leave it blank and this behaves exactly like before.
+  // Bounded to the last 24 hours (matching firestore.rules) so this
+  // stays a same-shift correction, not a way to backdate the books.
+  var createdAtValue = firebase.firestore.FieldValue.serverTimestamp();
+  if (backdateVal) {
+    var picked = new Date(backdateVal);
+    var now = new Date();
+    var hoursAgo = (now - picked) / 3600000;
+    if (hoursAgo < 0 || hoursAgo > 24) {
+      msg.className = 'error';
+      msg.textContent = 'That time has to be in the past, within the last 24 hours.';
+      return;
+    }
+    createdAtValue = firebase.firestore.Timestamp.fromDate(picked);
+  }
+
   try {
     await db.collection('expenses').add({
       category: category, amount: amount, note: note, status: 'approved',
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      createdAt: createdAtValue
     });
     log('Expense logged: ' + category + ' KSH ' + amount);
     document.getElementById('expAmount').value = '';
     document.getElementById('expNote').value = '';
+    document.getElementById('expBackdate').value = '';
     msg.className = 'ok'; msg.textContent = 'Logged';
     loadExpenses();
     computeExtraStats();
