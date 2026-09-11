@@ -86,9 +86,77 @@ tr:hover td{background:rgba(255,255,255,0.025)}
 .eyebrow{display:block;width:max-content;color:#fff;font-size:0.65rem;font-weight:800;letter-spacing:1px;text-transform:uppercase;padding:3px 9px;border-radius:20px;transform:rotate(-2deg);margin-bottom:8px;box-shadow:0 3px 8px -2px rgba(0,0,0,0.4)}
 .peel{position:relative;overflow:hidden;transition:transform .12s var(--ease)}
 .peel::after{content:'';position:absolute;top:0;right:0;width:0;height:0;border-style:solid;border-width:0 14px 14px 0;border-color:transparent var(--ink) transparent transparent;filter:drop-shadow(-1px 1px 3px rgba(0,0,0,0.5))}
+/* ===== Navigation — added for the sidebar/bottom-nav rebuild.
+   Purely additive: nothing above this line was changed. ===== */
+body.has-nav{max-width:none;padding:0}
+.navLayout{display:flex;min-height:100vh}
+.navSidebar{display:none}
+.navContent{flex:1;min-width:0;padding:16px;max-width:900px;margin:0 auto;padding-bottom:90px}
+.navBottomBar{
+  position:fixed;left:0;right:0;bottom:0;z-index:500;
+  display:flex;background:var(--surface);border-top:1px solid var(--line);
+  box-shadow:0 -8px 24px rgba(0,0,0,.4);
+  padding-bottom:env(safe-area-inset-bottom);
+}
+.navBtn{
+  flex:1;background:none;border:none;color:var(--muted);
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+  padding:10px 4px 8px;font-size:0.68rem;font-weight:700;letter-spacing:0.2px;
+  box-shadow:none;
+}
+.navBtn .navIcon{font-size:1.15rem}
+.navBtn.active{color:var(--volt)}
+.navMore{position:relative}
+.navMoreMenu{
+  display:none;position:absolute;bottom:56px;right:0;background:var(--surface2);
+  border:1px solid var(--line);border-radius:var(--radius-sm);padding:6px;
+  min-width:150px;box-shadow:var(--shadow-pop);
+}
+.navMoreMenu.open{display:block}
+.navMoreMenu button{
+  width:100%;text-align:left;background:none;color:var(--text);font-weight:600;
+  padding:9px 10px;border-radius:6px;box-shadow:none;font-size:0.82rem;
+}
+.navMoreMenu button.active{color:var(--volt)}
+.navMoreMenu button:hover{background:var(--surface3)}
+.nav-section{display:none}
+.nav-section.active-section{display:block}
+
+@media (min-width:860px){
+  .navSidebar{
+    display:flex;flex-direction:column;width:210px;flex-shrink:0;
+    background:var(--surface);border-right:1px solid var(--line);
+    padding:20px 12px;position:sticky;top:0;height:100vh;overflow-y:auto;
+  }
+  .navSidebar .navBrand{
+    font-family:'Bebas Neue',sans-serif;font-size:1.3rem;letter-spacing:1px;
+    padding:0 10px 18px;color:var(--text);
+  }
+  .navSidebar button{
+    display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+    background:none;color:var(--muted);font-weight:700;font-size:0.88rem;
+    padding:11px 10px;border-radius:var(--radius-sm);margin-bottom:2px;box-shadow:none;
+  }
+  .navSidebar button:hover{background:var(--surface2);color:var(--text)}
+  .navSidebar button.active{background:var(--surface2);color:var(--volt)}
+  .navBottomBar{display:none}
+  .navContent{padding:28px 32px;padding-bottom:28px;max-width:960px}
+}
 </style>
 </head>
-<body>
+<body class="has-nav">
+<div class="navLayout">
+<nav class="navSidebar">
+  <div class="navBrand">ELITE CUSTOMS</div>
+  <button class="active" data-nav="overview" onclick="showAdminSection('overview')">⌂ Overview</button>
+  <button data-nav="orders" onclick="showAdminSection('orders')">📦 Orders</button>
+  <button data-nav="money" onclick="showAdminSection('money')">💰 Money</button>
+  <button data-nav="team" onclick="showAdminSection('team')">👥 Team</button>
+  <button data-nav="inventory" onclick="showAdminSection('inventory')">📦 Inventory</button>
+  <button data-nav="customers" onclick="showAdminSection('customers')">🎯 Customers</button>
+  <button data-nav="system" onclick="showAdminSection('system')">⚙ System</button>
+</nav>
+<div class="navContent">
 
 <div class="peel" style="margin-bottom:16px">
   <span class="eyebrow" style="background:var(--hot)">RNG Plaza HQ</span>
@@ -118,30 +186,57 @@ tr:hover td{background:rgba(255,255,255,0.025)}
     <button id="privacyToggleBtn" onclick="togglePrivacyMode()" style="width:auto;background:#151515;color:#d4af37;border:1px solid #d4af37">🔒 Privacy Mode: ON — figures &amp; lists hidden until tapped</button>
   </div>
 
-  <div class="card">
+  <div class="card nav-section active-section" data-section="overview">
     <span class="eyebrow" style="background:var(--hot);color:#fff">Priority</span><h2>🚨 Top Actions</h2>
     <div id="priorityActionsBox"><p style="color:#888">Loading...</p></div>
   </div>
 
-  <div class="card">
+  <div class="card nav-section active-section" data-section="overview">
     <span class="eyebrow" style="background:var(--sky);color:#0D0D10">Overview</span><h2>🎛 Command Center</h2>
     <div id="commandCenterBox"><p style="color:#888">Loading...</p></div>
   </div>
 
-  <div class="card">
+  <div class="card nav-section active-section" data-section="overview">
     <span class="eyebrow" style="background:var(--hot);color:#fff">Alerts</span><h2>🔔 Notifications</h2>
     <div id="notificationsBox"><p style="color:#888">Checking...</p></div>
   </div>
 
+  <div class="card nav-section active-section owner-only" data-section="overview" id="checkInCard">
+    <span class="eyebrow" style="background:var(--volt);color:#0D0D10">Your Assistant</span><h2>🧭 Daily Check-In</h2>
+    <p style="color:#888;font-size:0.8rem;margin:-6px 0 12px">Answer these, or just tell it anything below — it becomes a real task, reminder, or note, not just words on a screen.</p>
+
+    <label style="display:block;color:#888;font-size:0.78rem;margin-bottom:4px">Anything urgent today?</label>
+    <input type="text" id="ciUrgent" placeholder="e.g. Follow up with the vinyl supplier">
+    <button onclick="submitCheckIn('ciUrgent', 'reminder')" style="width:auto;padding:9px 14px;margin-bottom:14px">Save as Reminder</button>
+
+    <label style="display:block;color:#888;font-size:0.78rem;margin-bottom:4px">Any task to hand off?</label>
+    <input type="text" id="ciTask" placeholder="e.g. Restock the sticker paper">
+    <select id="ciTaskAssignee"><option value="">Assign to myself</option></select>
+    <button onclick="submitCheckIn('ciTask', 'task')" style="width:auto;padding:9px 14px;margin-bottom:14px">Save as Task</button>
+
+    <label style="display:block;color:#888;font-size:0.78rem;margin-bottom:4px">Tell it anything else</label>
+    <input type="text" id="ciFree" placeholder="Type anything...">
+    <div style="display:flex;gap:6px;margin-bottom:6px">
+      <button onclick="submitCheckIn('ciFree', 'task')" style="flex:1;padding:8px;font-size:0.78rem">📋 Task</button>
+      <button onclick="submitCheckIn('ciFree', 'reminder')" style="flex:1;padding:8px;font-size:0.78rem">🔔 Reminder</button>
+      <button onclick="submitCheckIn('ciFree', 'note')" style="flex:1;padding:8px;font-size:0.78rem">📝 Note</button>
+    </div>
+    <div id="ciMsg" style="font-size:0.82rem;margin-bottom:10px"></div>
+
+    <div style="border-top:1px solid var(--line);margin:14px 0 10px"></div>
+    <div style="font-size:0.82rem;color:#888;margin-bottom:8px">Open reminders &amp; notes</div>
+    <div id="ownerLogList"><p style="color:#888">Loading...</p></div>
+  </div>
+
   <div style="margin:20px 0 -6px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:0.5px">💰 MONEY & OPERATIONS</div>
 
-  <div class="card collapsible collapsed" id="receivablesCard">
+  <div class="card collapsible collapsed nav-section" data-section="money" id="receivablesCard">
     <span class="eyebrow" style="background:#d4af37;color:#0D0D10">Money Owed</span><h2 onclick="toggleCard('receivablesCard')">💳 Receivables</h2>
     <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Set a price on any order (Payment column) to start tracking what's owed.</p>
     <div id="receivablesBox"><p style="color:#888">Loading...</p></div>
   </div>
 
-  <div class="card">
+  <div class="card nav-section" data-section="money">
     <span class="eyebrow" style="background:var(--hot)">Quick Note</span><h2>📝 Pending / Owed</h2>
     <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Not a full order yet — just "so-and-so wants X" or "so-and-so owes me Y." Log it, remind them on WhatsApp when needed.</p>
     <input type="text" id="pnName" placeholder="Customer name">
@@ -152,7 +247,7 @@ tr:hover td{background:rgba(255,255,255,0.025)}
     <div id="pendingNotesList" style="margin-top:12px"><p style="color:#888">Loading...</p></div>
   </div>
 
-  <div class="card collapsible collapsed" id="taskAssignCard">
+  <div class="card collapsible collapsed nav-section" data-section="team" id="taskAssignCard">
     <span class="eyebrow" style="background:var(--sky);color:#0D0D10">Delegate</span><h2 onclick="toggleCard('taskAssignCard')">📋 Assign Task</h2>
     <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">"Print new stickers," "fetch delivery," "call Kamau" — type it, pick who, it shows up on their dashboard.</p>
     <select id="taskAssignTo"><option value="">Assign to...</option></select>
@@ -162,7 +257,7 @@ tr:hover td{background:rgba(255,255,255,0.025)}
     <div id="tasksList" style="margin-top:12px"><p style="color:#888">Loading...</p></div>
   </div>
 
-  <div class="card collapsible collapsed" id="tipSendCard">
+  <div class="card collapsible collapsed nav-section" data-section="team" id="tipSendCard">
     <span class="eyebrow" style="background:#d4af37;color:#0D0D10">Reward</span><h2 onclick="toggleCard('tipSendCard')">🎉 Send a Tip</h2>
     <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">A bonus straight to a worker's dashboard for good work — separate from the profit split, doesn't affect anyone else's cut.</p>
     <select id="tipSendTo"><option value="">Send to...</option></select>
@@ -174,7 +269,7 @@ tr:hover td{background:rgba(255,255,255,0.025)}
   </div>
 
 
-  <div class="card collapsible collapsed" id="goalCard">
+  <div class="card collapsible collapsed nav-section" data-section="money" id="goalCard">
     <span class="eyebrow" style="background:var(--volt);color:#0D0D10">Target</span><h2 onclick="toggleCard('goalCard')">Today's Goal</h2>
     <div id="goalProgress" style="margin-bottom:10px"></div>
     <div style="display:flex;gap:8px">
@@ -207,7 +302,7 @@ tr:hover td{background:rgba(255,255,255,0.025)}
     </div>
   </div>
 
-  <div class="card collapsible collapsed" id="closingCard">
+  <div class="card collapsible collapsed nav-section" data-section="money" id="closingCard">
     <span class="eyebrow" style="background:var(--sky);color:#0D0D10">End of Day</span><h2 onclick="toggleCard('closingCard')">📋 Daily Closing</h2>
     <button class="full" onclick="closeBusinessDay()">Close Business Day</button>
     <div id="closingMsg"></div>
@@ -219,25 +314,25 @@ tr:hover td{background:rgba(255,255,255,0.025)}
     <div id="recentClosings" style="margin-top:12px"></div>
   </div>
 
-  <div class="card collapsible collapsed" id="issueReportsCard">
+  <div class="card collapsible collapsed nav-section" data-section="system" id="issueReportsCard">
     <span class="eyebrow" style="background:var(--hot);color:#fff">Flagged</span><h2 onclick="toggleCard('issueReportsCard'); loadIssueReports()">🐛 Flagged Issues</h2>
     <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Anything anyone flagged with the 🐛 button, from anywhere in the app — resolve it here once it's actually fixed, or it stays on this list.</p>
     <div id="issueReportsList"><p style="color:#888;font-size:0.85rem">Loading...</p></div>
   </div>
 
-  <div class="card collapsible collapsed" id="categoryCleanupCard">
+  <div class="card collapsible collapsed nav-section" data-section="inventory" id="categoryCleanupCard">
     <span class="eyebrow" style="background:var(--sky);color:#0D0D10">Catalog</span><h2 onclick="toggleCard('categoryCleanupCard'); loadCategoryCleanup()">🧹 Category Cleanup</h2>
     <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Categories are typed freely when a product is added, so duplicates like "Cartoon" and "CARTOON" can pile up as separate categories over time. Pick the ones that are really the same thing and merge them into one.</p>
     <div id="categoryCleanupList"><p style="color:#888;font-size:0.85rem">Tap this card to load current categories...</p></div>
   </div>
 
-  <div class="card collapsible collapsed" id="productCleanupCard">
+  <div class="card collapsible collapsed nav-section" data-section="inventory" id="productCleanupCard">
     <span class="eyebrow" style="background:var(--hot);color:#fff">Catalog</span><h2 onclick="toggleCard('productCleanupCard'); loadProductCleanup()">🧹 Product Name Cleanup</h2>
     <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Same design, typed slightly differently each time it was added — "Snoop Dog", "Snoopdog", "SnoopyDoggie" — ends up as three separate listings splitting the same stock and sales history. Flags anything that looks like the same product under different names so you can merge them into one.</p>
     <div id="productCleanupList"><p style="color:#888;font-size:0.85rem">Tap this card to scan for duplicates...</p></div>
   </div>
 
-  <div class="card collapsible collapsed" id="loyaltyCard">
+  <div class="card collapsible collapsed nav-section" data-section="customers" id="loyaltyCard">
     <span class="eyebrow" style="background:var(--volt);color:#0D0D10">Customers</span><h2 onclick="toggleCard('loyaltyCard')">🎁 Loyalty Discount</h2>
     <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Reward repeat customers automatically at checkout on the ordering page. Only counts online orders — in-store sales aren't visible to the ordering page for privacy/security reasons, so a walk-in regular won't trigger this unless they've also ordered online.</p>
     <label style="display:flex;align-items:center;gap:8px;margin-bottom:10px;color:#ccc;font-size:0.85rem">
@@ -253,7 +348,7 @@ tr:hover td{background:rgba(255,255,255,0.025)}
     <div id="loyaltySummary" style="font-size:0.8rem;color:#888">Loading discount totals...</div>
   </div>
 
-  <div class="card collapsible collapsed" id="backupCard">
+  <div class="card collapsible collapsed nav-section" data-section="system" id="backupCard">
     <span class="eyebrow" style="background:#8A8A93;color:#0D0D10">Safety</span><h2 onclick="toggleCard('backupCard')">💾 Backup</h2>
     <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Download everything as a JSON file you can save to your phone or Google Drive.</p>
     <button class="full" onclick="downloadBackup()">Download Full Backup</button>
@@ -266,7 +361,7 @@ tr:hover td{background:rgba(255,255,255,0.025)}
     <div id="restorePreview"></div>
   </div>
 
-  <div class="card collapsible collapsed" id="quotesCard">
+  <div class="card collapsible collapsed nav-section" data-section="money" id="quotesCard">
     <span class="eyebrow" style="background:var(--volt);color:#0D0D10">Quotes</span><h2 onclick="toggleCard('quotesCard')">📄 Quotations</h2>
     <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Build a quote, send it on WhatsApp, convert to a real order once accepted.</p>
     <input type="text" id="qCustomer" placeholder="Customer name">
@@ -290,25 +385,25 @@ tr:hover td{background:rgba(255,255,255,0.025)}
 
   <div style="margin:20px 0 -6px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:0.5px">👥 TEAM</div>
 
-  <div class="card collapsible collapsed" id="workersCard">
+  <div class="card collapsible collapsed nav-section" data-section="team" id="workersCard">
     <span class="eyebrow" style="background:var(--sky);color:#0D0D10">Team</span><h2 onclick="toggleCard('workersCard')">Workers</h2>
     <div id="workersList"><p style="color:#888">Loading...</p></div>
     <button class="small secondary" style="margin-top:8px" onclick="toggleArchivedWorkers()">Show Archived</button>
     <div id="archivedWorkersList"></div>
   </div>
 
-  <div class="card collapsible collapsed" id="leaderboardCard">
+  <div class="card collapsible collapsed nav-section" data-section="team" id="leaderboardCard">
     <span class="eyebrow" style="background:#d4af37;color:#0D0D10">Top Performers</span><h2 onclick="toggleCard('leaderboardCard')">🏆 Worker Leaderboard</h2>
     <div id="leaderboardBox"><p style="color:#888">Loading...</p></div>
   </div>
 
-  <div class="card collapsible collapsed" id="revenueByProductCard">
+  <div class="card collapsible collapsed nav-section" data-section="team" id="revenueByProductCard">
     <span class="eyebrow" style="background:#d4af37;color:#0D0D10">What Sells</span><h2 onclick="toggleCard('revenueByProductCard')">📦 Revenue by Product</h2>
     <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Based on what customers actually paid, not catalog price. Custom/one-off sales without a linked product aren't included here.</p>
     <div id="productRevenueBox"><p style="color:#888">Loading...</p></div>
   </div>
 
-  <div class="card collapsible collapsed" id="customerHistoryCard">
+  <div class="card collapsible collapsed nav-section" data-section="team" id="customerHistoryCard">
     <span class="eyebrow" style="background:var(--hot);color:#fff">Relationships</span><h2 onclick="toggleCard('customerHistoryCard')">👥 Customer History</h2>
     <div class="toolbar">
       <input type="text" id="customerSearch" placeholder="Search customer..." oninput="renderCustomerHistory()">
@@ -318,12 +413,12 @@ tr:hover td{background:rgba(255,255,255,0.025)}
 
   <div style="margin:20px 0 -6px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:0.5px">📦 STOCK & CATALOG</div>
 
-  <div class="card" id="restockCard">
+  <div class="card nav-section" data-section="inventory" id="restockCard">
     <span class="eyebrow" style="background:var(--hot);color:#fff">Low Stock</span><h2>⚠️ Restock Alerts</h2>
     <div id="restockList"><p style="color:#888">Checking stock levels...</p></div>
   </div>
 
-  <div class="card collapsible collapsed" id="bulkImportCard">
+  <div class="card collapsible collapsed nav-section" data-section="inventory" id="bulkImportCard">
     <span class="eyebrow" style="background:var(--hot);color:#fff">Fast Restock</span><h2 onclick="toggleCard('bulkImportCard')">📤 Bulk Import</h2>
     <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Upload a spreadsheet and fill the shelves in one go — creates the product and its stock together. Manual add still works below if you just need one item.</p>
     <button type="button" class="secondary" onclick="downloadImportTemplate()">⬇️ Download CSV Template</button>
@@ -331,7 +426,7 @@ tr:hover td{background:rgba(255,255,255,0.025)}
     <div id="bulkImportPreview" style="margin-top:10px"></div>
   </div>
 
-  <div class="card collapsible collapsed" id="inventoryCard">
+  <div class="card collapsible collapsed nav-section" data-section="inventory" id="inventoryCard">
     <span class="eyebrow" style="background:var(--volt);color:#0D0D10">Stock</span><h2 onclick="toggleCard('inventoryCard')">Inventory</h2>
     <div id="inventoryList"><p style="color:#888">Loading...</p></div>
     <div class="inv-row">
@@ -343,13 +438,13 @@ tr:hover td{background:rgba(255,255,255,0.025)}
     <div id="invMsg"></div>
   </div>
 
-  <div class="card collapsible collapsed" id="movementsCard">
+  <div class="card collapsible collapsed nav-section" data-section="inventory" id="movementsCard">
     <span class="eyebrow" style="background:var(--sky);color:#0D0D10">Audit</span><h2 onclick="toggleCard('movementsCard')">📦 Recent Stock Movements</h2>
     <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Every stock change — who, what, and why. Restocks, sales, orders, cancellations.</p>
     <div id="movementsList"><p style="color:#888">Loading...</p></div>
   </div>
 
-  <div class="card collapsible collapsed" id="productsCard">
+  <div class="card collapsible collapsed nav-section" data-section="inventory" id="productsCard">
     <span class="eyebrow" style="background:#d4af37;color:#0D0D10">Catalog</span><h2 onclick="toggleCard('productsCard')">Products & Pricing</h2>
     <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Each product links to an inventory item. Selling it auto-deducts stock.</p>
     <div id="productsList"><p style="color:#888">Loading...</p></div>
@@ -370,7 +465,7 @@ tr:hover td{background:rgba(255,255,255,0.025)}
     <div id="prodMsg"></div>
   </div>
 
-  <div class="card collapsible collapsed" id="customOptionsCard">
+  <div class="card collapsible collapsed nav-section" data-section="inventory" id="customOptionsCard">
     <span class="eyebrow" style="background:#38bdf8;color:#0D0D10">Catalog</span><h2 onclick="toggleCard('customOptionsCard')">🎨 Custom Order Options</h2>
     <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Give customers real choices instead of a blank text box — e.g. Stickers: Finish (Glossy/Matte/Holographic). Set these per category; they show up automatically on the customer site for any product in that category.</p>
     <div id="customOptionsList"><p style="color:#888">Loading...</p></div>
@@ -383,7 +478,7 @@ tr:hover td{background:rgba(255,255,255,0.025)}
 
   <div style="margin:20px 0 -6px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:0.5px">🎯 CUSTOMERS & MARKETING</div>
 
-  <div class="card collapsible collapsed" id="contactCustomersCard">
+  <div class="card collapsible collapsed nav-section" data-section="customers" id="contactCustomersCard">
     <span class="eyebrow" style="background:var(--whatsapp);color:#0D0D10">Reach Out</span><h2 onclick="toggleCard('contactCustomersCard')">📱 Contact Customers</h2>
     <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Everyone who's ordered or bought in-person, pulled straight from Orders and Sales — not a separate list. Search or filter by day, tap Message to open WhatsApp.</p>
     <input type="text" id="ccSearch" placeholder="Search by name or phone..." oninput="renderCustomerContacts()" style="margin-bottom:8px">
@@ -391,7 +486,7 @@ tr:hover td{background:rgba(255,255,255,0.025)}
     <div id="ccList"><p style="color:#888">Loading...</p></div>
   </div>
 
-  <div class="card collapsible collapsed" id="uploadTeamCard">
+  <div class="card collapsible collapsed nav-section" data-section="customers" id="uploadTeamCard">
     <span class="eyebrow" style="background:var(--volt);color:#0D0D10">Recruitment</span><h2 onclick="toggleCard('uploadTeamCard')">🖼️ Upload Team</h2>
     <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Applications from <code style="color:var(--sky)">apply.html</code> land here. Approve creates their real login — nothing else does.</p>
     <div style="background:#0D0D10;border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:14px">
@@ -411,21 +506,21 @@ tr:hover td{background:rgba(255,255,255,0.025)}
     <div id="utUploaderRoster"><p style="color:#888">Loading...</p></div>
   </div>
 
-  <div class="card collapsible collapsed" id="marketingSourcesCard">
+  <div class="card collapsible collapsed nav-section" data-section="customers" id="marketingSourcesCard">
     <span class="eyebrow" style="background:var(--sky);color:#0D0D10">Where Orders Come From</span><h2 onclick="toggleCard('marketingSourcesCard')">📍 Marketing Sources</h2>
     <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Which QR code, flyer, or location is actually driving orders. Tag each printed QR with a different link (see below), then check back here.</p>
     <div id="sourcesList"><p style="color:#888">Loading...</p></div>
     <p style="color:#666;font-size:0.72rem;margin-top:10px">To tag a QR code: point it at <code style="color:var(--sky)">pixel-vault-ke.vercel.app/customer.html?source=NAME</code> — replace NAME with something like <code style="color:var(--sky)">matatu1</code>, <code style="color:var(--sky)">friendshop</code>, or <code style="color:var(--sky)">rngplaza</code>. Untagged scans show as "direct".</p>
   </div>
 
-  <div class="card collapsible collapsed" id="reviewsCard">
+  <div class="card collapsible collapsed nav-section" data-section="customers" id="reviewsCard">
     <span class="eyebrow" style="background:#d4af37;color:#0D0D10">Word Of Mouth</span><h2 onclick="toggleCard('reviewsCard')">⭐ Customer Reviews</h2>
     <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Customers rate their order from the tracking page once it's Delivered. New ratings start hidden — approve the ones you want shown on the website.</p>
     <div id="reviewsSummary" style="margin-bottom:10px"></div>
     <div id="reviewsList"><p style="color:#888">Loading...</p></div>
   </div>
 
-  <div class="card collapsible collapsed" id="galleryCard2">
+  <div class="card collapsible collapsed nav-section" data-section="customers" id="galleryCard2">
     <span class="eyebrow" style="background:var(--hot);color:#fff">Real Work</span><h2 onclick="toggleCard('galleryCard2')">📸 Gallery</h2>
     <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Photos shown to customers in "Our Work". Group by category — reuse an existing name to add more photos to it.</p>
     <input type="text" id="galCategory" list="galCategoryList" placeholder="Category (e.g. 4D Stickers, Portraits, Anime)">
@@ -435,7 +530,7 @@ tr:hover td{background:rgba(255,255,255,0.025)}
     <div id="galleryList"><p style="color:#888">Loading...</p></div>
   </div>
 
-  <div class="card collapsible collapsed" id="expensesCard">
+  <div class="card collapsible collapsed nav-section" data-section="money" id="expensesCard">
     <span class="eyebrow" style="background:#d4af37;color:#0D0D10">Money Out</span><h2 onclick="toggleCard('expensesCard')">Expenses</h2>
     <div id="expensesSummary" style="margin-bottom:12px"></div>
     <div id="expensesList"><p style="color:#888">Loading...</p></div>
@@ -455,7 +550,7 @@ tr:hover td{background:rgba(255,255,255,0.025)}
     <div id="expMsg"></div>
   </div>
 
-  <div class="card">
+  <div class="card nav-section" data-section="orders">
     <span class="eyebrow" style="background:var(--sky);color:#0D0D10">Incoming</span><h2>Orders</h2>
     <div class="toolbar">
       <input type="text" id="orderSearch" placeholder="Search customer or item..." oninput="renderOrders()">
@@ -483,7 +578,7 @@ tr:hover td{background:rgba(255,255,255,0.025)}
     <div id="allOrders"><p style="color:#888">Loading...</p></div>
   </div>
 
-  <div class="card collapsible collapsed" id="recentSalesCard">
+  <div class="card collapsible collapsed nav-section" data-section="money" id="recentSalesCard">
     <span class="eyebrow" style="background:var(--volt);color:#0D0D10">Today</span><h2 onclick="toggleCard('recentSalesCard')">Recent Sales</h2>
     <div id="paymentBreakdown" style="margin-bottom:12px"></div>
     <div class="toolbar">
@@ -512,6 +607,21 @@ tr:hover td{background:rgba(255,255,255,0.025)}
 
 <script>
 window.onerror = function (msg, url, line) { log('[ERROR] ' + msg + ' (line ' + line + ')'); };
+
+// NEW — drives the sidebar/bottom-nav rebuild. Purely a visibility
+// switch: shows the cards tagged data-section="X", hides the rest.
+// Does not touch toggleCard()'s own collapse/expand state — a card can
+// still be individually collapsed within whichever section it's in,
+// exactly as before this existed.
+function showAdminSection(name) {
+  document.querySelectorAll('.nav-section').forEach(function (el) {
+    el.classList.toggle('active-section', el.getAttribute('data-section') === name);
+  });
+  document.querySelectorAll('[data-nav]').forEach(function (btn) {
+    btn.classList.toggle('active', btn.getAttribute('data-nav') === name);
+  });
+  window.scrollTo(0, 0);
+}
 
 function toggleCard(id) {
   document.getElementById(id).classList.toggle('collapsed');
@@ -1027,6 +1137,93 @@ function populateTaskAssignDropdown() {
     opts += '<option value="' + w.id + '">' + text(w.data.name) + ' (' + text(w.data.role) + ')</option>';
   });
   sel.innerHTML = opts;
+}
+
+// NEW — same population, for the Daily Check-In's own assignee dropdown.
+// Kept separate from populateTaskAssignDropdown() rather than editing it,
+// since that function is hardcoded to one specific element id already
+// used elsewhere.
+function populateCheckInAssignee() {
+  var sel = document.getElementById('ciTaskAssignee');
+  if (!sel) return;
+  var opts = '<option value="">Assign to myself</option>';
+  rawActiveWorkers.forEach(function (w) {
+    opts += '<option value="' + w.id + '">' + text(w.data.name) + ' (' + text(w.data.role) + ')</option>';
+  });
+  sel.innerHTML = opts;
+}
+
+// NEW — Daily Check-In. This is deliberately NOT trying to guess intent
+// from free text — no live AI, no LLM, matching the same rule Quick Sale
+// already follows elsewhere in this codebase. The person picks Task /
+// Reminder / Note with one tap; that choice, not a guess, decides where
+// it goes. Task-type entries write into the REAL tasks collection
+// (same one assignTask() already uses) so they show up wherever tasks
+// already show up, instead of becoming a second, competing system.
+// Reminder/Note entries go to a new, small ownerLog collection.
+async function submitCheckIn(inputId, kind) {
+  var input = document.getElementById(inputId);
+  var text_ = input.value.trim();
+  var msgEl = document.getElementById('ciMsg');
+  if (!text_) { msgEl.style.color = '#f87171'; msgEl.textContent = 'Type something first'; return; }
+
+  try {
+    if (kind === 'task') {
+      var assigneeSel = document.getElementById('ciTaskAssignee');
+      var workerId = assigneeSel ? assigneeSel.value : '';
+      var worker = rawActiveWorkers.find(function (w) { return w.id === workerId; });
+      await db.collection('tasks').add({
+        assignedToId: workerId || firebase.auth().currentUser.uid,
+        assignedToName: worker ? worker.data.name : 'Myself',
+        description: text_,
+        when: '',
+        status: 'pending',
+        assignedBy: 'Daily Check-In',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    } else {
+      await db.collection('ownerLog').add({
+        type: kind, // 'reminder' | 'note'
+        text: text_,
+        status: 'open',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+    input.value = '';
+    msgEl.style.color = 'var(--volt)';
+    msgEl.textContent = 'Saved';
+    loadOwnerLog();
+  } catch (e) {
+    msgEl.style.color = '#f87171';
+    msgEl.textContent = 'Could not save: ' + e.message;
+  }
+}
+
+async function loadOwnerLog() {
+  var el = document.getElementById('ownerLogList');
+  try {
+    var snap = await db.collection('ownerLog').where('status', '==', 'open').orderBy('createdAt', 'desc').limit(20).get();
+    if (snap.empty) { el.innerHTML = '<p style="color:#888">Nothing open</p>'; return; }
+    el.innerHTML = snap.docs.map(function (d) {
+      var v = d.data();
+      var icon = v.type === 'reminder' ? '🔔' : '📝';
+      return '<div style="display:flex;justify-content:space-between;align-items:center;background:#0D0D10;border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:6px">' +
+        '<span style="font-size:0.85rem">' + icon + ' ' + escapeHtml(v.text) + '</span>' +
+        '<button onclick="resolveOwnerLogEntry(\'' + d.id + '\')" style="width:auto;padding:5px 10px;font-size:0.75rem">Done</button>' +
+        '</div>';
+    }).join('');
+  } catch (e) {
+    el.innerHTML = '<p style="color:#f87171">Could not load: ' + escapeHtml(e.message) + '</p>';
+  }
+}
+
+async function resolveOwnerLogEntry(id) {
+  try {
+    await db.collection('ownerLog').doc(id).update({ status: 'done' });
+    loadOwnerLog();
+  } catch (e) {
+    toast('Could not update: ' + e.message, true);
+  }
 }
 
 async function assignTask() {
@@ -2586,6 +2783,8 @@ async function downloadBackup() {
 async function loadDashboard() {
   await Promise.all([loadWorkers(), loadInventory(), loadSales(), loadOrders(), loadProducts(), loadExpenses(), loadGoal(), loadRecentClosings(), loadQuotes(), loadGallery(), loadMarketingSources(), loadPendingNotes(), loadTasks(), loadRecentTips(), loadReviews(), loadLoyaltyConfigForm(), loadMovements(), loadIssueReports(), loadCustomOptionsConfig()]);
   populateTaskAssignDropdown();
+  populateCheckInAssignee();
+  loadOwnerLog();
   populateTipSendDropdown();
   loadUnassignedTips();
   populateQuoteProductSelect();
@@ -5468,6 +5667,24 @@ async function proceedWithProductionStatus(id, newStatus, depositToRecord) {
       <button style="flex:1" onclick="inlineDialogConfirm()">OK</button>
     </div>
   </div>
+</div>
+</div>
+
+<div class="navBottomBar">
+  <button class="navBtn active" data-nav="overview" onclick="showAdminSection('overview')"><span class="navIcon">⌂</span>Overview</button>
+  <button class="navBtn" data-nav="orders" onclick="showAdminSection('orders')"><span class="navIcon">📦</span>Orders</button>
+  <button class="navBtn" data-nav="money" onclick="showAdminSection('money')"><span class="navIcon">💰</span>Money</button>
+  <div class="navMore">
+    <button class="navBtn" onclick="document.getElementById('navMoreMenu').classList.toggle('open')"><span class="navIcon">⋯</span>More</button>
+    <div class="navMoreMenu" id="navMoreMenu">
+      <button data-nav="team" onclick="showAdminSection('team');document.getElementById('navMoreMenu').classList.remove('open')">👥 Team</button>
+      <button data-nav="inventory" onclick="showAdminSection('inventory');document.getElementById('navMoreMenu').classList.remove('open')">📦 Inventory</button>
+      <button data-nav="customers" onclick="showAdminSection('customers');document.getElementById('navMoreMenu').classList.remove('open')">🎯 Customers</button>
+      <button data-nav="system" onclick="showAdminSection('system');document.getElementById('navMoreMenu').classList.remove('open')">⚙ System</button>
+    </div>
+  </div>
+</div>
+
 </div>
 </body>
 </html>
