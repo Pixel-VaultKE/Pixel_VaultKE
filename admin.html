@@ -121,6 +121,7 @@ body.has-nav{max-width:none;padding:0}
 .navMoreMenu button:hover{background:var(--surface3)}
 .nav-section{display:none}
 .nav-section.active-section{display:block}
+.stat-grid.active-section{display:grid} /* .stat-grid needs display:grid, not the generic block the rule above would give it */
 
 @media (min-width:860px){
   .navSidebar{
@@ -279,7 +280,7 @@ body.has-nav{max-width:none;padding:0}
     <div id="goalMsg"></div>
   </div>
 
-  <div class="stat-grid" id="statsBox">
+  <div class="stat-grid nav-section active-section" data-section="overview" id="statsBox">
     <div class="stat-box" style="cursor:pointer" onclick="showStatDetail('sales')"><div class="num" id="stSales">0</div><div class="lbl">Sales Today</div></div>
     <div class="stat-box" style="cursor:pointer" onclick="showStatDetail('orders')"><div class="num" id="stOrders">0</div><div class="lbl">Pending Orders</div></div>
     <div class="stat-box" style="cursor:pointer" onclick="scrollToCard('workersCard')"><div class="num" id="stWorkers">0</div><div class="lbl">Workers</div></div>
@@ -634,6 +635,11 @@ function toggleCard(id) {
 function scrollToCard(id) {
   var card = document.getElementById(id);
   if (!card) return;
+  // FIXED — cards now live inside hidden sections until their tab is
+  // active, so scrolling to one without first switching to its section
+  // silently did nothing (can't meaningfully scroll to display:none).
+  var section = card.getAttribute('data-section');
+  if (section) showAdminSection(section);
   card.classList.remove('collapsed');
   card.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -1194,8 +1200,9 @@ async function submitCheckIn(inputId, kind) {
     msgEl.textContent = 'Saved';
     loadOwnerLog();
   } catch (e) {
+    log('submitCheckIn error: ' + e.code + ' — ' + e.message);
     msgEl.style.color = '#f87171';
-    msgEl.textContent = 'Could not save: ' + e.message;
+    msgEl.textContent = '⚠️ Could not save right now. Try again.';
   }
 }
 
@@ -1213,7 +1220,8 @@ async function loadOwnerLog() {
         '</div>';
     }).join('');
   } catch (e) {
-    el.innerHTML = '<p style="color:#f87171">Could not load: ' + escapeHtml(e.message) + '</p>';
+    log('ownerLog load error: ' + e.code + ' — ' + e.message); // raw error goes to the debug log, not the owner's screen
+    el.innerHTML = '<p style="color:#f87171">⚠️ Your reminders couldn\'t load right now. Try again.</p>';
   }
 }
 
