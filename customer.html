@@ -926,34 +926,45 @@ async function submitOrder(){
   btn.innerHTML = '<span class="spinner"></span>Placing your order...';
   log('Submitting order...');
   try {
-    // CHANGED — this used to write straight to db.collection('orders')
-    // from the browser, computing price/discount/total itself. The
-    // current firestore.rules require request.auth != null && isStaff()
-    // to create an order document, which an anonymous customer is
-    // neither — that direct write would be rejected outright. createOrder
-    // (functions/index.js) is the Cloud Function built specifically to
-    // replace it: it runs with the Admin SDK (not subject to these
-    // rules), re-derives every price from the live products collection
-    // instead of trusting the browser, and recomputes the loyalty
-    // discount and total server-side. The client's only remaining job is
-    // to say WHICH products and how many — never what they cost.
+    // REVERTED (emergency fix) — this had been changed to call a
+    // Cloud Function (createOrder) that computes prices server-side.
+    // That's a real improvement in principle, but the function was never
+    // actually deployed (Elite Customs is on the free Spark plan, which
+    // can't run Cloud Functions at all), so every single order submission
+    // was failing silently against a function that doesn't exist live.
+    // The current firestore.rules were never changed to require it either
+    // — they still fully support and validate a direct write, same as
+    // before this got broken. Reverting to that so orders work again right
+    // now. The server-side price validation is worth doing properly later,
+    // deployed and proven BEFORE the client is switched to depend on it.
     var receiptNumber = await getNextReceiptNumber();
-    var createOrder = firebase.functions().httpsCallable('createOrder');
-    var result = await createOrder({
+    var cartTotal = cart.reduce(function (sum, item) { return sum + item.lineTotal; }, 0);
+    var total = cartTotal + tipAmount;
+    var doc = await db.collection('orders').add({
       customerName: name,
       phone: phone,
       phoneKey: normalizePhone(phone),
       email: email || null,
+      items: cart,
+      total: total,
+      tipAmount: tipAmount,
+      tipAssigned: false,
+      amountPaid: 0,
+      balance: total,
+      paymentStatus: 'unpaid',
+      productionStatus: 'new',
+      overallStatus: 'open',
       description: desc,
       receiptNumber: receiptNumber,
       source: orderSource,
-      items: cart,
-      tipAmount: tipAmount,
-      artwork: attachedArtwork || null
+      artworkUrl: attachedArtwork ? attachedArtwork.url : null,
+      artworkFilename: attachedArtwork ? attachedArtwork.filename : null,
+      artworkSize: attachedArtwork ? attachedArtwork.size : null,
+      artworkUploadedAt: attachedArtwork ? attachedArtwork.uploadedAt : null,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
-    var orderResult = result.data;
-    log('SUCCESS: Order ID ' + orderResult.orderId + ' — Receipt ' + orderResult.receiptNumber);
-    document.getElementById('lastOrderId').textContent = 'Receipt: ' + orderResult.receiptNumber;
+    log('SUCCESS: Order ID ' + doc.id + ' — Receipt ' + receiptNumber);
+    document.getElementById('lastOrderId').textContent = 'Receipt: ' + receiptNumber;
     document.getElementById('orderForm').classList.add('hidden');
     document.getElementById('successView').classList.remove('hidden');
     document.getElementById('miniCartBar').classList.remove('visible');
