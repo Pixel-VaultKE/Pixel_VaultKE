@@ -369,10 +369,10 @@ async function loadCustomerGallery() {
     // hiding the rest behind a tap. Tapping a tile still opens the
     // lightbox, scrolled to THAT photo specifically, so browsing within
     // a category still works, it's just not the only way to see them.
-    var html = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">';
+    var html = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:2px">';
     galleryCatOrder.forEach(function (cat) {
       galleryByCategory[cat].forEach(function (url, photoIdx) {
-        html += '<div class="peel" onclick="openGalleryAt(\'' + cat.replace(/'/g, "\\'") + '\', ' + photoIdx + ')" style="cursor:pointer;position:relative;border-radius:8px;overflow:hidden;aspect-ratio:1">';
+        html += '<div class="peel" onclick="openGalleryAt(\'' + cat.replace(/'/g, "\\'") + '\', ' + photoIdx + ')" style="cursor:pointer;position:relative;overflow:hidden;aspect-ratio:1">';
         html += '<img src="' + url + '" alt="' + cat + ' design" style="width:100%;height:100%;object-fit:cover" loading="lazy">';
         html += '<div style="position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,0.85));padding:6px 6px 4px;font-size:0.62rem;color:#fff;font-weight:600">' + cat + '</div>';
         html += '</div>';
@@ -535,7 +535,7 @@ function renderCatalogGrid(searchTerm) {
       return;
     }
     box.innerHTML = '<p style="color:var(--muted);font-size:0.78rem;margin:-6px 0 12px">' + matches.length + ' match' + (matches.length === 1 ? '' : 'es') + ' — tap to add.</p>' +
-      '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">' + matches.map(function (i) { return i.html; }).join('') + '</div>';
+      '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:2px">' + matches.map(function (i) { return i.html; }).join('') + '</div>';
     return;
   }
 
@@ -552,7 +552,7 @@ function renderCatalogGrid(searchTerm) {
     html += '<span style="color:var(--muted);font-size:0.78rem">' + items.length + ' design' + (items.length === 1 ? '' : 's') + ' ' + (isOpen ? '▾' : '▸') + '</span>';
     html += '</div>';
     if (isOpen) {
-      html += '<div style="padding:0 10px 10px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px">' + items.map(function (i) { return i.html; }).join('') + '</div>';
+      html += '<div style="padding:0 10px 10px;display:grid;grid-template-columns:repeat(3,1fr);gap:2px">' + items.map(function (i) { return i.html; }).join('') + '</div>';
     }
     html += '</div>';
   });
@@ -618,25 +618,30 @@ function renderCatalogFromProductsAndInventory(inventoryById) {
         ? '<span style="color:var(--success);font-size:0.75rem">In stock (' + stockQty + ')</span>'
         : '<span style="color:var(--danger);font-size:0.75rem">Out of stock</span>';
     }
-    var isLamination = /lamination/i.test(p.name || '');
+      var isLamination = /lamination/i.test(p.name || '');
       var thisIdx = catalogProducts.length;
       var stockBadge = stockQty === 0
-        ? '<span style="position:absolute;top:4px;left:4px;background:var(--danger);color:#000;font-size:0.6rem;font-weight:700;padding:2px 6px;border-radius:4px">OUT</span>'
+        ? '<span style="position:absolute;top:5px;left:5px;background:var(--danger);color:#000;font-size:0.6rem;font-weight:700;padding:2px 6px;border-radius:4px;z-index:2">OUT</span>'
         : '';
+      // No card body below the photo anymore — the photo fills the whole
+      // tile and name/price sit as a scrim overlay directly on it, same
+      // treatment as the gallery tiles. Purchase info is still there
+      // (can't sell anything without a visible price), it just doesn't
+      // live inside a separate boxed section under the image.
       var imgHtml = p.imageUrl
-        ? '<img src="' + p.imageUrl + '" alt="' + (p.name || '') + '" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px 8px 0 0" loading="lazy" onerror="this.src=\'\';this.style.background=\'#232329\'">'
-        : '<div style="width:100%;aspect-ratio:1;background:#232329;display:flex;align-items:center;justify-content:center;font-size:1.8rem;border-radius:8px 8px 0 0">🏷️</div>';
+        ? '<img src="' + p.imageUrl + '" alt="' + (p.name || '') + '" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" loading="lazy" onerror="this.src=\'\';this.style.background=\'#232329\'">'
+        : '<div style="position:absolute;inset:0;background:#232329;display:flex;align-items:center;justify-content:center;font-size:1.8rem">🏷️</div>';
       var disabled = stockQty === 0;
-      var tileHtml = '<div class="peel" id="tile-' + thisIdx + '" data-product-idx="' + thisIdx + '" data-disabled="' + (disabled ? '1' : '0') + '" style="position:relative;background:var(--surface2);border-radius:var(--radius-sm);overflow:hidden;cursor:' + (disabled ? 'default' : 'pointer') + ';opacity:' + (disabled ? '0.5' : '1') + ';border:1px solid var(--line);box-shadow:0 4px 10px -6px rgba(0,0,0,0.5);-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;touch-action:manipulation">';
+      var tileHtml = '<div class="peel" id="tile-' + thisIdx + '" data-product-idx="' + thisIdx + '" data-disabled="' + (disabled ? '1' : '0') + '" style="position:relative;aspect-ratio:1;overflow:hidden;cursor:' + (disabled ? 'default' : 'pointer') + ';opacity:' + (disabled ? '0.5' : '1') + ';-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;touch-action:manipulation">';
       tileHtml += stockBadge;
       tileHtml += imgHtml;
-      tileHtml += '<div style="padding:7px 7px 8px">';
-      tileHtml += '<div style="font-size:0.72rem;color:var(--text);line-height:1.25;min-height:1.8em;font-weight:500">' + (p.name || '') + '</div>';
-      tileHtml += '<div style="color:var(--gold);font-weight:800;font-size:0.88rem;margin-top:3px">KSH ' + (p.retailPrice || 0).toLocaleString() + '</div>';
+      tileHtml += '<div style="position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,0.88));padding:16px 6px 5px">';
+      tileHtml += '<div style="font-size:0.68rem;color:#fff;line-height:1.2;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (p.name || '') + '</div>';
+      tileHtml += '<div style="color:var(--gold);font-weight:800;font-size:0.82rem">KSH ' + (p.retailPrice || 0).toLocaleString() + '</div>';
       if (p.wholesalePrice > 0 && p.wholesaleMinQty > 0) {
-        tileHtml += '<div style="color:var(--sky);font-size:0.62rem">Bulk: ' + p.wholesalePrice.toLocaleString() + ' (' + p.wholesaleMinQty + '+)</div>';
+        tileHtml += '<div style="color:var(--sky);font-size:0.58rem">Bulk: ' + p.wholesalePrice.toLocaleString() + ' (' + p.wholesaleMinQty + '+)</div>';
       }
-      if (isLamination) tileHtml += '<div style="color:var(--warn);font-size:0.6rem;margin-top:2px">Lamination only</div>';
+      if (isLamination) tileHtml += '<div style="color:var(--warn);font-size:0.58rem">Lamination only</div>';
       tileHtml += '</div></div>';
 
       var cat = p.category || 'Other';
@@ -711,7 +716,7 @@ function addToCartQuick(idx) {
   if (tile) {
     var flash = document.createElement('div');
     flash.textContent = '✓ Added';
-    flash.style.cssText = 'position:absolute;inset:0;background:rgba(198,255,61,0.92);color:#0D0D10;font-weight:800;font-size:0.85rem;display:flex;align-items:center;justify-content:center;border-radius:8px;pointer-events:none';
+    flash.style.cssText = 'position:absolute;inset:0;background:rgba(198,255,61,0.92);color:#0D0D10;font-weight:800;font-size:0.85rem;display:flex;align-items:center;justify-content:center;pointer-events:none';
     tile.appendChild(flash);
     setTimeout(function () { if (flash.parentNode) flash.parentNode.removeChild(flash); }, 500);
   }
