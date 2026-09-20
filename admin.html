@@ -449,8 +449,28 @@ body.has-nav{max-width:none;padding:0}
     <span class="eyebrow" style="background:#d4af37;color:#0D0D10">Catalog</span><h2 onclick="toggleCard('productsCard')">Products & Pricing</h2>
     <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Each product links to an inventory item. Selling it auto-deducts stock.</p>
     <div id="productsList"><p style="color:#888">Loading...</p></div>
-    <input type="text" id="prodName" placeholder="Product name (e.g. Stickers - 3D)">
-    <input type="text" id="prodCategory" placeholder="Category (e.g. Stickers)">
+    <input type="text" id="prodName" placeholder="Product name (e.g. Stickers - 3D)" oninput="suggestProductCategory()">
+    <select id="prodCategory" onchange="renderSubcategoryOptions()">
+      <option value="">Select category...</option>
+      <option value="Patterns & Textures">Patterns &amp; Textures</option>
+      <option value="Animals & Nature">Animals &amp; Nature</option>
+      <option value="Anime & Manga">Anime &amp; Manga</option>
+      <option value="Cartoons & Comics">Cartoons &amp; Comics</option>
+      <option value="Gaming">Gaming</option>
+      <option value="Celebrities, Music & Portraits">Celebrities, Music &amp; Portraits</option>
+      <option value="Horror & Skulls">Horror &amp; Skulls</option>
+      <option value="Luxury, Brands & Streetwear">Luxury, Brands &amp; Streetwear</option>
+      <option value="Motivational Quotes & Text">Motivational Quotes &amp; Text</option>
+      <option value="Sports & City">Sports &amp; City</option>
+      <option value="Abstract, Space & Art">Abstract, Space &amp; Art</option>
+      <option value="Religious / Spiritual">Religious / Spiritual</option>
+      <option value="Branding & Business">Branding &amp; Business</option>
+      <option value="Marijuana & Weed Culture">Marijuana &amp; Weed Culture</option>
+      <option value="__other__">Something else (type it in)</option>
+    </select>
+    <select id="prodSubcategory" class="hidden"><option value="">Subcategory (optional)...</option></select>
+    <input type="text" id="prodCategoryOther" class="hidden" placeholder="Type the category">
+    <div id="categorySuggestion" style="color:var(--muted);font-size:0.78rem;margin:-6px 0 8px"></div>
     <input type="number" id="prodRetail" placeholder="Retail price (KSH)" min="0">
     <input type="number" id="prodWholesale" placeholder="Wholesale price (KSH)" min="0">
     <input type="number" id="prodCost" placeholder="Cost price - what it costs you (KSH)" min="0">
@@ -502,6 +522,9 @@ body.has-nav{max-width:none;padding:0}
     <div id="utApprovedList"></div>
     <div style="font-size:0.85rem;color:#888;margin:14px 0 6px">❌ Rejected</div>
     <div id="utRejectedList"></div>
+    <div style="border-top:1px solid var(--line);margin:18px 0 14px"></div>
+    <div style="font-size:0.85rem;color:#888;margin-bottom:6px">🖼️ Submitted Pictures — Awaiting Review</div>
+    <div id="subPendingList"><p style="color:#888">Loading...</p></div>
     <div style="border-top:1px solid var(--line);margin:18px 0 14px"></div>
     <div style="font-size:0.85rem;color:#888;margin-bottom:6px">👥 Active Uploaders</div>
     <div id="utUploaderRoster"><p style="color:#888">Loading...</p></div>
@@ -2647,6 +2670,36 @@ async function mergeProductCleanup(gi) {
   }
 }
 
+// NEW — suggested target for each of the REAL categories already live in
+// the catalog, built by matching against the 14-category taxonomy.
+// Several of the real categories (BIG TOYS, CUTE, TREASURY, CULTURE,
+// MONEY, Stickers, SERVICES, EVENT DISPLAY) genuinely don't map cleanly
+// onto anything in the 14 — rather than force a confident-looking wrong
+// guess, those return null and say so honestly in the cleanup list.
+function suggestCategoryTarget(rawName) {
+  var name = (rawName || '').toLowerCase();
+  var rules = [
+    [['anime', 'gaming'], 'Anime & Manga'],
+    [['portrait'], 'Celebrities, Music & Portraits'],
+    [['cartoon', 'character'], 'Cartoons & Comics'],
+    [['horror', 'dark art'], 'Horror & Skulls'],
+    [['art & aesthetic', 'aesthetic'], 'Abstract, Space & Art'],
+    [['beauty', 'feminine', 'luxury'], 'Luxury, Brands & Streetwear'],
+    [['sneaker', 'fashion', 'streetwear'], 'Luxury, Brands & Streetwear'],
+    [['quote', 'text'], 'Motivational Quotes & Text'],
+    [['flag', 'brand', 'logo'], 'Branding & Business'],
+    [['music', 'icon'], 'Celebrities, Music & Portraits'],
+    [['sport'], 'Sports & City'],
+    [['animal', 'wildlife', 'nature'], 'Animals & Nature'],
+    [['car', 'bike', 'vehicle'], 'Sports & City'],
+    [['pattern', 'texture'], 'Patterns & Textures'],
+    [['religio', 'spiritual'], 'Religious / Spiritual'],
+    [['weed', 'marijuana', 'cannabis'], 'Marijuana & Weed Culture']
+  ];
+  var match = rules.find(function (r) { return r[0].some(function (kw) { return name.indexOf(kw) !== -1; }); });
+  return match ? match[1] : null;
+}
+
 async function loadCategoryCleanup() {
   var box = document.getElementById('categoryCleanupList');
   box.innerHTML = '<p style="color:#888;font-size:0.85rem">Loading current categories...</p>';
@@ -2665,9 +2718,13 @@ async function loadCategoryCleanup() {
 
     var html = '<div id="catCleanupCheckboxes">';
     cats.forEach(function (cat, i) {
+      var suggestion = suggestCategoryTarget(cat);
+      var hint = suggestion
+        ? ' <a href="#" onclick="event.preventDefault();document.getElementById(\'catCleanupTarget\').value=\'' + suggestion + '\'" style="color:var(--sky);font-size:0.75rem">→ ' + suggestion + '</a>'
+        : ' <span style="color:#555;font-size:0.75rem">no clear match — review manually</span>';
       html += '<label style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #262626;font-size:0.85rem">'
         + '<input type="checkbox" class="catCleanupBox" value="' + i + '" style="width:auto">'
-        + '<span style="flex:1">' + text(cat) + '</span>'
+        + '<span style="flex:1">' + text(cat) + hint + '</span>'
         + '<span style="color:#666">' + counts[cat] + ' product' + (counts[cat] === 1 ? '' : 's') + '</span>'
         + '</label>';
     });
@@ -2805,6 +2862,7 @@ async function loadDashboard() {
   renderCcDateFilters();
   loadUploadApplications();
   loadUploaderRoster();
+  loadSubmissions();
   loadUploaderRate();
   var lowCount = rawInventory.filter(function (inv) {
     var i = inv.data;
@@ -2960,6 +3018,73 @@ async function reviewUploadApplication(applicationId, decision) {
     await reviewApplication({ applicationId: applicationId, decision: decision, notes: '' });
     await loadUploadApplications();
     toast(decision === 'approve' ? 'Approved — their login is ready' : 'Rejected');
+  } catch (e) {
+    toast('Could not ' + decision + ': ' + e.message, true);
+  }
+}
+
+// ===== Submitted pictures — awaiting review. This is where a category-
+// tagged picture from uploader.html either becomes a real catalog
+// product (accept) or gets closed out (reject); reviewSubmission
+// (functions/index.js) is the only thing allowed to make that change. =====
+var rawSubmissions = [];
+
+async function loadSubmissions() {
+  try {
+    var snap = await db.collection('submissions')
+      .where('status', '==', 'pending_review')
+      .orderBy('submittedAt', 'desc')
+      .limit(200)
+      .get();
+    rawSubmissions = snap.docs.map(function (d) { return { id: d.id, data: d.data() }; });
+    renderSubmissions();
+  } catch (e) {
+    document.getElementById('subPendingList').innerHTML = '<p style="color:var(--danger)">Could not load: ' + escapeHtml(e.message) + '</p>';
+  }
+}
+
+function renderSubmissions() {
+  var el = document.getElementById('subPendingList');
+  if (!rawSubmissions.length) { el.innerHTML = '<p style="color:#888">None pending</p>'; return; }
+  el.innerHTML = rawSubmissions.map(function (s) {
+    var d = s.data;
+    var when = d.submittedAt && d.submittedAt.toDate ? d.submittedAt.toDate().toLocaleString() : '';
+    return '' +
+      '<div style="background:#0D0D10;border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:10px;display:flex;gap:10px">' +
+        '<img src="' + d.imageUrl + '" alt="Submitted picture" style="width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--line);flex-shrink:0">' +
+        '<div style="flex:1;min-width:0">' +
+          '<div style="font-weight:700">' + escapeHtml(d.category || '—') + (d.subcategory ? ' <span style="color:#888">— ' + escapeHtml(d.subcategory) + '</span>' : '') + '</div>' +
+          '<div style="font-size:0.72rem;color:#666">' + when + '</div>' +
+          '<input type="number" id="subPrice_' + s.id + '" placeholder="Retail price (optional)" min="0" style="margin:8px 0 6px;width:100%">' +
+          '<div style="display:flex;gap:6px">' +
+            '<button onclick="reviewSubmissionAction(\'' + s.id + '\',\'accept\')" style="flex:1;background:var(--success);color:#0D0D10;border:none;border-radius:8px;padding:8px;font-weight:700;font-size:0.78rem">Accept</button>' +
+            '<button onclick="reviewSubmissionAction(\'' + s.id + '\',\'reject\')" style="flex:1;background:#3a1f1f;color:var(--danger);border:1px solid #5c2b2b;border-radius:8px;padding:8px;font-weight:700;font-size:0.78rem">Reject</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+  }).join('');
+}
+
+async function reviewSubmissionAction(submissionId, decision) {
+  var priceInput = document.getElementById('subPrice_' + submissionId);
+  var retailPrice = priceInput ? (parseFloat(priceInput.value) || 0) : 0;
+  var rejectionReason = '';
+  if (decision === 'reject') {
+    rejectionReason = prompt('Reason for rejecting (optional):') || '';
+  }
+  try {
+    var reviewSubmission = firebase.functions().httpsCallable('reviewSubmission');
+    var result = await reviewSubmission({
+      submissionId: submissionId, decision: decision,
+      retailPrice: retailPrice, rejectionReason: rejectionReason
+    });
+    await loadSubmissions();
+    if (decision === 'accept') {
+      toast('Accepted — added to catalog ✅');
+      await loadProducts(); // so the new product shows up immediately in Catalog too
+    } else {
+      toast('Rejected');
+    }
   } catch (e) {
     toast('Could not ' + decision + ': ' + e.message, true);
   }
@@ -4993,9 +5118,89 @@ function validateBulkPricing(retailPrice, wholesalePrice, wholesaleMinQty) {
   return null;
 }
 
+// NEW — the actual taxonomy already in use for the catalog, given real
+// structure instead of the free-text field that let "Cartoon" and
+// "CARTOON" pile up as separate categories. Subcategories are only
+// filled in where they were explicitly defined — inventing structure
+// for categories that were never given subcategories would be a worse
+// mistake than leaving them open.
+var CATALOG_TAXONOMY = {
+  'Patterns & Textures': [],
+  'Animals & Nature': [],
+  'Anime & Manga': ['One Piece', 'Naruto', 'Dragon Ball', 'Other Anime'],
+  'Cartoons & Comics': [],
+  'Gaming': [],
+  'Celebrities, Music & Portraits': ['Musicians', 'Actors', 'Athletes/People', 'Portraits'],
+  'Horror & Skulls': [],
+  'Luxury, Brands & Streetwear': [],
+  'Motivational Quotes & Text': [],
+  'Sports & City': [],
+  'Abstract, Space & Art': [],
+  'Religious / Spiritual': [],
+  'Branding & Business': ['Logos', 'Banners', 'Teardrops', 'Business graphics'],
+  'Marijuana & Weed Culture': []
+};
+
+// Deterministic keyword → category matching, built from the exact
+// examples already given to the upload team — not a guess, not an LLM.
+// A product name that matches nothing here just gets no suggestion,
+// which is the honest result, not a forced wrong guess.
+var CATEGORY_KEYWORDS = [
+  [['bob marley', 'singer', 'rapper', 'musician'], 'Celebrities, Music & Portraits'],
+  [['boxer', 'boxing', 'athlete'], 'Sports & City'],
+  [['lamborghini', 'ferrari', 'car', 'motorcycle', 'vehicle'], 'Sports & City'],
+  [['one piece', 'luffy', 'naruto', 'dragon ball', 'anime', 'manga'], 'Anime & Manga'],
+  [['mickey mouse', 'cartoon', 'disney'], 'Cartoons & Comics'],
+  [['skull', 'horror', 'skeleton'], 'Horror & Skulls'],
+  [['nike', 'gucci', 'adidas', 'streetwear', 'supreme'], 'Luxury, Brands & Streetwear'],
+  [['abstract', 'neon', 'space', 'galaxy'], 'Abstract, Space & Art'],
+  [['logo', 'banner', 'business card'], 'Branding & Business'],
+  [['quote', 'motivat', 'inspir'], 'Motivational Quotes & Text'],
+  [['jesus', 'cross', 'quran', 'church', 'spiritual'], 'Religious / Spiritual'],
+  [['weed', 'marijuana', 'cannabis', '420'], 'Marijuana & Weed Culture']
+];
+
+function suggestProductCategory() {
+  var name = (document.getElementById('prodName').value || '').toLowerCase();
+  var suggestEl = document.getElementById('categorySuggestion');
+  if (!name.trim()) { suggestEl.textContent = ''; return; }
+  var match = CATEGORY_KEYWORDS.find(function (row) {
+    return row[0].some(function (kw) { return name.indexOf(kw) !== -1; });
+  });
+  if (match) {
+    suggestEl.innerHTML = '💡 Looks like <b style="color:var(--volt)">' + match[1] + '</b> — <a href="#" onclick="event.preventDefault();document.getElementById(\'prodCategory\').value=\'' + match[1] + '\';renderSubcategoryOptions();suggestProductCategory()" style="color:var(--sky)">use this</a>';
+  } else {
+    suggestEl.textContent = '';
+  }
+}
+
+function renderSubcategoryOptions() {
+  var catSel = document.getElementById('prodCategory');
+  var subSel = document.getElementById('prodSubcategory');
+  var otherInput = document.getElementById('prodCategoryOther');
+  var cat = catSel.value;
+
+  otherInput.classList.toggle('hidden', cat !== '__other__');
+
+  var subs = CATALOG_TAXONOMY[cat] || [];
+  if (!subs.length) { subSel.classList.add('hidden'); subSel.innerHTML = ''; return; }
+  subSel.innerHTML = '<option value="">Subcategory (optional)...</option>' +
+    subs.map(function (s) { return '<option value="' + s + '">' + s + '</option>'; }).join('');
+  subSel.classList.remove('hidden');
+}
+
 async function addProduct() {
   var name = document.getElementById('prodName').value.trim();
-  var category = document.getElementById('prodCategory').value.trim();
+  // FIXED — category used to be free-typed, which is exactly how
+  // "Cartoon" and "CARTOON" ended up as two different categories. Now
+  // it's picked from the real taxonomy; "Something else" still exists
+  // for a genuine new category, but that's a deliberate exception now,
+  // not the default path.
+  var categorySelectVal = document.getElementById('prodCategory').value;
+  var category = categorySelectVal === '__other__'
+    ? document.getElementById('prodCategoryOther').value.trim()
+    : categorySelectVal;
+  var subcategory = document.getElementById('prodSubcategory').value || null;
   var retailPrice = parseFloat(document.getElementById('prodRetail').value) || 0;
   var wholesalePrice = parseFloat(document.getElementById('prodWholesale').value) || 0;
   var costPrice = parseFloat(document.getElementById('prodCost').value) || 0;
@@ -5007,6 +5212,7 @@ async function addProduct() {
   var msg = document.getElementById('prodMsg');
 
   if (!name) { msg.className = 'error'; msg.textContent = 'Enter a product name'; return; }
+  if (!category) { msg.className = 'error'; msg.textContent = 'Pick a category'; return; }
   if (retailPrice <= 0) { msg.className = 'error'; msg.textContent = 'Enter a retail price above 0'; return; }
   var duplicate = rawProducts.some(function (p) { return (p.data.name || '').trim().toLowerCase() === name.toLowerCase(); });
   if (duplicate) { msg.className = 'error'; msg.textContent = '⚠️ A product with this name already exists'; return; }
@@ -5016,14 +5222,17 @@ async function addProduct() {
 
   try {
     await db.collection('products').add({
-      name: name, category: category, retailPrice: retailPrice, wholesalePrice: wholesalePrice, costPrice: costPrice,
+      name: name, category: category, subcategory: subcategory, retailPrice: retailPrice, wholesalePrice: wholesalePrice, costPrice: costPrice,
       wholesaleMinQty: wholesaleMinQty,
       linkedInventoryItemId: linkedInventoryItemId || null, unitsPerSale: unitsPerSale,
       imageUrl: imageUrl || null, videoUrl: videoUrl || null,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
     log('Product added: ' + name);
-    ['prodName', 'prodCategory', 'prodRetail', 'prodWholesale', 'prodCost', 'prodWholesaleMin'].forEach(function (id) { document.getElementById(id).value = ''; });
+    ['prodName', 'prodRetail', 'prodWholesale', 'prodCost', 'prodWholesaleMin', 'prodCategoryOther'].forEach(function (id) { document.getElementById(id).value = ''; });
+    document.getElementById('prodCategory').value = '';
+    renderSubcategoryOptions();
+    document.getElementById('categorySuggestion').textContent = '';
     document.getElementById('prodUnitsPerSale').value = '1';
     msg.className = 'ok'; msg.textContent = 'Added';
     loadProducts();

@@ -8,8 +8,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600;700;800&display=swap');
 
 :root{
-  --ink:#0D0D10;
-  --surface:#18181D;
+  --ink:#111114;
+  --surface:#1A1A1F;
   --hot:#FF2E63;
   --volt:#C6FF3D;
   --gold:#D4AF37;
@@ -89,12 +89,10 @@ input,textarea{
   color:var(--text);
   font-size:1rem;
   font-family:inherit;
-  transition:border-color .18s cubic-bezier(.2,.7,.3,1),box-shadow .18s cubic-bezier(.2,.7,.3,1);
 }
 input:focus,textarea:focus{
-  outline:none;
-  border-color:var(--volt);
-  box-shadow:0 0 0 3px rgba(198,255,61,0.14);
+  outline:2px solid var(--volt);
+  outline-offset:1px;
 }
 textarea{resize:vertical;min-height:88px}
 button{
@@ -103,16 +101,12 @@ button{
   padding:15px;
   border-radius:12px;
   border:none;
-  background:linear-gradient(135deg,#ff5285,var(--hot));
+  background:var(--hot);
   color:#fff;
   font-weight:800;
   font-size:1rem;
   cursor:pointer;
-  transition:transform .12s cubic-bezier(.2,.7,.3,1),filter .15s;
-  box-shadow:0 4px 16px -4px rgba(255,46,99,0.4);
 }
-button:hover:not(:disabled){filter:brightness(1.08)}
-button:active:not(:disabled){transform:scale(0.98)}
 button:disabled{opacity:0.55;cursor:default}
 .msg{margin-top:12px;font-size:0.88rem}
 .error{color:var(--hot)}

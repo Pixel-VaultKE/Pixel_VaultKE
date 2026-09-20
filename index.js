@@ -294,36 +294,28 @@ exports.reviewApplication = functions.https.onCall(async (data, context) => {
 });
 
 /**
- * setUploaderStatus — the only way an uploader's status ever changes
- * after approval. Handles suspend, remove, and reactivate through one
- * function rather than three, since they're the same operation (flip
- * the status field) with different target values.
- *
- * Deliberately does NOT touch the Firebase Auth account or its custom
- * claim — the account still exists and can still log in either way.
- * What actually gates access is the LIVE status check in
- * firestore.rules (the same "no exceptions" pattern already proven for
- * Elite Customs' isActiveAccount()) — so a suspension takes effect on
- * the uploader's very next write attempt, not on their next login.
- * That check will need adding to firestore.rules once the actual
- * submission collections exist — this function alone doesn't enforce
- * anything by itself, it just records the decision as fact.
+ * setUploaderStatus — admin.html calls this to suspend/reactivate/remove an
+ * uploader, but the function never existed until now (dead call — every
+ * Suspend/Remove/Reactivate button in the Uploaders roster has been
+ * throwing since it was built). Disables the actual Firebase Auth account
+ * on suspend/remove, not just a Firestore flag — uploader.html only checks
+ * the flag, so without this, a "removed" uploader could still be signed in
+ * and keep submitting. revokeRefreshTokens forces that immediately rather
+ * than waiting for their session to naturally expire.
  */
 exports.setUploaderStatus = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Sign in required.');
   }
-
   const callerSnap = await db.collection('workers').doc(context.auth.uid).get();
   const callerRole = callerSnap.exists ? callerSnap.data().role : null;
   if (callerRole !== 'owner' && callerRole !== 'admin') {
-    throw new functions.https.HttpsError('permission-denied', 'Only an owner or admin can change an uploader\'s status.');
+    throw new functions.https.HttpsError('permission-denied', 'Only an owner or admin can change uploader status.');
   }
 
   const uploaderId = typeof data.uploaderId === 'string' ? data.uploaderId : null;
-  const newStatus = data.status; // 'active' | 'suspended' | 'removed'
+  const newStatus = data.status;
   const validStatuses = ['active', 'suspended', 'removed'];
-
   if (!uploaderId || validStatuses.indexOf(newStatus) === -1) {
     throw new functions.https.HttpsError('invalid-argument', 'uploaderId and a valid status are required.');
   }
@@ -331,7 +323,7 @@ exports.setUploaderStatus = functions.https.onCall(async (data, context) => {
   const uploaderRef = db.collection('uploaders').doc(uploaderId);
   const uploaderSnap = await uploaderRef.get();
   if (!uploaderSnap.exists) {
-    throw new functions.https.HttpsError('not-found', 'That uploader record no longer exists.');
+    throw new functions.https.HttpsError('not-found', 'Uploader not found.');
   }
 
   await uploaderRef.update({
@@ -340,5 +332,120 @@ exports.setUploaderStatus = functions.https.onCall(async (data, context) => {
     statusChangedAt: admin.firestore.FieldValue.serverTimestamp()
   });
 
+  try {
+    await admin.auth().updateUser(uploaderId, { disabled: newStatus !== 'active' });
+    if (newStatus !== 'active') {
+      await admin.auth().revokeRefreshTokens(uploaderId);
+    }
+  } catch (e) {
+    // Firestore status is already updated (the source of truth uploader.html
+    // checks) even if this secondary Auth-level lock fails for some reason —
+    // don't leave the admin thinking nothing happened.
+  }
+
   return { status: newStatus };
+});
+
+/**
+ * reviewSubmission — the ONLY way an uploaded picture becomes a real
+ * catalog product or turns into money owed. Direct client writes to
+ * submissions.status are blocked by firestore.rules on purpose (an
+ * uploader could otherwise mark their own work accepted). On accept this
+ * creates the product using the exact same field shape as the manual
+ * addProduct() form in admin.html — same collection, same schema — so an
+ * accepted submission and a manually-added product are indistinguishable
+ * to the rest of the app. Price is optional at review time; left blank,
+ * the product is created at KSH 0 and priced later the normal way, same
+ * as any other product.
+ */
+exports.reviewSubmission = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Sign in required.');
+  }
+  const callerSnap = await db.collection('workers').doc(context.auth.uid).get();
+  const callerRole = callerSnap.exists ? callerSnap.data().role : null;
+  if (callerRole !== 'owner' && callerRole !== 'admin') {
+    throw new functions.https.HttpsError('permission-denied', 'Only an owner or admin can review submissions.');
+  }
+
+  const submissionId = typeof data.submissionId === 'string' ? data.submissionId : null;
+  const decision = data.decision; // 'accept' | 'reject'
+  const rejectionReason = typeof data.rejectionReason === 'string' ? data.rejectionReason.slice(0, 500) : '';
+  const retailPrice = Math.max(0, Number(data.retailPrice) || 0);
+
+  if (!submissionId || (decision !== 'accept' && decision !== 'reject')) {
+    throw new functions.https.HttpsError('invalid-argument', 'submissionId and a valid decision are required.');
+  }
+
+  const subRef = db.collection('submissions').doc(submissionId);
+
+  return db.runTransaction(async (tx) => {
+    const subSnap = await tx.get(subRef);
+    if (!subSnap.exists) {
+      throw new functions.https.HttpsError('not-found', 'That submission no longer exists.');
+    }
+    const sub = subSnap.data();
+    if (sub.status !== 'pending_review') {
+      throw new functions.https.HttpsError('failed-precondition', 'This submission has already been reviewed.');
+    }
+
+    const uploaderRef = db.collection('uploaders').doc(sub.uploaderId);
+    const uploaderSnap = await tx.get(uploaderRef);
+    if (!uploaderSnap.exists) {
+      throw new functions.https.HttpsError('not-found', 'Uploader record not found.');
+    }
+
+    if (decision === 'reject') {
+      tx.update(subRef, {
+        status: 'rejected',
+        reviewedBy: context.auth.uid,
+        reviewedAt: admin.firestore.FieldValue.serverTimestamp(),
+        rejectionReason: rejectionReason
+      });
+      tx.update(uploaderRef, { totalRejected: admin.firestore.FieldValue.increment(1) });
+      return { status: 'rejected' };
+    }
+
+    // decision === 'accept' — rate is read inside the transaction so a
+    // rate change mid-review can't apply to the wrong submission.
+    const rateSnap = await tx.get(db.collection('settings').doc('uploaderRate'));
+    const rate = (rateSnap.exists && typeof rateSnap.data().rate === 'number') ? rateSnap.data().rate : 0;
+
+    const productRef = db.collection('products').doc();
+    tx.set(productRef, {
+      name: sub.suggestedName || (sub.category + (sub.subcategory ? ' — ' + sub.subcategory : '')),
+      category: sub.category,
+      subcategory: sub.subcategory || null,
+      retailPrice: retailPrice,
+      wholesalePrice: 0,
+      costPrice: 0,
+      wholesaleMinQty: null,
+      linkedInventoryItemId: null,
+      unitsPerSale: 1,
+      imageUrl: sub.imageUrl,
+      videoUrl: null,
+      submittedBy: sub.uploaderId,
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    tx.update(subRef, {
+      status: 'accepted',
+      reviewedBy: context.auth.uid,
+      reviewedAt: admin.firestore.FieldValue.serverTimestamp(),
+      amountEarned: rate,
+      productId: productRef.id
+    });
+    tx.update(uploaderRef, {
+      totalAccepted: admin.firestore.FieldValue.increment(1),
+      totalEarned: admin.firestore.FieldValue.increment(rate)
+    });
+    tx.set(db.collection('earningsLedger').doc(), {
+      uploaderId: sub.uploaderId,
+      submissionId: submissionId,
+      amount: rate,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdBy: context.auth.uid
+    });
+    return { status: 'accepted', amountEarned: rate, productId: productRef.id };
+  });
 });

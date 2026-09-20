@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pixel Vault KE — Upload Team</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#111114; --surface:#1C1C21; --surface2:#232329;
+  --hot:#FF2E63; --volt:#C6FF3D; --sky:#29D3F5; --gold:#d4af37;
+  --line:rgba(255,255,255,0.08); --text:#EDEDEF; --muted:#8A8A93;
+  --danger:#f87171; --success:#4ade80;
+  --radius:14px; --radius-sm:9px;
+}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--ink);color:var(--text);padding:16px;max-width:480px;margin:0 auto}
+.card{background:var(--surface);border-radius:var(--radius);padding:20px;margin-bottom:14px;border:1px solid var(--line)}
+h1{font-family:'Bebas Neue',sans-serif;font-size:2rem;margin:0 0 4px;background:linear-gradient(100deg,var(--hot),var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{color:var(--muted);font-size:0.85rem;margin-bottom:16px}
+input,select,button{padding:12px 13px;border-radius:var(--radius-sm);border:1px solid var(--line);background:var(--surface2);color:var(--text);width:100%;margin-bottom:10px;font-size:0.95rem;font-family:'Inter',sans-serif}
+button{background:var(--gold);color:#1a1305;font-weight:800;border:none;cursor:pointer}
+button:disabled{opacity:0.5;cursor:not-allowed}
+button.secondary{background:transparent;color:var(--sky);border:1.5px solid var(--sky)}
+.err{color:var(--danger);font-size:0.85rem;margin-top:4px}
+.ok{color:var(--success);font-size:0.85rem;margin-top:4px}
+.hidden{display:none}
+.thumb{width:100%;border-radius:8px;margin-top:10px;display:none}
+.stat-row{display:flex;gap:10px;margin-top:12px}
+.stat-box{flex:1;background:var(--surface2);border-radius:var(--radius-sm);padding:10px;text-align:center;border:1px solid var(--line)}
+.stat-box .num{color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:1.4rem}
+.stat-box .lbl{color:var(--muted);font-size:0.68rem;text-transform:uppercase}
+.recent{display:flex;gap:8px;overflow-x:auto;margin-top:12px;padding-bottom:4px}
+.recent img{width:52px;height:52px;object-fit:cover;border-radius:6px;border:1px solid var(--line);flex-shrink:0}
+.recent .pending{border-color:var(--gold)}
+.recent .accepted{border-color:var(--success)}
+.recent .rejected{border-color:var(--danger);opacity:0.6}
+</style>
+</head>
+<body>
+
+<div id="loginCard" class="card">
+  <h1>Upload Team</h1>
+  <p class="sub">Pixel Vault KE — sign in to submit pictures</p>
+  <input type="email" id="loginEmail" placeholder="Email" autocomplete="username">
+  <input type="password" id="loginPassword" placeholder="Password" autocomplete="current-password">
+  <button onclick="doLogin()">Sign In</button>
+  <div id="loginErr" class="err hidden"></div>
+  <p class="sub" style="margin-top:14px">First time here? Tap below to get a reset-password link sent to your email, set a password, then come back and sign in.</p>
+  <button class="secondary" onclick="doForgotPassword()">Send me a reset link</button>
+</div>
+
+<div id="appCard" class="card hidden">
+  <h1>Upload Team</h1>
+  <p class="sub" id="welcomeMsg"></p>
+  <div class="stat-row">
+    <div class="stat-box"><div class="num" id="statAccepted">0</div><div class="lbl">Accepted</div></div>
+    <div class="stat-box"><div class="num" id="statPending">0</div><div class="lbl">Pending</div></div>
+    <div class="stat-box"><div class="num" id="statEarned">KSH 0</div><div class="lbl">Earned</div></div>
+  </div>
+  <div id="recentList" class="recent"></div>
+  <button class="secondary" onclick="doLogout()" style="margin-top:10px">Log Out</button>
+</div>
+
+<div id="uploadCard" class="card hidden">
+  <h2 style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;margin:0 0 10px">Submit a picture</h2>
+
+  <input type="file" id="fileInput" accept="image/*" onchange="handleFileSelect()">
+  <img id="filePreview" alt="Selected photo preview" class="thumb">
+
+  <select id="catSelect" onchange="renderSubOptions()">
+    <option value="">Category...</option>
+  </select>
+  <select id="subSelect" class="hidden"><option value="">Subcategory (optional)...</option></select>
+
+  <button onclick="submitPicture()" id="submitBtn" disabled>Submit</button>
+  <div id="uploadStatus" class="sub"></div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="shared.js"></script>
+<script>
+// firebaseConfig / firebase.initializeApp / auth / db come from shared.js,
+// same as every other page in this project.
+
+var CLOUDINARY_CLOUD_NAME = 'ffksanlm';
+var CLOUDINARY_UPLOAD_PRESET = 'ml_default';
+var currentUploaderId = null;
+var selectedFile = null;
+
+// Same object, same categories, same subcategories as admin.html's
+// CATALOG_TAXONOMY (product-add form). Kept as a literal copy here rather
+// than fetched, because this page has to work for someone uploading from
+// a phone on patchy data — one shared source file (shared.js) would be
+// cleaner long-term, but that's a refactor of admin.html too, not a
+// change made silently as a side effect of this page.
+var CATALOG_TAXONOMY = {
+  'Patterns & Textures': [],
+  'Animals & Nature': [],
+  'Anime & Manga': ['One Piece', 'Naruto', 'Dragon Ball', 'Other Anime'],
+  'Cartoons & Comics': [],
+  'Gaming': [],
+  'Celebrities, Music & Portraits': ['Musicians', 'Actors', 'Athletes/People', 'Portraits'],
+  'Horror & Skulls': [],
+  'Luxury, Brands & Streetwear': [],
+  'Motivational Quotes & Text': [],
+  'Sports & City': [],
+  'Abstract, Space & Art': [],
+  'Religious / Spiritual': [],
+  'Branding & Business': ['Logos', 'Banners', 'Teardrops', 'Business graphics'],
+  'Marijuana & Weed Culture': []
+};
+
+(function populateCategorySelect() {
+  var sel = document.getElementById('catSelect');
+  Object.keys(CATALOG_TAXONOMY).forEach(function (cat) {
+    var opt = document.createElement('option');
+    opt.value = cat; opt.textContent = cat;
+    sel.appendChild(opt);
+  });
+})();
+
+function renderSubOptions() {
+  var cat = document.getElementById('catSelect').value;
+  var subSel = document.getElementById('subSelect');
+  var subs = CATALOG_TAXONOMY[cat] || [];
+  if (!subs.length) { subSel.classList.add('hidden'); subSel.innerHTML = ''; return; }
+  subSel.innerHTML = '<option value="">Subcategory (optional)...</option>' +
+    subs.map(function (s) { return '<option value="' + s + '">' + s + '</option>'; }).join('');
+  subSel.classList.remove('hidden');
+}
+
+function showErr(el, msg) { el.textContent = msg; el.classList.remove('hidden'); }
+
+async function doLogin() {
+  var email = document.getElementById('loginEmail').value.trim();
+  var password = document.getElementById('loginPassword').value;
+  var errEl = document.getElementById('loginErr');
+  errEl.classList.add('hidden');
+  if (!email || !password) { showErr(errEl, 'Enter both email and password.'); return; }
+  try {
+    await firebase.auth().signInWithEmailAndPassword(email, password);
+  } catch (e) {
+    showErr(errEl, 'Could not sign in — check your email and password.');
+  }
+}
+
+async function doForgotPassword() {
+  var email = document.getElementById('loginEmail').value.trim();
+  var errEl = document.getElementById('loginErr');
+  errEl.classList.add('hidden');
+  if (!email) { showErr(errEl, 'Type your email above first, then tap this.'); return; }
+  try {
+    await firebase.auth().sendPasswordResetEmail(email);
+    errEl.classList.remove('hidden');
+    errEl.style.color = 'var(--success)';
+    errEl.textContent = 'If that email has an account, a reset link was just sent to it.';
+  } catch (e) {
+    showErr(errEl, 'Could not send a reset link right now.');
+  }
+}
+
+function doLogout() { firebase.auth().signOut(); }
+
+firebase.auth().onAuthStateChanged(async function (user) {
+  var loginCard = document.getElementById('loginCard');
+  var appCard = document.getElementById('appCard');
+  var uploadCard = document.getElementById('uploadCard');
+  if (!user) {
+    loginCard.classList.remove('hidden');
+    appCard.classList.add('hidden');
+    uploadCard.classList.add('hidden');
+    currentUploaderId = null;
+    return;
+  }
+  currentUploaderId = user.uid;
+  var uploaderSnap = await db.collection('uploaders').doc(user.uid).get();
+  if (!uploaderSnap.exists) {
+    document.getElementById('loginErr').classList.remove('hidden');
+    document.getElementById('loginErr').textContent = 'This account is not on the upload team.';
+    firebase.auth().signOut();
+    return;
+  }
+  var uploader = uploaderSnap.data();
+  if (uploader.status && uploader.status !== 'active') {
+    document.getElementById('loginErr').classList.remove('hidden');
+    document.getElementById('loginErr').textContent = uploader.status === 'suspended'
+      ? 'Your account is currently suspended — contact the admin.'
+      : 'This account no longer has upload access.';
+    firebase.auth().signOut();
+    return;
+  }
+  loginCard.classList.add('hidden');
+  appCard.classList.remove('hidden');
+  uploadCard.classList.remove('hidden');
+  document.getElementById('welcomeMsg').textContent = 'Welcome back, ' + (uploader.name || 'there') + '.';
+  document.getElementById('statAccepted').textContent = uploader.totalAccepted || 0;
+  document.getElementById('statEarned').textContent = 'KSH ' + (uploader.totalEarned || 0).toLocaleString();
+  loadRecent();
+});
+
+async function loadRecent() {
+  var listEl = document.getElementById('recentList');
+  try {
+    var snap = await db.collection('submissions')
+      .where('uploaderId', '==', currentUploaderId)
+      .orderBy('submittedAt', 'desc')
+      .limit(20)
+      .get();
+    var pendingCount = 0;
+    var html = '';
+    snap.forEach(function (doc) {
+      var s = doc.data();
+      if (s.status === 'pending_review') pendingCount++;
+      html += '<img class="' + s.status + '" src="' + s.imageUrl + '" alt="' + (s.category || 'Submitted photo') + '" title="' + (s.category || '') + (s.subcategory ? ' — ' + s.subcategory : '') + ' (' + s.status + ')">';
+    });
+    document.getElementById('statPending').textContent = pendingCount;
+    listEl.innerHTML = html || '<p class="sub">Nothing submitted yet.</p>';
+  } catch (e) {
+    listEl.innerHTML = '<p class="err">Could not load recent submissions: ' + e.message + '</p>';
+  }
+}
+
+function handleFileSelect() {
+  var fileInput = document.getElementById('fileInput');
+  var file = fileInput.files[0];
+  var statusEl = document.getElementById('uploadStatus');
+  if (!file) return;
+  if (file.size > 10 * 1024 * 1024) {
+    statusEl.textContent = 'File too large (max 10MB).';
+    statusEl.style.color = 'var(--danger)';
+    fileInput.value = '';
+    return;
+  }
+  selectedFile = file;
+  var reader = new FileReader();
+  reader.onload = function (e) {
+    var img = document.getElementById('filePreview');
+    img.src = e.target.result;
+    img.style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+  checkReadyToSubmit();
+  statusEl.textContent = '';
+}
+
+function checkReadyToSubmit() {
+  var cat = document.getElementById('catSelect').value;
+  document.getElementById('submitBtn').disabled = !(selectedFile && cat);
+}
+document.getElementById('catSelect').addEventListener('change', checkReadyToSubmit);
+
+async function submitPicture() {
+  var category = document.getElementById('catSelect').value;
+  var subcategory = document.getElementById('subSelect').value || null;
+  if (!selectedFile || !category) return;
+  var btn = document.getElementById('submitBtn');
+  var statusEl = document.getElementById('uploadStatus');
+  btn.disabled = true;
+  statusEl.textContent = 'Uploading...';
+  statusEl.style.color = 'var(--muted)';
+  try {
+    var formData = new FormData();
+    formData.append('file', selectedFile);
+    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+    var res = await fetch('https://api.cloudinary.com/v1_1/' + CLOUDINARY_CLOUD_NAME + '/image/upload', {
+      method: 'POST', body: formData
+    });
+    var data = await res.json();
+    if (!data.secure_url) throw new Error((data.error && data.error.message) || 'Upload failed');
+
+    // status is always 'pending_review' here AND enforced again by
+    // firestore.rules — a client cannot submit itself pre-accepted.
+    await db.collection('submissions').add({
+      uploaderId: currentUploaderId,
+      imageUrl: data.secure_url,
+      imageHash: data.etag || null,
+      category: category,
+      subcategory: subcategory,
+      status: 'pending_review',
+      submittedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    statusEl.textContent = '✓ Submitted — waiting for review.';
+    statusEl.style.color = 'var(--success)';
+    selectedFile = null;
+    document.getElementById('fileInput').value = '';
+    document.getElementById('filePreview').style.display = 'none';
+    document.getElementById('catSelect').value = '';
+    document.getElementById('subSelect').classList.add('hidden');
+    setTimeout(function () { statusEl.textContent = ''; loadRecent(); }, 1500);
+  } catch (e) {
+    statusEl.textContent = 'Could not submit: ' + e.message;
+    statusEl.style.color = 'var(--danger)';
+    btn.disabled = false;
+  }
+}
+</script>
+</body>
+</html>
