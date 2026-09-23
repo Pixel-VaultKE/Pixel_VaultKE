@@ -419,6 +419,12 @@ body.has-nav{max-width:none;padding:0}
     <div id="restockList"><p style="color:#888">Checking stock levels...</p></div>
   </div>
 
+  <div class="card collapsible collapsed nav-section" data-section="inventory" id="inventoryAuditCard">
+    <span class="eyebrow" style="background:var(--sky);color:#000">Audit</span><h2 onclick="toggleCard('inventoryAuditCard')">🔗 Product ↔ Inventory Links</h2>
+    <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">A product with no linked inventory item never deducts stock when it sells — this doesn't fix or create anything, it just shows you where that's true right now.</p>
+    <div id="inventoryAuditList"><p style="color:#888">Loading...</p></div>
+  </div>
+
   <div class="card collapsible collapsed nav-section" data-section="inventory" id="bulkImportCard">
     <span class="eyebrow" style="background:var(--hot);color:#fff">Fast Restock</span><h2 onclick="toggleCard('bulkImportCard')">📤 Bulk Import</h2>
     <p style="color:#888;font-size:0.8rem;margin:-6px 0 10px">Upload a spreadsheet and fill the shelves in one go — creates the product and its stock together. Manual add still works below if you just need one item.</p>
@@ -793,7 +799,11 @@ function showStatDetail(kind) {
       var d = r.data.createdAt ? r.data.createdAt.toDate() : null;
       return !r.data.archived && d && d >= today;
     });
-    var cogsT = estimateCOGS(salesTodayForCogs);
+    var ordersTodayForCogs = realOrders().filter(function (r) {
+      var d = r.data.createdAt ? r.data.createdAt.toDate() : null;
+      return d && d >= today;
+    });
+    var cogsT = estimateCOGS(salesTodayForCogs) + estimateCOGS(ordersTodayForCogs);
     var expensesT = 0;
     rawExpenses.forEach(function (r) {
       if ((r.data.status || 'approved') !== 'approved') return;
@@ -2092,9 +2102,22 @@ async function convertQuoteToOrder(quoteId) {
 // (custom/one-off line items) can't be costed this way and are skipped, so
 // this is a floor on true COGS — far more accurate than ignoring materials
 // cost entirely, which is what the profit figure did before.
-function estimateCOGS(salesForDay) {
+// Cost of goods is deducted on the CREATION day of the transaction — the
+// order or sale — never on payment day. This is the one rule that
+// prevents double-deduction: an order can be paid across several days
+// (deposit today, balance next week), and if cost were tied to payment
+// date instead, a partially-paid order would have its full item cost
+// deducted again on every day money came in against it. Tying it to
+// creation day means each order's cost is counted exactly once, on
+// exactly one day, regardless of how its payments are split afterward.
+// The tradeoff: a multi-day order's cost and its later balance payment
+// won't land on the same day's Profit figure — but nothing is ever
+// double-counted, which matters more for a number people make decisions
+// from. Works for both `sales` and `orders` documents since both store
+// items the same way ({productId, qty, ...}).
+function estimateCOGS(transactionsForDay) {
   var cogs = 0;
-  salesForDay.forEach(function (r) {
+  transactionsForDay.forEach(function (r) {
     var s = r.data;
     if (s.archived) return;
     (s.items || []).forEach(function (item) {
@@ -2128,6 +2151,10 @@ async function closeBusinessDay() {
     var d = (o.updatedAt || o.createdAt) ? (o.updatedAt || o.createdAt).toDate() : null;
     if (d && d >= today) jobsDone++;
   });
+  var ordersToday_forClose = realOrders().filter(function (r) {
+    var d = r.data.createdAt ? r.data.createdAt.toDate() : null;
+    return d && d >= today;
+  });
   var expensesToday = 0;
   rawExpenses.forEach(function (r) {
     if ((r.data.status || 'approved') !== 'approved') return;
@@ -2138,7 +2165,7 @@ async function closeBusinessDay() {
   cashToday += orderPaymentsToday.cash;
   mpesaToday += orderPaymentsToday.mpesa;
   var revenue = cashToday + mpesaToday + orderPaymentsToday.unspecified;
-  var cogsToday = estimateCOGS(salesToday);
+  var cogsToday = estimateCOGS(salesToday) + estimateCOGS(ordersToday_forClose);
   var profit = revenue - cogsToday - expensesToday;
 
   if (!confirm('Close today\'s business day?\n\nRevenue: KSH ' + revenue.toLocaleString() + (orderPaymentsToday.unspecified > 0 ? ' (includes KSH ' + orderPaymentsToday.unspecified.toLocaleString() + ' in order payments with no cash/mpesa tag)' : '') + '\nMaterials/COGS: KSH ' + cogsToday.toLocaleString() + '\nExpenses: KSH ' + expensesToday.toLocaleString() + '\nProfit: KSH ' + profit.toLocaleString() + '\n\nThis saves a permanent snapshot.')) return;
@@ -2193,11 +2220,16 @@ async function closePastDay() {
     var received = typeof s.amountPaid === 'number' ? s.amountPaid : (s.amount || 0);
     if (s.paymentMethod === 'mpesa') mpesaD += received; else cashD += received;
   });
+  var ordersD_forCogs = [];
   realOrders().forEach(function (r) {
     var o = r.data;
     if (o.productionStatus !== 'delivered') return;
     var d = (o.updatedAt || o.createdAt) ? (o.updatedAt || o.createdAt).toDate() : null;
     if (d && d >= dayStart && d < dayEnd) jobsD++;
+  });
+  realOrders().forEach(function (r) {
+    var d = r.data.createdAt ? r.data.createdAt.toDate() : null;
+    if (d && d >= dayStart && d < dayEnd) ordersD_forCogs.push(r);
   });
   rawExpenses.forEach(function (r) {
     if ((r.data.status || 'approved') !== 'approved') return;
@@ -2208,7 +2240,7 @@ async function closePastDay() {
   cashD += orderPaymentsD.cash;
   mpesaD += orderPaymentsD.mpesa;
   var revenue = cashD + mpesaD + orderPaymentsD.unspecified;
-  var cogsD = estimateCOGS(salesD);
+  var cogsD = estimateCOGS(salesD) + estimateCOGS(ordersD_forCogs);
   var profit = revenue - cogsD - expensesD;
 
   if (!confirm('Close ' + dateKey + '?\n\nRevenue: KSH ' + revenue.toLocaleString() + (orderPaymentsD.unspecified > 0 ? ' (includes KSH ' + orderPaymentsD.unspecified.toLocaleString() + ' in order payments with no cash/mpesa tag)' : '') + '\nMaterials/COGS: KSH ' + cogsD.toLocaleString() + '\nExpenses: KSH ' + expensesD.toLocaleString() + '\nProfit: KSH ' + profit.toLocaleString() + '\n\nNote: this is calculated from currently loaded data (most recent sales/expenses/orders) — if that day had heavy volume beyond what\'s cached, double-check against "Show All Days" first.')) return;
@@ -2847,23 +2879,37 @@ async function downloadBackup() {
 
 async function loadDashboard() {
   await Promise.all([loadWorkers(), loadInventory(), loadSales(), loadOrders(), loadProducts(), loadExpenses(), loadGoal(), loadRecentClosings(), loadQuotes(), loadGallery(), loadMarketingSources(), loadPendingNotes(), loadTasks(), loadRecentTips(), loadReviews(), loadLoyaltyConfigForm(), loadMovements(), loadIssueReports(), loadCustomOptionsConfig()]);
-  populateTaskAssignDropdown();
-  populateCheckInAssignee();
-  loadOwnerLog();
-  populateTipSendDropdown();
-  loadUnassignedTips();
-  populateQuoteProductSelect();
-  computeExtraStats();
-  renderNotifications();
-  renderPriorityActions();
-  renderCommandCenter();
-  renderCustomerContacts(); // pulls from rawOrders + rawSales — both already loaded above, no extra query
+
+  // Upload Team moved to run FIRST and wrapped individually — this whole
+  // section used to sit after computeExtraStats() with nothing catching a
+  // synchronous throw. When computeExtraStats() broke (five COGS call
+  // sites, new inventory audit logic), execution stopped dead on that one
+  // line and everything after it — Pending, Active Uploaders, Submitted
+  // Pictures — simply never ran. No error, no log entry, just permanent
+  // "Loading...". A crash in Upload Team could equally have taken down
+  // dashboard stats before. Neither should be able to take the other
+  // down; each step below is now independently guarded.
+  function safeStep(name, fn) {
+    try { fn(); } catch (e) { log(name + ' crashed: ' + e.message); }
+  }
+
+  safeStep('loadUploadApplications', loadUploadApplications);
+  safeStep('loadUploaderRoster', loadUploaderRoster);
+  safeStep('loadSubmissions', loadSubmissions);
+  safeStep('loadUploaderRate', loadUploaderRate);
+  safeStep('populateTaskAssignDropdown', populateTaskAssignDropdown);
+  safeStep('populateCheckInAssignee', populateCheckInAssignee);
+  safeStep('loadOwnerLog', loadOwnerLog);
+  safeStep('populateTipSendDropdown', populateTipSendDropdown);
+  safeStep('loadUnassignedTips', loadUnassignedTips);
+  safeStep('populateQuoteProductSelect', populateQuoteProductSelect);
+  safeStep('computeExtraStats', computeExtraStats);
+  safeStep('renderNotifications', renderNotifications);
+  safeStep('renderPriorityActions', renderPriorityActions);
+  safeStep('renderCommandCenter', renderCommandCenter);
+  safeStep('renderCustomerContacts', renderCustomerContacts); // pulls from rawOrders + rawSales — both already loaded above, no extra query
   ccActiveDateFilter = 'all';
-  renderCcDateFilters();
-  loadUploadApplications();
-  loadUploaderRoster();
-  loadSubmissions();
-  loadUploaderRate();
+  safeStep('renderCcDateFilters', renderCcDateFilters);
   var lowCount = rawInventory.filter(function (inv) {
     var i = inv.data;
     return typeof i.qty === 'number' && typeof i.minQty === 'number' && i.qty <= i.minQty;
@@ -3015,9 +3061,24 @@ async function reviewUploadApplication(applicationId, decision) {
   if (!confirm('Are you sure you want to ' + decision + ' this application?')) return;
   try {
     var reviewApplication = firebase.functions().httpsCallable('reviewApplication');
-    await reviewApplication({ applicationId: applicationId, decision: decision, notes: '' });
+    var result = await reviewApplication({ applicationId: applicationId, decision: decision, notes: '' });
     await loadUploadApplications();
-    toast(decision === 'approve' ? 'Approved — their login is ready' : 'Rejected');
+    if (decision === 'approve' && result.data.resetLink) {
+      var app = rawApplications.find(function (a) { return a.id === applicationId; });
+      var phone = app ? app.data.phone : '';
+      var name = app ? app.data.applicantName : 'there';
+      var msg = 'Hi ' + name + '! You\'re approved for the Pixel Vault KE upload team 🎉 Tap this link to set your password, then log in at uploader.html: ' + result.data.resetLink;
+      var digits = (phone || '').replace(/\D/g, '');
+      var waUrl = 'https://wa.me/' + (digits.length && !digits.startsWith('254') ? '254' + digits.replace(/^0/, '') : digits) + '?text=' + encodeURIComponent(msg);
+      var box = document.getElementById('utPendingList');
+      var banner = document.createElement('div');
+      banner.style.cssText = 'background:var(--surface2);border:1px solid var(--success);border-radius:10px;padding:12px;margin-bottom:12px';
+      banner.innerHTML = '<div style="font-weight:700;color:var(--success);margin-bottom:6px">✅ Approved — send them their login link</div>' +
+        '<a href="' + waUrl + '" target="_blank" style="display:inline-block;background:var(--whatsapp);color:#000;padding:8px 14px;border-radius:8px;font-weight:700;font-size:0.85rem;text-decoration:none">💬 Send via WhatsApp</a>';
+      box.insertBefore(banner, box.firstChild);
+    } else {
+      toast(decision === 'approve' ? 'Approved' : 'Rejected');
+    }
   } catch (e) {
     toast('Could not ' + decision + ': ' + e.message, true);
   }
@@ -3426,6 +3487,10 @@ function renderCommandCenter() {
     var received = typeof s.amountPaid === 'number' ? s.amountPaid : (s.amount || 0);
     if (s.paymentMethod === 'mpesa') mpesaD += received; else cashD += received;
   });
+  var ordersTodayForCogs_summary = realOrders().filter(function (r) {
+    var d = r.data.createdAt ? r.data.createdAt.toDate() : null;
+    return d && d >= today;
+  });
   rawExpenses.forEach(function (r) {
     if ((r.data.status || 'approved') !== 'approved') return;
     var d = r.data.createdAt ? r.data.createdAt.toDate() : null;
@@ -3435,7 +3500,7 @@ function renderCommandCenter() {
   cashD += summaryOrderPayments.cash;
   mpesaD += summaryOrderPayments.mpesa;
   var revenueD = cashD + mpesaD + summaryOrderPayments.unspecified;
-  var cogsD = estimateCOGS(salesTodayForCogs);
+  var cogsD = estimateCOGS(salesTodayForCogs) + estimateCOGS(ordersTodayForCogs_summary);
   var profitD = revenueD - cogsD - expensesD;
   var todayHtml = row('Revenue', 'KSH ' + revenueD.toLocaleString()) +
     row('Profit', 'KSH ' + profitD.toLocaleString(), profitD < 0 ? 'var(--danger)' : 'var(--success)') +
@@ -3563,6 +3628,7 @@ function computeExtraStats() {
   });
   document.getElementById('stLowStock').textContent = lowStockItems.length;
   renderRestockAlerts(lowStockItems);
+  renderInventoryAudit();
 
   var cashToday = 0, mpesaToday = 0, retailToday = 0, wholesaleToday = 0, tipsToday = 0, salesToday = [];
   rawSales.forEach(function (r) {
@@ -3583,12 +3649,12 @@ function computeExtraStats() {
     } else if (s.priceTier === 'wholesale') wholesaleToday += (s.amount || 0);
     else if (s.priceTier === 'retail') retailToday += (s.amount || 0);
   });
+  var ordersToday = [];
   realOrders().forEach(function (r) {
     var o = r.data;
     var d = o.createdAt ? o.createdAt.toDate() : null;
-    if (d && d >= today) tipsToday += (o.tipAmount || 0);
-  });
-  var extraStatsOrderPayments = sumOrderPaymentsInRange(today, null);
+    if (d && d >= today) { tipsToday += (o.tipAmount || 0); ordersToday.push(r); }
+  });  var extraStatsOrderPayments = sumOrderPaymentsInRange(today, null);
   cashToday += extraStatsOrderPayments.cash;
   mpesaToday += extraStatsOrderPayments.mpesa;
   document.getElementById('stCash').textContent = cashToday.toLocaleString();
@@ -3631,7 +3697,7 @@ function computeExtraStats() {
     var d = r.data.createdAt ? r.data.createdAt.toDate() : null;
     if (d && d >= today) expensesToday += (r.data.amount || 0);
   });
-  var cogsToday = estimateCOGS(salesToday);
+  var cogsToday = estimateCOGS(salesToday) + estimateCOGS(ordersToday);
   var profitToday = revenueToday - cogsToday - expensesToday;
   var profitEl = document.getElementById('stProfit');
   profitEl.textContent = profitToday.toLocaleString();
@@ -3641,6 +3707,30 @@ function computeExtraStats() {
   updateStatVisibility();
   renderPriorityActions();
   renderCommandCenter();
+}
+
+function renderInventoryAudit() {
+  var box = document.getElementById('inventoryAuditList');
+  if (!box) return;
+  var linked = [], unlinked = [];
+  rawProducts.forEach(function (r) {
+    if (r.data.linkedInventoryItemId) linked.push(r); else unlinked.push(r);
+  });
+  var html = '<div style="display:flex;gap:16px;margin-bottom:10px">' +
+    '<div><span style="color:#888;font-size:0.75rem">LINKED</span><br><strong style="color:var(--success)">' + linked.length + '</strong></div>' +
+    '<div><span style="color:#888;font-size:0.75rem">NOT LINKED</span><br><strong style="color:' + (unlinked.length > 0 ? 'var(--warn)' : 'var(--success)') + '">' + unlinked.length + '</strong></div>' +
+    '<div><span style="color:#888;font-size:0.75rem">TOTAL PRODUCTS</span><br><strong>' + rawProducts.length + '</strong></div>' +
+    '</div>';
+  if (unlinked.length === 0) {
+    html += '<p style="color:var(--success);font-size:0.85rem">✓ Every product has a linked inventory item</p>';
+  } else {
+    html += '<p style="color:#888;font-size:0.78rem;margin-bottom:6px">These products will NOT deduct stock when they sell:</p>';
+    html += '<div style="max-height:240px;overflow-y:auto">' + unlinked.map(function (r) {
+      return '<div style="padding:5px 0;border-bottom:1px solid var(--line);font-size:0.8rem">' + escapeHtml(r.data.name || 'Unnamed') +
+        (r.data.category ? ' <span style="color:#666">— ' + escapeHtml(r.data.category) + '</span>' : '') + '</div>';
+    }).join('') + '</div>';
+  }
+  box.innerHTML = html;
 }
 
 function renderRestockAlerts(lowStockItems) {
@@ -4908,9 +4998,44 @@ function toggleBulkTestActions() {
 }
 
 async function bulkDeleteTestOrders() {
-  var testOrders = rawOrders.filter(function (r) { return r.data.isTestData; });
-  if (testOrders.length === 0) { toast('No orders are marked as test data', true); return; }
-  if (!confirm('Permanently delete ' + testOrders.length + ' order(s) marked as test data? This cannot be undone.')) return;
+  var flaggedAsTest = rawOrders.filter(function (r) { return r.data.isTestData; });
+  if (flaggedAsTest.length === 0) { toast('No orders are marked as test data', true); return; }
+
+  // Real safeguard, not just a stronger popup: an order marked "test"
+  // that has actual money recorded against it (amountPaid > 0) is
+  // suspicious — a genuine test order was never really sold, so it
+  // should never have a real payment on it. Those get excluded from the
+  // bulk action entirely and listed separately, so a mislabeled real
+  // order can't get swept away with the rest by one click.
+  var safeToDelete = flaggedAsTest.filter(function (r) { return !(r.data.amountPaid > 0); });
+  var suspicious = flaggedAsTest.filter(function (r) { return r.data.amountPaid > 0; });
+
+  if (safeToDelete.length === 0) {
+    alert('All ' + flaggedAsTest.length + ' order(s) marked as test data have real payments recorded on them (KSH > 0 paid) — none were deleted automatically. Review these individually:\n\n' +
+      suspicious.map(function (r) { return '• ' + (r.data.customerName || 'Unknown') + ' — KSH ' + (r.data.amountPaid || 0).toLocaleString() + ' paid'; }).join('\n'));
+    return;
+  }
+
+  var warnLine = suspicious.length > 0
+    ? '\n\n⚠️ ' + suspicious.length + ' other order(s) are marked test but have real payments recorded — those are EXCLUDED from this action and need individual review.'
+    : '';
+
+  var listPreview = safeToDelete.slice(0, 10).map(function (r) {
+    return '• ' + (r.data.customerName || 'Unknown') + ' — ' + (r.data.items ? r.data.items.length : 0) + ' item(s), KSH ' + (r.data.total || 0).toLocaleString();
+  }).join('\n') + (safeToDelete.length > 10 ? '\n…and ' + (safeToDelete.length - 10) + ' more' : '');
+
+  showInlineDialog(
+    'About to PERMANENTLY delete ' + safeToDelete.length + ' order(s) marked as test data — none have any payment recorded:\n\n' + listPreview + warnLine +
+    '\n\nThis cannot be undone. Type DELETE to confirm:',
+    true,
+    function (typed) {
+      if (typed !== 'DELETE') { toast('Typed text didn\'t match — nothing deleted', true); return; }
+      performBulkDeleteTestOrders(safeToDelete);
+    }
+  );
+}
+
+async function performBulkDeleteTestOrders(testOrders) {
   try {
     var batch = db.batch();
     testOrders.forEach(function (r) { batch.delete(db.collection('orders').doc(r.id)); });
